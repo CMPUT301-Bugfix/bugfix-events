@@ -1,0 +1,29 @@
+Ba{
+  "project_info": {
+    "project_number": "448726106101",
+    "project_id": "bugfix-event-lottery-system",
+    "storage_bucket": "bugfix-event-lottery-system.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:448726106101:android:6bcdba6ce669172afb2abc",
+        "android_client_info": {
+          "package_name": "com.example.eventlotterysystem"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDR_ky8DzFaqDstd7SiN2TskDdVqGe59nw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
