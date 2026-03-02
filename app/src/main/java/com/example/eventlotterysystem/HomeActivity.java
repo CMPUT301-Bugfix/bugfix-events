@@ -31,18 +31,33 @@ public class HomeActivity extends AppCompatActivity {
         super.onStart();
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
-            auth.signOut();
-            Intent intent = new Intent(this, AuthMenuActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
+            navigateToAuthMenu();
             return;
         }
 
-        String identity = currentUser.getEmail();
+        currentUser.reload().addOnCompleteListener(task -> {
+            FirebaseUser refreshedUser = auth.getCurrentUser();
+            if (!task.isSuccessful() || refreshedUser == null) {
+                refreshIdentity(currentUser);
+                return;
+            }
+            refreshIdentity(refreshedUser);
+        });
+    }
+
+    private void refreshIdentity(FirebaseUser user) {
+        String identity = user.getEmail();
         if (identity == null || identity.isEmpty()) {
-            identity = currentUser.getUid();
+            identity = user.getUid();
         }
         signedInSubtitle.setText(getString(R.string.signed_in_as, identity));
+    }
+
+    private void navigateToAuthMenu() {
+        auth.signOut();
+        Intent intent = new Intent(this, AuthMenuActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
     }
 }

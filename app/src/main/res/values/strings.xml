@@ -17,6 +17,9 @@
     <string name="my_things">my things</string>
     <string name="settings">settings</string>
     <string name="settings_coming_soon">Settings coming soon.</string>
+    <string name="update_information">update information</string>
+    <string name="show">show</string>
+    <string name="hide">hide</string>
     <string name="admin_zone">admin zone</string>
     <string name="admin_tools_coming_soon">Admin tools coming soon.</string>
     <string name="sign_out">sign out</string>
@@ -24,10 +27,26 @@
     <string name="field_required">This field is required.</string>
     <string name="invalid_email">Enter a valid email address.</string>
     <string name="passwords_do_not_match">Passwords do not match.</string>
+    <string name="new_password_must_differ">New password must be different from current password.</string>
     <string name="email_already_in_use">That email is already in use.</string>
     <string name="username_taken">That username is already taken.</string>
     <string name="account_created">Account created.</string>
     <string name="auth_failed">Login failed. Check your credentials and try again.</string>
     <string name="unexpected_error">Something went wrong. Try again.</string>
     <string name="reset_email_sent">Password reset email sent.</string>
+    <string name="current_password">current password</string>
+    <string name="new_password">new password</string>
+    <string name="confirm_new_password">confirm new password</string>
+    <string name="save_changes">save changes</string>
+    <string name="password_change_optional_hint">Leave new password fields empty if you do not want to change password.</string>
+    <string name="profile_updated">Profile updated.</string>
+    <string name="no_changes_to_save">No changes to save.</string>
+    <string name="current_password_required_for_sensitive_changes">Current password is required to change email or password.</string>
+    <string name="current_password_incorrect">Current password is incorrect.</string>
+    <string name="session_expired_sign_in_again">Session expired. Sign in again and retry.</string>
+    <string name="weak_password">Choose a stronger password.</string>
+    <string name="verify_email_change_sent">Verification email sent. Open the link to finish changing your email.</string>
+    <string name="email_change_completed">Email verified and profile updated.</string>
+    <string name="profile_update_failed_retry">Could not save profile changes. Try again.</string>
+    <string name="profile_sync_failed_retry">Authentication details were updated, but profile sync failed. Please try again.</string>
 </resources>

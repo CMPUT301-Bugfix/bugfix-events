@@ -14,9 +14,15 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -75,17 +81,8 @@ public class LoginActivity extends AppCompatActivity {
         setLoading(true);
         resolveEmailFromIdentifier(identifier, new EmailResolverCallback() {
             @Override
-            public void onResolved(@NonNull String email) {
-                auth.signInWithEmailAndPassword(email, password)
-                        .addOnCompleteListener(task -> {
-                            setLoading(false);
-                            if (!task.isSuccessful()) {
-                                showAuthError();
-                                return;
-                            }
-                            AuthSessionPreference.setRemember(LoginActivity.this, rememberMeCheckBox.isChecked());
-                            navigateAndClearTask(HomeActivity.class);
-                        });
+            public void onResolved(@NonNull String email, @NonNull String pendingEmail) {
+                signInWithPendingEmail(email, password, pendingEmail);
             }
 
             @Override
@@ -107,7 +104,7 @@ public class LoginActivity extends AppCompatActivity {
         setLoading(true);
         resolveEmailFromIdentifier(identifier, new EmailResolverCallback() {
             @Override
-            public void onResolved(@NonNull String email) {
+            public void onResolved(@NonNull String email, @NonNull String pendingEmail) {
                 auth.sendPasswordResetEmail(email).addOnCompleteListener(task -> {
                     setLoading(false);
                     if (task.isSuccessful()) {
@@ -132,7 +129,7 @@ public class LoginActivity extends AppCompatActivity {
     ) {
         String normalized = identifier.trim().toLowerCase(Locale.US);
         if (normalized.contains("@")) {
-            callback.onResolved(normalized);
+            callback.onResolved(normalized, "");
             return;
         }
 
@@ -140,18 +137,129 @@ public class LoginActivity extends AppCompatActivity {
                 .document(normalized)
                 .get()
                 .addOnSuccessListener(snapshot -> {
-                    String email = snapshot.getString("email");
+                    String email = normalize(snapshot.getString("email")).toLowerCase(Locale.US);
+                    String pendingEmail = normalize(snapshot.getString("pendingEmail"))
+                            .toLowerCase(Locale.US);
                     if (TextUtils.isEmpty(email)) {
                         callback.onError(getString(R.string.auth_failed));
                         return;
                     }
-                    callback.onResolved(email.toLowerCase(Locale.US));
+                    if (pendingEmail.equals(email)) {
+                        pendingEmail = "";
+                    }
+                    callback.onResolved(email, pendingEmail);
                 })
                 .addOnFailureListener(exception -> callback.onError(getString(R.string.unexpected_error)));
     }
 
+    private void signInWithPendingEmail(
+            @NonNull String primaryEmail,
+            @NonNull String password,
+            @NonNull String pendingEmail
+    ) {
+        auth.signInWithEmailAndPassword(primaryEmail, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        syncUsernameEmailMappingForCurrentUser(() -> onLoginSuccess());
+                        return;
+                    }
+
+                    if (TextUtils.isEmpty(pendingEmail)
+                            || primaryEmail.equalsIgnoreCase(pendingEmail)) {
+                        setLoading(false);
+                        showAuthError();
+                        return;
+                    }
+
+                    auth.signInWithEmailAndPassword(pendingEmail, password)
+                            .addOnCompleteListener(pendingEmailTask -> {
+                                if (!pendingEmailTask.isSuccessful()) {
+                                    setLoading(false);
+                                    showAuthError();
+                                    return;
+                                }
+                                syncUsernameEmailMappingForCurrentUser(() -> onLoginSuccess());
+                            });
+                });
+    }
+
+    private void onLoginSuccess() {
+        setLoading(false);
+        AuthSessionPreference.setRemember(LoginActivity.this, rememberMeCheckBox.isChecked());
+        navigateAndClearTask(HomeActivity.class);
+    }
+
     private void showAuthError() {
         showMessage(getString(R.string.auth_failed));
+    }
+
+    private void syncUsernameEmailMappingForCurrentUser(@NonNull Runnable onComplete) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            onComplete.run();
+            return;
+        }
+
+        String currentEmail = currentUser.getEmail();
+        if (TextUtils.isEmpty(currentEmail)) {
+            onComplete.run();
+            return;
+        }
+
+        String uid = currentUser.getUid();
+        String normalizedEmail = currentEmail.toLowerCase(Locale.US);
+
+        firestore.collection("users")
+                .document(uid)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    String usernameKey = normalize(snapshot.getString("usernameKey"));
+                    String pendingEmail = normalize(snapshot.getString("pendingEmail"))
+                            .toLowerCase(Locale.US);
+                    boolean shouldClearPending = !TextUtils.isEmpty(pendingEmail)
+                            && normalizedEmail.equals(pendingEmail);
+
+                    WriteBatch batch = firestore.batch();
+
+                    Map<String, Object> userUpdates = new HashMap<>();
+                    userUpdates.put("email", normalizedEmail);
+                    if (shouldClearPending) {
+                        userUpdates.put("pendingEmail", FieldValue.delete());
+                    } else if (!TextUtils.isEmpty(pendingEmail)) {
+                        userUpdates.put("pendingEmail", pendingEmail);
+                    }
+                    batch.set(
+                            firestore.collection("users").document(uid),
+                            userUpdates,
+                            SetOptions.merge()
+                    );
+
+                    if (!TextUtils.isEmpty(usernameKey)) {
+                        Map<String, Object> usernameUpdates = new HashMap<>();
+                        usernameUpdates.put("uid", uid);
+                        usernameUpdates.put("email", normalizedEmail);
+                        if (shouldClearPending) {
+                            usernameUpdates.put("pendingEmail", FieldValue.delete());
+                        } else if (!TextUtils.isEmpty(pendingEmail)) {
+                            usernameUpdates.put("pendingEmail", pendingEmail);
+                        }
+
+                        batch.set(
+                                firestore.collection("usernames")
+                                        .document(usernameKey.toLowerCase(Locale.US)),
+                                usernameUpdates,
+                                SetOptions.merge()
+                        );
+                    }
+
+                    batch.commit().addOnCompleteListener(task -> onComplete.run());
+                })
+                .addOnFailureListener(exception -> onComplete.run());
+    }
+
+    @NonNull
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private void navigateAndClearTask(@NonNull Class<?> destination) {
@@ -189,7 +297,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private interface EmailResolverCallback {
-        void onResolved(@NonNull String email);
+        void onResolved(@NonNull String email, @NonNull String pendingEmail);
 
         void onError(@NonNull String message);
     }
