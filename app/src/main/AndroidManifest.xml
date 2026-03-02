@@ -13,6 +13,15 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EventLotterySystem">
         <activity
+            android:name=".AdminZoneActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MyThingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".HomeActivity"
             android:exported="false" />
         <activity

@@ -22,7 +22,8 @@ public class HomeActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         signedInSubtitle = findViewById(R.id.signedInSubtitle);
 
-        findViewById(R.id.signOutButton).setOnClickListener(v -> onSignOutClicked());
+        findViewById(R.id.myThingsButton).setOnClickListener(v ->
+                startActivity(new Intent(this, MyThingsActivity.class)));
     }
 
     @Override
@@ -43,14 +44,5 @@ public class HomeActivity extends AppCompatActivity {
             identity = currentUser.getUid();
         }
         signedInSubtitle.setText(getString(R.string.signed_in_as, identity));
-    }
-
-    private void onSignOutClicked() {
-        auth.signOut();
-        AuthSessionPreference.setRemember(this, false);
-        Intent intent = new Intent(this, AuthMenuActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
     }
 }
