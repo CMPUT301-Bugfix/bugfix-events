@@ -49,4 +49,13 @@
     <string name="email_change_completed">Email verified and profile updated.</string>
     <string name="profile_update_failed_retry">Could not save profile changes. Try again.</string>
     <string name="profile_sync_failed_retry">Authentication details were updated, but profile sync failed. Please try again.</string>
+    <string name="delete_account">delete account</string>
+    <string name="delete_account_confirm_title">Delete account</string>
+    <string name="delete_account_confirm_message">This action is permanent. Enter your current password to confirm account deletion.</string>
+    <string name="delete_account_confirm_action">Delete</string>
+    <string name="delete_account_cancel_action">Cancel</string>
+    <string name="account_deleted">Account deleted.</string>
+    <string name="delete_account_requires_password">Current password is required to delete account.</string>
+    <string name="account_delete_failed">Could not delete account. Try again.</string>
+    <string name="account_delete_partial_retry">Profile data was removed, but account deletion failed. Sign in again and retry delete.</string>
 </resources>

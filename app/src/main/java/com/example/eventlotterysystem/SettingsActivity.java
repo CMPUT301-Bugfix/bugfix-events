@@ -2,6 +2,7 @@ package com.example.eventlotterysystem;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Patterns;
 import android.view.View;
@@ -13,6 +14,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.AuthCredential;
@@ -52,6 +54,7 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText newPasswordInput;
     private EditText confirmNewPasswordInput;
     private Button saveProfileChangesButton;
+    private Button deleteAccountButton;
     private ProgressBar loadingIndicator;
 
     private boolean isAccordionExpanded;
@@ -81,6 +84,7 @@ public class SettingsActivity extends AppCompatActivity {
         newPasswordInput = findViewById(R.id.newPasswordInput);
         confirmNewPasswordInput = findViewById(R.id.confirmNewPasswordInput);
         saveProfileChangesButton = findViewById(R.id.saveProfileChangesButton);
+        deleteAccountButton = findViewById(R.id.deleteAccountButton);
         loadingIndicator = findViewById(R.id.settingsLoadingIndicator);
         setAccordionExpanded(false);
 
@@ -91,6 +95,7 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
         saveProfileChangesButton.setOnClickListener(v -> onSaveClicked());
+        deleteAccountButton.setOnClickListener(v -> onDeleteAccountClicked());
 
         loadCurrentProfile();
     }
@@ -292,6 +297,111 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         updateAuthAndSave(currentUser, editedProfile, emailChanged, wantsPasswordChange, newPassword, false);
+    }
+
+    private void onDeleteAccountClicked() {
+        if (isSaving) {
+            return;
+        }
+
+        EditText passwordInput = new EditText(this);
+        passwordInput.setHint(getString(R.string.current_password));
+        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_account_confirm_title)
+                .setMessage(R.string.delete_account_confirm_message)
+                .setView(passwordInput)
+                .setNegativeButton(R.string.delete_account_cancel_action, (d, which) -> d.dismiss())
+                .setPositiveButton(R.string.delete_account_confirm_action, null)
+                .create();
+
+        dialog.setOnShowListener(unused -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String password = passwordInput.getText() == null ? "" : passwordInput.getText().toString();
+            if (TextUtils.isEmpty(password)) {
+                passwordInput.setError(getString(R.string.delete_account_requires_password));
+                passwordInput.requestFocus();
+                return;
+            }
+            dialog.dismiss();
+            deleteAccount(password);
+        }));
+        dialog.show();
+    }
+
+    private void deleteAccount(@NonNull String currentPassword) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            showMessage(getString(R.string.session_expired_sign_in_again));
+            navigateToAuthMenu();
+            return;
+        }
+
+        String authEmail = normalize(currentUser.getEmail()).toLowerCase(Locale.US);
+        if (TextUtils.isEmpty(authEmail)) {
+            showMessage(getString(R.string.unexpected_error));
+            return;
+        }
+
+        setSaving(true);
+        pendingSignOutAfterSave = false;
+        AuthCredential credential = EmailAuthProvider.getCredential(authEmail, currentPassword);
+        currentUser.reauthenticate(credential)
+                .addOnSuccessListener(unused -> deleteAccountProfileAndAuth(currentUser))
+                .addOnFailureListener(this::handleDeleteAccountReauthFailure);
+    }
+
+    private void deleteAccountProfileAndAuth(@NonNull FirebaseUser currentUser) {
+        WriteBatch batch = firestore.batch();
+        String uid = currentUser.getUid();
+        batch.delete(firestore.collection("users").document(uid));
+
+        String usernameKey = normalize(originalProfile.getUsernameKey()).toLowerCase(Locale.US);
+        if (TextUtils.isEmpty(usernameKey)) {
+            usernameKey = normalize(updateUsernameInput.getText() == null
+                    ? ""
+                    : updateUsernameInput.getText().toString()).toLowerCase(Locale.US);
+        }
+        if (!TextUtils.isEmpty(usernameKey)) {
+            batch.delete(firestore.collection("usernames").document(usernameKey));
+        }
+
+        batch.commit()
+                .addOnSuccessListener(unused -> currentUser.delete()
+                        .addOnSuccessListener(deleteUnused -> onDeleteAccountSuccess())
+                        .addOnFailureListener(this::handleDeleteAccountAuthFailure))
+                .addOnFailureListener(this::handleDeleteAccountDataFailure);
+    }
+
+    private void onDeleteAccountSuccess() {
+        setSaving(false);
+        showMessage(getString(R.string.account_deleted));
+        auth.signOut();
+        AuthSessionPreference.setRemember(this, false);
+        navigateToAuthMenu();
+    }
+
+    private void handleDeleteAccountReauthFailure(@NonNull Exception exception) {
+        setSaving(false);
+        if (exception instanceof FirebaseAuthInvalidCredentialsException) {
+            showMessage(getString(R.string.current_password_incorrect));
+            return;
+        }
+        if (exception instanceof FirebaseAuthRecentLoginRequiredException) {
+            showMessage(getString(R.string.session_expired_sign_in_again));
+            return;
+        }
+        showMessage(getString(R.string.unexpected_error));
+    }
+
+    private void handleDeleteAccountDataFailure(@NonNull Exception exception) {
+        setSaving(false);
+        showMessage(getString(R.string.account_delete_failed));
+    }
+
+    private void handleDeleteAccountAuthFailure(@NonNull Exception exception) {
+        setSaving(false);
+        showMessage(getString(R.string.account_delete_partial_retry));
     }
 
     private void reauthenticateCurrentUser(
@@ -572,6 +682,7 @@ public class SettingsActivity extends AppCompatActivity {
         newPasswordInput.setEnabled(!saving);
         confirmNewPasswordInput.setEnabled(!saving);
         saveProfileChangesButton.setEnabled(!saving);
+        deleteAccountButton.setEnabled(!saving);
     }
 
     private void showMessage(@NonNull String message) {
