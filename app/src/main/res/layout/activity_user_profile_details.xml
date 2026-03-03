@@ -2,17 +2,17 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:colorBackground"
-    tools:context=".AdminZoneActivity">
+    tools:context=".UserProfileDetailsActivity">
 
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_margin="20dp"
         android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -24,7 +24,7 @@
             android:minHeight="48dp">
 
             <TextView
-                android:id="@+id/adminZoneBackButton"
+                android:id="@+id/userProfileDetailsBackButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:clickable="true"
@@ -41,7 +41,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="@string/admin_zone"
+                android:text="@string/user_profile_details"
                 android:textColor="?android:textColorPrimary"
                 android:textSize="22sp"
                 android:textStyle="bold"
@@ -51,19 +51,53 @@
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <ProgressBar
-            android:id="@+id/adminRoleLoading"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="12dp"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/adminUserProfilesButton"
+        <TextView
+            android:id="@+id/userProfileDetailsNameValue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/view_user_profiles" />
+            android:textColor="?android:textColorPrimary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/userProfileDetailsTypeValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/userProfileDetailsUsernameValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/userProfileDetailsEmailValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/userProfileDetailsPhoneValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/userProfileDetailsJoinDateValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="?android:textColorPrimary"
+            android:textSize="15sp" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -6,13 +6,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:colorBackground"
-    tools:context=".AdminZoneActivity">
+    tools:context=".UserProfilesActivity">
 
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_margin="20dp"
         android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -24,7 +25,7 @@
             android:minHeight="48dp">
 
             <TextView
-                android:id="@+id/adminZoneBackButton"
+                android:id="@+id/userProfilesBackButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:clickable="true"
@@ -41,7 +42,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="@string/admin_zone"
+                android:text="@string/user_profiles"
                 android:textColor="?android:textColorPrimary"
                 android:textSize="22sp"
                 android:textStyle="bold"
@@ -51,19 +52,43 @@
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <Spinner
+            android:id="@+id/userTypeFilterSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp" />
+
         <ProgressBar
-            android:id="@+id/adminRoleLoading"
+            android:id="@+id/userProfilesLoading"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="12dp"
             android:visibility="gone" />
 
-        <Button
-            android:id="@+id/adminUserProfilesButton"
+        <TextView
+            android:id="@+id/userProfilesEmptyState"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/view_user_profiles" />
+            android:gravity="center_horizontal"
+            android:text="@string/no_profiles_for_filter"
+            android:textColor="?android:textColorSecondary"
+            android:textSize="15sp"
+            android:visibility="gone" />
+
+        <ScrollView
+            android:id="@+id/userProfilesScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/userProfilesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
