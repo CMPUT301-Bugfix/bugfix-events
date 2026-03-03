@@ -1,5 +1,7 @@
 package com.example.eventlotterysystem;
 
+import com.google.firebase.Timestamp;
+
 public class UserProfile {
     private String name;
     private String email;
@@ -7,6 +9,7 @@ public class UserProfile {
     private String usernameKey;
     private String phoneNumber;
     private String accountType;
+    private Timestamp createdAt;
 
     public UserProfile(String name, String email, String username, String usernameKey, String phoneNumber) {
         this(name, email, username, usernameKey, phoneNumber, "");
@@ -74,5 +77,13 @@ public class UserProfile {
 
     public void setAccountType(String accountType) {
         this.accountType = accountType;
+    }
+
+    public Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Timestamp createdAt) {
+        this.createdAt = createdAt;
     }
 }
