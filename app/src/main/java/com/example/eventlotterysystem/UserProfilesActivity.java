@@ -16,17 +16,13 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class UserProfilesActivity extends AppCompatActivity {
 
@@ -181,17 +177,11 @@ public class UserProfilesActivity extends AppCompatActivity {
         for (UserProfile profile : profiles) {
             View row = getLayoutInflater().inflate(R.layout.item_admin_user_profile, userProfilesContainer, false);
             TextView profileNameValue = row.findViewById(R.id.profileNameValue);
-            TextView profileUsernameValue = row.findViewById(R.id.profileUsernameValue);
-            TextView profileEmailValue = row.findViewById(R.id.profileEmailValue);
             TextView profileTypeValue = row.findViewById(R.id.profileTypeValue);
-            TextView profileJoinDateValue = row.findViewById(R.id.profileJoinDateValue);
 
             profileNameValue.setText(getString(R.string.profile_name_label, safeValue(profile.getName(), R.string.unknown_name)));
-            profileUsernameValue.setText(getString(R.string.profile_username_label, safeValue(profile.getUsername(), R.string.unknown_username)));
-            profileEmailValue.setText(getString(R.string.profile_email_label, safeValue(profile.getEmail(), R.string.unknown_email)));
             profileTypeValue.setText(getString(R.string.profile_type_label, safeValue(profile.getAccountType(), R.string.unknown_account_type)));
-            profileJoinDateValue.setText(getString(R.string.profile_join_date_label, formatJoinDate(profile.getCreatedAt())));
-
+            row.setOnClickListener(v -> openProfileDetails(profile));
             userProfilesContainer.addView(row);
         }
     }
@@ -218,15 +208,6 @@ public class UserProfilesActivity extends AppCompatActivity {
         return value;
     }
 
-    @NonNull
-    private String formatJoinDate(Timestamp createdAt) {
-        if (createdAt == null) {
-            return getString(R.string.unknown_join_date);
-        }
-        Date createdAtDate = createdAt.toDate();
-        return new SimpleDateFormat("MMM d, yyyy", Locale.US).format(createdAtDate);
-    }
-
     private void setLoading(boolean loading) {
         userProfilesLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         backButton.setEnabled(!loading);
@@ -247,6 +228,18 @@ public class UserProfilesActivity extends AppCompatActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    private void openProfileDetails(@NonNull UserProfile profile) {
+        Intent intent = new Intent(this, UserProfileDetailsActivity.class);
+        intent.putExtra(UserProfileDetailsActivity.NAME, normalize(profile.getName()));
+        intent.putExtra(UserProfileDetailsActivity.ACCOUNT_TYPE, normalize(profile.getAccountType()));
+        intent.putExtra(UserProfileDetailsActivity.USERNAME, normalize(profile.getUsername()));
+        intent.putExtra(UserProfileDetailsActivity.EMAIL, normalize(profile.getEmail()));
+        intent.putExtra(UserProfileDetailsActivity.PHONE, normalize(profile.getPhoneNumber()));
+        long timeMillis = profile.getCreatedAt() == null ? -1L : profile.getCreatedAt().toDate().getTime();
+        intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, timeMillis);
+        startActivity(intent);
     }
 
     @NonNull

@@ -60,17 +60,20 @@
     <string name="account_delete_partial_retry">Profile data was removed, but account deletion failed. Sign in again and retry delete.</string>
     <string name="view_user_profiles">user profiles</string>
     <string name="user_profiles">user profiles</string>
+    <string name="user_profile_details">profile details</string>
     <string name="filter_users">all users</string>
     <string name="filter_organizers">organizers</string>
     <string name="profile_name_label">Name: %1$s</string>
     <string name="profile_username_label">Username: %1$s</string>
     <string name="profile_email_label">Email: %1$s</string>
+    <string name="profile_phone_label">Phone: %1$s</string>
     <string name="profile_type_label">Account Type: %1$s</string>
     <string name="profile_join_date_label">Join Date: %1$s</string>
     <string name="unknown_join_date">Unknown</string>
     <string name="unknown_name">(no name)</string>
     <string name="unknown_username">(no username)</string>
     <string name="unknown_email">(no email)</string>
+    <string name="unknown_phone">(no phone)</string>
     <string name="unknown_account_type">(unknown)</string>
     <string name="no_profiles_for_filter">No profiles found for this filter.</string>
 </resources>

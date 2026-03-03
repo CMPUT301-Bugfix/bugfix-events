@@ -13,6 +13,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EventLotterySystem">
         <activity
+            android:name=".UserProfileDetailsActivity"
+            android:exported="false" />
+        <activity
             android:name=".UserProfilesActivity"
             android:exported="false" />
         <activity
