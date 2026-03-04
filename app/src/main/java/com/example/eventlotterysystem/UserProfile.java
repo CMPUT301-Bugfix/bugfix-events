@@ -3,6 +3,7 @@ package com.example.eventlotterysystem;
 import com.google.firebase.Timestamp;
 
 public class UserProfile {
+    private String uid;
     private String name;
     private String email;
     private String username;
@@ -33,6 +34,14 @@ public class UserProfile {
 
     public String getName() {
         return name;
+    }
+
+    public String getUid() {
+        return uid;
+    }
+
+    public void setUid(String uid) {
+        this.uid = uid;
     }
 
     public void setName(String name) {

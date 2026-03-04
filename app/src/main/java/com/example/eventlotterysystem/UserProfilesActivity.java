@@ -128,6 +128,9 @@ public class UserProfilesActivity extends AppCompatActivity {
                     .addOnSuccessListener(querySnapshot -> {
                         List<UserProfile> profiles = new ArrayList<>();
                         for (DocumentSnapshot snapshot : querySnapshot.getDocuments()) {
+                            if (Boolean.TRUE.equals(snapshot.getBoolean("deleted"))) {
+                                continue;
+                            }
                             profiles.add(mapSnapshotToUserProfile(snapshot));
                         }
                         profiles.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
@@ -148,6 +151,9 @@ public class UserProfilesActivity extends AppCompatActivity {
                 .addOnSuccessListener(querySnapshot -> {
                     List<UserProfile> profiles = new ArrayList<>();
                     for (DocumentSnapshot snapshot : querySnapshot.getDocuments()) {
+                        if (Boolean.TRUE.equals(snapshot.getBoolean("deleted"))) {
+                            continue;
+                        }
                         profiles.add(mapSnapshotToUserProfile(snapshot));
                     }
                     profiles.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
@@ -196,6 +202,7 @@ public class UserProfilesActivity extends AppCompatActivity {
                 normalize(snapshot.getString("phoneNumber")),
                 normalize(snapshot.getString("accountType"))
         );
+        profile.setUid(snapshot.getId());
         profile.setCreatedAt(snapshot.getTimestamp("createdAt"));
         return profile;
     }
@@ -237,6 +244,7 @@ public class UserProfilesActivity extends AppCompatActivity {
         intent.putExtra(UserProfileDetailsActivity.USERNAME, normalize(profile.getUsername()));
         intent.putExtra(UserProfileDetailsActivity.EMAIL, normalize(profile.getEmail()));
         intent.putExtra(UserProfileDetailsActivity.PHONE, normalize(profile.getPhoneNumber()));
+        intent.putExtra(UserProfileDetailsActivity.UID, normalize(profile.getUid()));
         long timeMillis = profile.getCreatedAt() == null ? -1L : profile.getCreatedAt().toDate().getTime();
         intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, timeMillis);
         startActivity(intent);

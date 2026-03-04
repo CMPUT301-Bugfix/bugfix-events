@@ -184,9 +184,34 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void onLoginSuccess() {
-        setLoading(false);
-        AuthSessionPreference.setRemember(LoginActivity.this, rememberMeCheckBox.isChecked());
-        navigateAndClearTask(HomeActivity.class);
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            setLoading(false);
+            showAuthError();
+            return;
+        }
+
+        firestore.collection("users")
+                .document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    boolean deleted = !snapshot.exists() || Boolean.TRUE.equals(snapshot.getBoolean("deleted"));
+                    if (deleted) {
+                        setLoading(false);
+                        auth.signOut();
+                        AuthSessionPreference.setRemember(LoginActivity.this, false);
+                        navigateAndClearTask(ProfileRemovedActivity.class);
+                        return;
+                    }
+
+                    setLoading(false);
+                    AuthSessionPreference.setRemember(LoginActivity.this, rememberMeCheckBox.isChecked());
+                    navigateAndClearTask(HomeActivity.class);
+                })
+                .addOnFailureListener(exception -> {
+                    setLoading(false);
+                    showMessage(getString(R.string.unexpected_error));
+                });
     }
 
     private void showAuthError() {
