@@ -98,6 +98,21 @@
             android:layout_marginTop="6dp"
             android:textColor="?android:textColorPrimary"
             android:textSize="15sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/userProfileDeleteButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:text="@string/admin_delete_profile"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -58,6 +58,17 @@
     <string name="delete_account_requires_password">Current password is required to delete account.</string>
     <string name="account_delete_failed">Could not delete account. Try again.</string>
     <string name="account_delete_partial_retry">Profile data was removed, but account deletion failed. Sign in again and retry delete.</string>
+    <string name="admin_delete_profile">delete profile</string>
+    <string name="admin_delete_profile_confirm_title">Delete profile</string>
+    <string name="admin_delete_profile_confirm_message">Delete profile and account for %1$s? This cannot be undone.</string>
+    <string name="admin_delete_profile_confirm_action">Delete</string>
+    <string name="admin_delete_profile_cancel_action">Cancel</string>
+    <string name="admin_delete_profile_success">Profile deleted.</string>
+    <string name="admin_delete_profile_failed">Could not delete profile. Try again.</string>
+    <string name="admin_delete_profile_permission_denied">You do not have permission to delete this profile.</string>
+    <string name="profile_removed_title">profile removed</string>
+    <string name="profile_removed_message">Your profile was removed by an administrator. You can no longer access this account.</string>
+    <string name="profile_removed_go_to_login">back to login</string>
     <string name="view_user_profiles">user profiles</string>
     <string name="user_profiles">user profiles</string>
     <string name="user_profile_details">profile details</string>
