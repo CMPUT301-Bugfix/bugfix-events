@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
@@ -109,12 +110,17 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         firestore.collection("users")
                 .document(viewedUid)
                 .delete()
-                .addOnSuccessListener(unused -> {
+                .addOnSuccessListener(aVoid -> {
                     setDeleting(false);
                     showMessage(getString(R.string.admin_delete_profile_success));
                     finish();
                 })
-                .addOnFailureListener(this::handleDeleteFailure);
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        handleDeleteFailure(e);
+                    }
+                });
     }
 
     private void handleDeleteFailure(@NonNull Exception exception) {
