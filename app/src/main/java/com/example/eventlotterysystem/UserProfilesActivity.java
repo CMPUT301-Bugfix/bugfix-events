@@ -3,6 +3,7 @@ package com.example.eventlotterysystem;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -20,6 +21,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +42,7 @@ public class UserProfilesActivity extends AppCompatActivity {
 
     private boolean isAdminConfirmed;
     private String selectedAccountType = "all";
+    private ListenerRegistration profilesListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,49 +127,40 @@ public class UserProfilesActivity extends AppCompatActivity {
 
     private void loadProfilesForFilter() {
         setLoading(true);
-        if ("all".equals(selectedAccountType)) {
-            firestore.collection("users")
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        List<UserProfile> profiles = new ArrayList<>();
-                        for (DocumentSnapshot snapshot : querySnapshot.getDocuments()) {
-                            if (Boolean.TRUE.equals(snapshot.getBoolean("deleted"))) {
-                                continue;
-                            }
-                            profiles.add(mapSnapshotToUserProfile(snapshot));
-                        }
-                        profiles.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
-                        renderProfiles(profiles);
-                        setLoading(false);
-                    })
-                    .addOnFailureListener(exception -> {
-                        setLoading(false);
-                        renderProfiles(new ArrayList<>());
-                        showMessage(getString(R.string.unexpected_error));
-                    });
-            return;
+
+        if (profilesListener != null) {
+            profilesListener.remove();
+            profilesListener = null;
         }
 
-        firestore.collection("users")
-                .whereEqualTo("accountType", "organizer")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<UserProfile> profiles = new ArrayList<>();
-                    for (DocumentSnapshot snapshot : querySnapshot.getDocuments()) {
-                        if (Boolean.TRUE.equals(snapshot.getBoolean("deleted"))) {
-                            continue;
-                        }
-                        profiles.add(mapSnapshotToUserProfile(snapshot));
+        Query query = firestore.collection("users");
+        if (!"all".equals(selectedAccountType)) {
+            query = query.whereEqualTo("accountType", "organizer");
+        }
+
+        profilesListener = query.addSnapshotListener((value, error) -> {
+            if (error != null) {
+                setLoading(false);
+                renderProfiles(new ArrayList<>());
+                Log.e("Firestore", error.toString());
+                return;
+            }
+
+            List<UserProfile> profiles = new ArrayList<>();
+
+            if (value != null) {
+                for (DocumentSnapshot snapshot : value.getDocuments()) {
+                    if (Boolean.TRUE.equals(snapshot.getBoolean("deleted"))) {
+                        continue;
                     }
-                    profiles.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
-                    renderProfiles(profiles);
-                    setLoading(false);
-                })
-                .addOnFailureListener(exception -> {
-                    setLoading(false);
-                    renderProfiles(new ArrayList<>());
-                    showMessage(getString(R.string.unexpected_error));
-                });
+                    profiles.add(mapSnapshotToUserProfile(snapshot));
+                }
+            }
+
+            profiles.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+            renderProfiles(profiles);
+            setLoading(false);
+        });
     }
 
     private void renderProfiles(@NonNull List<UserProfile> profiles) {
