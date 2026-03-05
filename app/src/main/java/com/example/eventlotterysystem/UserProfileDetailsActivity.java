@@ -106,17 +106,9 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         }
 
         setDeleting(true);
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("deleted", true);
-        updates.put("deletedAt", FieldValue.serverTimestamp());
-        if (currentUser != null) {
-            updates.put("deletedBy", currentUser.getUid());
-        }
-
         firestore.collection("users")
                 .document(viewedUid)
-                .set(updates, SetOptions.merge())
+                .delete()
                 .addOnSuccessListener(unused -> {
                     setDeleting(false);
                     showMessage(getString(R.string.admin_delete_profile_success));
