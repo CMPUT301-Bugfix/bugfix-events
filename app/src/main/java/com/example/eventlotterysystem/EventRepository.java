@@ -59,7 +59,7 @@ public class EventRepository {
 
                     for (DocumentSnapshot doc : queryDocumentSnapshots) {
                         if (isJoinableEvent(doc, now)) {
-                            results.add(mapSnapshotToEventItem(doc));
+                            results.add(readEventItem(doc));
                         }
                     }
 
@@ -79,7 +79,7 @@ public class EventRepository {
                         if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
                             continue;
                         }
-                        results.add(mapSnapshotToEventItem(doc));
+                        results.add(readEventItem(doc));
                     }
                     sortByEventDate(results);
                     callback.onSuccess(results);
@@ -96,7 +96,7 @@ public class EventRepository {
                         callback.onError(new Exception("Event not found"));
                         return;
                     }
-                    callback.onSuccess(mapSnapshotToEventItem(doc));
+                    callback.onSuccess(readEventItem(doc));
                 })
                 .addOnFailureListener(callback::onError);
     }
@@ -115,7 +115,7 @@ public class EventRepository {
                     String accountType = normalize(userSnapshot.getString("accountType"));
                     String hostDisplayName = getHostDisplayName(userSnapshot, currentUser);
                     if (posterUri == null) {
-                        commitCreatedEvent(eventRef, userRef, draftEvent, currentUser.getUid(), hostDisplayName, "", accountType, callback, null);
+                        createEventRecord(eventRef, userRef, draftEvent, currentUser.getUid(), hostDisplayName, "", accountType, callback, null);
                         return;
                     }
 
@@ -132,7 +132,7 @@ public class EventRepository {
                                 return posterRef.getDownloadUrl();
                             })
                             .addOnSuccessListener(downloadUri ->
-                                    commitCreatedEvent(
+                                    createEventRecord(
                                             eventRef,
                                             userRef,
                                             draftEvent,
@@ -148,7 +148,7 @@ public class EventRepository {
                 .addOnFailureListener(callback::onError);
     }
 
-    private void commitCreatedEvent(
+    private void createEventRecord(
             @NonNull DocumentReference eventRef,
             @NonNull DocumentReference userRef,
             @NonNull EventItem draftEvent,
@@ -204,7 +204,7 @@ public class EventRepository {
     }
 
     @NonNull
-    private EventItem mapSnapshotToEventItem(@NonNull DocumentSnapshot doc) {
+    private EventItem readEventItem(@NonNull DocumentSnapshot doc) {
         String title = doc.getString("title");
         String description = doc.getString("description");
         String location = doc.getString("location");
