@@ -2,51 +2,45 @@ package com.example.eventlotterysystem;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.util.Log;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.List;
 
 public class JoinableEventsActivity extends AppCompatActivity {
 
-    private FirebaseFirestore firestore;
-    private ListView joinableEventsListView;
-    private ArrayAdapter<String> adapter;
+    private static final String TAG = "JoinableEventsActivity";
 
-    private final ArrayList<String> eventTitles = new ArrayList<>();
-    private final ArrayList<String> eventIds = new ArrayList<>();
+    private EventRepository repository;
+    private ListView joinableEventsListView;
+    private TextView emptyState;
+    private EventListAdapter adapter;
+
+    private final List<EventItem> events = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_joinable_events);
 
-        firestore = FirebaseFirestore.getInstance();
+        repository = new EventRepository();
 
         joinableEventsListView = findViewById(R.id.joinableEventsListView);
-        Button backButton = findViewById(R.id.joinableEventsBackButton);
+        emptyState = findViewById(R.id.joinableEventsEmptyState);
 
-        adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                eventTitles
-        );
+        adapter = new EventListAdapter(this, events);
         joinableEventsListView.setAdapter(adapter);
 
-        backButton.setOnClickListener(v -> finish());
+        findViewById(R.id.joinableEventsBackButton).setOnClickListener(v -> finish());
 
         joinableEventsListView.setOnItemClickListener((parent, view, position, id) -> {
-            String eventId = eventIds.get(position);
-            Intent intent = new Intent(this, EventDetailsActivity.class);
+            String eventId = events.get(position).getId();
+            Intent intent = new Intent(this, ViewEventActivity.class);
             intent.putExtra("EVENT_ID", eventId);
             startActivity(intent);
         });
@@ -59,54 +53,40 @@ public class JoinableEventsActivity extends AppCompatActivity {
     }
 
     private void loadJoinableEvents() {
-        firestore.collection("events")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    eventTitles.clear();
-                    eventIds.clear();
+        repository.getCurrentEvents(new EventRepository.EventsCallback() {
+            @Override
+            public void onSuccess(List<EventItem> loadedEvents) {
+                events.clear();
+                events.addAll(loadedEvents);
+                adapter.notifyDataSetChanged();
+                updateEmptyState();
+            }
 
-                    Date now = new Date();
-
-                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
-                        if (isJoinableEvent(doc, now)) {
-                            String title = doc.getString("title");
-                            if (title == null || title.trim().isEmpty()) {
-                                title = "Untitled Event";
-                            }
-
-                            eventTitles.add(title);
-                            eventIds.add(doc.getId());
-                        }
-                    }
-
-                    adapter.notifyDataSetChanged();
-                })
-                .addOnFailureListener(e ->
-                        Toast.makeText(this, "Failed to load events", Toast.LENGTH_SHORT).show());
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Failed to load joinable events", e);
+                events.clear();
+                adapter.notifyDataSetChanged();
+                updateEmptyState();
+                Toast.makeText(
+                        JoinableEventsActivity.this,
+                        buildLoadErrorMessage(e),
+                        Toast.LENGTH_LONG
+                ).show();
+            }
+        });
     }
 
-    private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
-        Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
-        Boolean deleted = doc.getBoolean("deleted");
-        Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
-        Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
+    private void updateEmptyState() {
+        boolean hasEvents = !events.isEmpty();
+        joinableEventsListView.setVisibility(hasEvents ? ListView.VISIBLE : ListView.GONE);
+        emptyState.setVisibility(hasEvents ? TextView.GONE : TextView.VISIBLE);
+    }
 
-        if (Boolean.TRUE.equals(deleted)) {
-            return false;
+    private String buildLoadErrorMessage(Exception exception) {
+        if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
+            return getString(R.string.failed_to_load_events) + ": " + exception.getMessage().trim();
         }
-
-        boolean openFlag = Boolean.TRUE.equals(waitlistOpen);
-
-        boolean upcomingByEventDate = false;
-        if (eventDateTimestamp != null) {
-            upcomingByEventDate = eventDateTimestamp.toDate().after(now);
-        }
-
-        boolean beforeDeadline = false;
-        if (registrationDeadlineTimestamp != null) {
-            beforeDeadline = registrationDeadlineTimestamp.toDate().after(now);
-        }
-
-        return openFlag && (upcomingByEventDate || beforeDeadline);
+        return getString(R.string.failed_to_load_events);
     }
 }

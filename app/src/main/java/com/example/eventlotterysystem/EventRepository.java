@@ -1,14 +1,29 @@
 package com.example.eventlotterysystem;
 
-import androidx.annotation.NonNull;
+import android.net.Uri;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EventRepository {
 
@@ -22,10 +37,17 @@ public class EventRepository {
         void onError(Exception e);
     }
 
+    public interface CreateEventCallback {
+        void onSuccess(String eventId);
+        void onError(Exception e);
+    }
+
     private final FirebaseFirestore firestore;
+    private final FirebaseStorage storage;
 
     public EventRepository() {
         firestore = FirebaseFirestore.getInstance();
+        storage = FirebaseStorage.getInstance();
     }
 
     public void getCurrentEvents(@NonNull EventsCallback callback) {
@@ -37,20 +59,29 @@ public class EventRepository {
 
                     for (DocumentSnapshot doc : queryDocumentSnapshots) {
                         if (isJoinableEvent(doc, now)) {
-                            String title = doc.getString("title");
-                            String description = doc.getString("description");
-
-                            if (title == null || title.trim().isEmpty()) {
-                                title = "Untitled Event";
-                            }
-                            if (description == null) {
-                                description = "";
-                            }
-
-                            results.add(new EventItem(doc.getId(), title, description));
+                            results.add(mapSnapshotToEventItem(doc));
                         }
                     }
 
+                    sortByEventDate(results);
+                    callback.onSuccess(results);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    public void getHostedEvents(@NonNull String hostUid, @NonNull EventsCallback callback) {
+        firestore.collection("events")
+                .whereEqualTo("hostUid", hostUid)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<EventItem> results = new ArrayList<>();
+                    for (DocumentSnapshot doc : queryDocumentSnapshots) {
+                        if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
+                            continue;
+                        }
+                        results.add(mapSnapshotToEventItem(doc));
+                    }
+                    sortByEventDate(results);
                     callback.onSuccess(results);
                 })
                 .addOnFailureListener(callback::onError);
@@ -65,20 +96,86 @@ public class EventRepository {
                         callback.onError(new Exception("Event not found"));
                         return;
                     }
-
-                    String title = doc.getString("title");
-                    String description = doc.getString("description");
-
-                    if (title == null || title.trim().isEmpty()) {
-                        title = "Untitled Event";
-                    }
-                    if (description == null) {
-                        description = "";
-                    }
-
-                    callback.onSuccess(new EventItem(doc.getId(), title, description));
+                    callback.onSuccess(mapSnapshotToEventItem(doc));
                 })
                 .addOnFailureListener(callback::onError);
+    }
+
+    public void createEvent(
+            @NonNull FirebaseUser currentUser,
+            @NonNull EventItem draftEvent,
+            @Nullable Uri posterUri,
+            @NonNull CreateEventCallback callback
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document();
+        DocumentReference userRef = firestore.collection("users").document(currentUser.getUid());
+
+        userRef.get()
+                .addOnSuccessListener(userSnapshot -> {
+                    String accountType = normalize(userSnapshot.getString("accountType"));
+                    String hostDisplayName = getHostDisplayName(userSnapshot, currentUser);
+                    if (posterUri == null) {
+                        commitCreatedEvent(eventRef, userRef, draftEvent, currentUser.getUid(), hostDisplayName, "", accountType, callback, null);
+                        return;
+                    }
+
+                    StorageReference posterRef = storage.getReference()
+                            .child("event-posters/" + currentUser.getUid() + "/" + eventRef.getId() + ".jpg");
+
+                    UploadTask uploadTask = posterRef.putFile(posterUri);
+                    uploadTask.continueWithTask(task -> {
+                                if (!task.isSuccessful()) {
+                                    throw task.getException() != null
+                                            ? task.getException()
+                                            : new IllegalStateException("Poster upload failed");
+                                }
+                                return posterRef.getDownloadUrl();
+                            })
+                            .addOnSuccessListener(downloadUri ->
+                                    commitCreatedEvent(
+                                            eventRef,
+                                            userRef,
+                                            draftEvent,
+                                            currentUser.getUid(),
+                                            hostDisplayName,
+                                            downloadUri.toString(),
+                                            accountType,
+                                            callback,
+                                            posterRef
+                                    ))
+                            .addOnFailureListener(callback::onError);
+                })
+                .addOnFailureListener(callback::onError);
+    }
+
+    private void commitCreatedEvent(
+            @NonNull DocumentReference eventRef,
+            @NonNull DocumentReference userRef,
+            @NonNull EventItem draftEvent,
+            @NonNull String hostUid,
+            @NonNull String hostDisplayName,
+            @NonNull String posterUrl,
+            @NonNull String accountType,
+            @NonNull CreateEventCallback callback,
+            @Nullable StorageReference posterRef
+    ) {
+        WriteBatch batch = firestore.batch();
+        batch.set(eventRef, buildEventPayload(draftEvent, hostUid, hostDisplayName, posterUrl));
+
+        if (accountType.isEmpty() || "user".equals(accountType)) {
+            Map<String, Object> accountPayload = new HashMap<>();
+            accountPayload.put("accountType", "organizer");
+            batch.set(userRef, accountPayload, SetOptions.merge());
+        }
+
+        batch.commit()
+                .addOnSuccessListener(unused -> callback.onSuccess(eventRef.getId()))
+                .addOnFailureListener(exception -> {
+                    if (posterRef != null) {
+                        posterRef.delete();
+                    }
+                    callback.onError(exception);
+                });
     }
 
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
@@ -104,5 +201,114 @@ public class EventRepository {
         }
 
         return openFlag && (upcomingByEventDate || beforeDeadline);
+    }
+
+    @NonNull
+    private EventItem mapSnapshotToEventItem(@NonNull DocumentSnapshot doc) {
+        String title = doc.getString("title");
+        String description = doc.getString("description");
+        String location = doc.getString("location");
+        String posterUrl = doc.getString("posterUrl");
+        String hostUid = doc.getString("hostUid");
+        String hostDisplayName = doc.getString("hostDisplayName");
+        Long maxEntrantsValue = doc.getLong("maxEntrants");
+        Long totalEntrantsValue = doc.getLong("totalEntrants");
+        Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
+        Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
+
+        if (!hasText(title)) {
+            title = "Untitled Event";
+        }
+        if (description == null) {
+            description = "";
+        }
+        if (location == null) {
+            location = "";
+        }
+        if (posterUrl == null) {
+            posterUrl = "";
+        }
+        if (hostUid == null) {
+            hostUid = "";
+        }
+        if (hostDisplayName == null) {
+            hostDisplayName = "";
+        }
+
+        return new EventItem(
+                doc.getId(),
+                title,
+                description,
+                location,
+                posterUrl,
+                maxEntrantsValue == null ? 0 : maxEntrantsValue.intValue(),
+                totalEntrantsValue == null ? 0 : totalEntrantsValue.intValue(),
+                registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
+                eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
+                Boolean.TRUE.equals(doc.getBoolean("requiresGeolocation")),
+                hostUid,
+                hostDisplayName
+        );
+    }
+
+    @NonNull
+    private Map<String, Object> buildEventPayload(
+            @NonNull EventItem event,
+            @NonNull String hostUid,
+            @NonNull String hostDisplayName,
+            @NonNull String posterUrl
+    ) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("title", event.getTitle());
+        payload.put("description", event.getDescription());
+        payload.put("location", event.getLocation());
+        payload.put("posterUrl", posterUrl);
+        payload.put("maxEntrants", event.getMaxEntrants());
+        payload.put("totalEntrants", event.getTotalEntrants());
+        payload.put("registrationDeadline", event.getRegistrationDeadline());
+        payload.put("eventDate", event.getEventDate());
+        payload.put("requiresGeolocation", event.isRequiresGeolocation());
+        payload.put("hostUid", hostUid);
+        payload.put("hostDisplayName", hostDisplayName);
+        payload.put("waitlistOpen", true);
+        payload.put("deleted", false);
+        payload.put("createdAt", Timestamp.now());
+        return payload;
+    }
+
+    @NonNull
+    private String getHostDisplayName(
+            @NonNull DocumentSnapshot userSnapshot,
+            @NonNull FirebaseUser currentUser
+    ) {
+        String[] candidates = new String[] {
+                userSnapshot.getString("fullName"),
+                userSnapshot.getString("username"),
+                currentUser.getDisplayName(),
+                currentUser.getEmail(),
+                currentUser.getUid()
+        };
+        for (String candidate : candidates) {
+            if (hasText(candidate)) {
+                return candidate.trim();
+            }
+        }
+        return currentUser.getUid();
+    }
+
+    private void sortByEventDate(@NonNull List<EventItem> events) {
+        Collections.sort(events, Comparator.comparing(
+                EventItem::getEventDate,
+                Comparator.nullsLast(Date::compareTo)
+        ));
+    }
+
+    @NonNull
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 }
