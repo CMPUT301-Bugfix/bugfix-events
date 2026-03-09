@@ -22,7 +22,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Intent destination = currentUser == null
-                ? new Intent(this, AuthMenuActivity.class)
+                ? new Intent(this, HostedEventsActivty.class) //is wrong need to remove
                 : new Intent(this, HomeActivity.class);
         startActivity(destination);
         finish();
