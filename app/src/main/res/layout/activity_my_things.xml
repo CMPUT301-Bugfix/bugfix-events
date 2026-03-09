@@ -68,6 +68,13 @@
             android:text="@string/settings" />
 
         <Button
+            android:id="@+id/hostEventButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:text="@string/host_an_event" />
+
+        <Button
             android:id="@+id/adminZoneButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
