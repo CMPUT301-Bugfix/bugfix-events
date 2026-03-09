@@ -28,9 +28,6 @@
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity
-            android:name=".JoinableEventsActivity"
-            android:exported="false" />
-        <activity
             android:name=".HostedEventsActivity"
             android:exported="false" />
         <activity

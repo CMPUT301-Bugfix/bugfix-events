@@ -13,13 +13,10 @@
     <string name="username">username</string>
     <string name="phone_number_optional">phone number (optional)</string>
     <string name="confirm_password">confirm password</string>
-    <string name="welcome_title">welcome</string>
     <string name="my_things">my things</string>
     <string name="host_an_event">host an event</string>
     <string name="hosted_events">hosted events</string>
-    <string name="browse_events">browse events</string>
-    <string name="browse_events_title">browse events</string>
-    <string name="browse_events_subtitle">Discover events currently open for registration.</string>
+    <string name="browse_events_title">all events</string>
     <string name="hosted_events_subtitle">Manage the events you are currently hosting.</string>
     <string name="create_event">create event</string>
     <string name="create_event_title">create an event</string>
@@ -31,7 +28,6 @@
     <string name="choose_poster">choose poster</string>
     <string name="poster_selected">Poster selected</string>
     <string name="poster_optional">Poster optional</string>
-    <string name="poster_required">Please choose an event poster.</string>
     <string name="max_entrants_hint">max entrants</string>
     <string name="registration_deadline">registration deadline</string>
     <string name="event_date">event date</string>
