@@ -54,9 +54,24 @@ public class Event {
             Boolean needGeolocation
             //Image photo) {
             ) {
+        this(signLimit, confirmedLimit, title, description, "", EventDate, lotteryDeadline, needGeolocation);
+    }
+
+    public Event(
+            int signLimit,
+            int confirmedLimit,
+            String title,
+            String description,
+            String location,
+            LocalDateTime EventDate,
+            LocalDateTime lotteryDeadline,
+            Boolean needGeolocation
+            //Image photo) {
+            ) {
         this.eventId = UUID.randomUUID();
         this.title = title;
         this.description = description;
+        this.location = location;
         this.eventDate = EventDate;
         this.status = EventStatus.PUBLISHED;
         this.entrantList = new EntrantList(signLimit, confirmedLimit);
@@ -84,6 +99,11 @@ public class Event {
     public void signUp(UserProfile Entrant) {
        entrantList.addEntrantToWaitingList(Entrant);
     }
+
+    public String getLocation() {
+        return location;
+    }
+
     public EntrantList getEntrantList() {
         return entrantList;
     }

@@ -28,10 +28,13 @@
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity
-            android:name=".JoinableEventsActivity"
+            android:name=".HostedEventsActivity"
             android:exported="false" />
         <activity
-            android:name=".EventDetailsActivity"
+            android:name=".CreateEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ViewEventActivity"
             android:exported="false" />
         <activity
             android:name=".MyThingsActivity"

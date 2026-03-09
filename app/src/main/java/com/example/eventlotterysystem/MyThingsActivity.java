@@ -34,6 +34,8 @@ public class MyThingsActivity extends AppCompatActivity {
         findViewById(R.id.myThingsBackButton).setOnClickListener(v -> finish());
         findViewById(R.id.settingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
+        findViewById(R.id.hostEventButton).setOnClickListener(v ->
+                startActivity(new Intent(this, HostedEventsActivity.class)));
         findViewById(R.id.myThingsLogoutButton).setOnClickListener(v -> onLogOutClicked());
         adminZoneButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminZoneActivity.class)));

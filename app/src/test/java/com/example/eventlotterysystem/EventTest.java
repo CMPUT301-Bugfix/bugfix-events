@@ -31,4 +31,19 @@ public class EventTest {
         assertTrue(inWaitingList);
     }
 
+    @Test
+    public void locationIsStoredOnEvent() {
+        Event event = new Event(
+                100,
+                10,
+                "Test Event",
+                "This Event is not a real Event and is for testing purposes only",
+                "Edmonton",
+                LocalDateTime.now(),
+                LocalDateTime.now(),
+                false
+        );
+        assertTrue("Edmonton".equals(event.getLocation()));
+    }
+
 }
