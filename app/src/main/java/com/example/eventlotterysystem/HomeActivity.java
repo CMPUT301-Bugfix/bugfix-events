@@ -27,6 +27,9 @@ public class HomeActivity extends AppCompatActivity {
 
         findViewById(R.id.myThingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, MyThingsActivity.class)));
+
+        findViewById(R.id.browseEventsButton).setOnClickListener(v ->
+                startActivity(new Intent(this, JoinableEventsActivity.class)));
     }
 
     @Override
