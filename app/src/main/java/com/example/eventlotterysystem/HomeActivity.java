@@ -83,8 +83,8 @@ public class HomeActivity extends AppCompatActivity {
         options.setPrompt("Scan a QR Code");
         options.setBeepEnabled(true);
         options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        options.setCaptureActivity(CaptureActivity.class);
         options.setCameraId(0);
-        options.setOrientationLocked(false);
         barLauncher.launch(options);
     }
 
