@@ -102,7 +102,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             eventsListener = null;
         }
 
-        // Basic query: all events. (You can add orderBy later)
+
         Query query = firestore.collection("events");
 
         eventsListener = query.addSnapshotListener((value, error) -> {
@@ -134,7 +134,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                 }
             }
 
-            // Optional: sort by title for now
+            
             events.sort((a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle()));
 
             renderEvents(events);
