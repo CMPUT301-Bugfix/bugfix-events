@@ -91,6 +91,11 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        findViewById(R.id.createQRCode).setOnClickListener(v -> {
+            Intent intent = new Intent(this, QRCode.class);
+            intent.putExtra("Event_ID", eventId);
+            startActivity(intent);
+        });
     }
 
     @Override
