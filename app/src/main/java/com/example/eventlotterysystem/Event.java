@@ -97,9 +97,11 @@ public class Event {
      * @param Entrant
      * This is the Entrant to be signed up
      */
+    /*
     public void signUp(UserProfile Entrant) {
        entrantList.addEntrantToWaitingList(Entrant);
     }
+     */
 
     public String getLocation() {
         return location;
