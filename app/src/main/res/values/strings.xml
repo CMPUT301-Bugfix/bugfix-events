@@ -21,6 +21,7 @@
     <string name="create_event">create event</string>
     <string name="create_event_title">create an event</string>
     <string name="create_event_subtitle">Set up the basics for your next hosted event.</string>
+    <string name="organize_event_title">organize event</string>
     <string name="edit_event_title">edit event</string>
     <string name="edit_event_subtitle">Update the details for your hosted event.</string>
     <string name="event_title_hint">event title</string>
@@ -35,6 +36,7 @@
     <string name="event_date">event date</string>
     <string name="requires_geolocation">require geolocation to join</string>
     <string name="create_event_submit">publish event</string>
+    <string name="edit_event_button">edit event</string>
     <string name="edit_event_submit">save changes</string>
     <string name="event_created">Event created.</string>
     <string name="event_updated">Event updated.</string>

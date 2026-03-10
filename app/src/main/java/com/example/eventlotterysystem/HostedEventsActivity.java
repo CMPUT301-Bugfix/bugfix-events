@@ -47,7 +47,7 @@ public class HostedEventsActivity extends AppCompatActivity {
         findViewById(R.id.hostedEventsBackButton).setOnClickListener(v -> finish());
         createEventButton.setOnClickListener(v ->
                 startActivity(new Intent(this, CreateEventActivity.class)));
-        hostedEventsListView.setOnItemClickListener((parent, view, position, id) -> openEventEditor(hostedEvents.get(position)));
+        hostedEventsListView.setOnItemClickListener((parent, view, position, id) -> openHostedEvent(hostedEvents.get(position)));
     }
 
     @Override
@@ -92,9 +92,10 @@ public class HostedEventsActivity extends AppCompatActivity {
         emptyState.setVisibility(hasEvents ? View.GONE : View.VISIBLE);
     }
 
-    private void openEventEditor(EventItem event) {
-        Intent intent = new Intent(this, CreateEventActivity.class);
+    private void openHostedEvent(EventItem event) {
+        Intent intent = new Intent(this, ViewEventActivity.class);
         intent.putExtra("EVENT_ID", event.getId());
+        intent.putExtra("CAN_EDIT_EVENT", true);
         startActivity(intent);
     }
 

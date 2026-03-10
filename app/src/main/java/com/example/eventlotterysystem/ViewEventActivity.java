@@ -1,9 +1,11 @@
 package com.example.eventlotterysystem;
 
+import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -23,6 +25,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private static final String DATE_PATTERN = "MMM d, yyyy";
 
     private ImageView posterImageView;
+    private TextView screenTitleTextView;
     private TextView titleTextView;
     private TextView hostTextView;
     private TextView locationTextView;
@@ -32,7 +35,10 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView totalEntrantsTextView;
     private TextView geolocationTextView;
     private TextView descriptionTextView;
+    private Button editEventButton;
     private EventRepository repository;
+    private String eventId;
+    private boolean canEditEvent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +46,7 @@ public class ViewEventActivity extends AppCompatActivity {
         setContentView(R.layout.activity_view_event);
 
         posterImageView = findViewById(R.id.viewEventPoster);
+        screenTitleTextView = findViewById(R.id.viewEventScreenTitle);
         titleTextView = findViewById(R.id.viewEventTitle);
         hostTextView = findViewById(R.id.viewEventHost);
         locationTextView = findViewById(R.id.viewEventLocation);
@@ -49,18 +56,31 @@ public class ViewEventActivity extends AppCompatActivity {
         totalEntrantsTextView = findViewById(R.id.viewEventTotalEntrants);
         geolocationTextView = findViewById(R.id.viewEventGeolocation);
         descriptionTextView = findViewById(R.id.viewEventDescription);
+        editEventButton = findViewById(R.id.viewEventEditButton);
 
         repository = new EventRepository();
 
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
+        editEventButton.setOnClickListener(v -> openEventEditor());
 
-        String eventId = getIntent().getStringExtra("EVENT_ID");
+        eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
             Toast.makeText(this, R.string.missing_event_id, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
+        canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
+        screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+    }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        loadEvent();
+    }
+
+    private void loadEvent() {
         repository.getEventById(eventId, new EventRepository.EventCallback() {
             @Override
             public void onSuccess(EventItem event) {
@@ -93,6 +113,12 @@ public class ViewEventActivity extends AppCompatActivity {
                 renderLoadFailureState();
             }
         });
+    }
+
+    private void openEventEditor() {
+        Intent intent = new Intent(this, CreateEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+        startActivity(intent);
     }
 
     private void showPoster(String posterUrl) {
