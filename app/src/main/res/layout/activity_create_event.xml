@@ -114,8 +114,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:textColor="?android:textColorSecondary"
-                android:textSize="14sp"
-                tools:text="Poster selected" />
+                android:textSize="14sp" />
 
             <EditText
                 android:id="@+id/createEventMaxEntrantsInput"
@@ -147,8 +146,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:textColor="?android:textColorSecondary"
-                android:textSize="14sp"
-                tools:text="May 12, 2026" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/createEventDateLabel"
@@ -172,8 +170,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:textColor="?android:textColorSecondary"
-                android:textSize="14sp"
-                tools:text="May 20, 2026" />
+                android:textSize="14sp" />
 
             <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/createEventGeolocationSwitch"

@@ -89,28 +89,24 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void loadJoinableEvents() {
-        repository.getCurrentEvents(new EventRepository.EventsCallback() {
-            @Override
-            public void onSuccess(List<EventItem> loadedEvents) {
-                events.clear();
-                events.addAll(loadedEvents);
-                adapter.notifyDataSetChanged();
-                updateEmptyState();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Failed to load home events", e);
-                events.clear();
-                adapter.notifyDataSetChanged();
-                updateEmptyState();
-                Toast.makeText(
-                        HomeActivity.this,
-                        buildLoadErrorMessage(e),
-                        Toast.LENGTH_LONG
-                ).show();
-            }
-        });
+        repository.getCurrentEvents()
+                .addOnSuccessListener(loadedEvents -> {
+                    events.clear();
+                    events.addAll(loadedEvents);
+                    adapter.notifyDataSetChanged();
+                    updateEmptyState();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load home events", e);
+                    events.clear();
+                    adapter.notifyDataSetChanged();
+                    updateEmptyState();
+                    Toast.makeText(
+                            HomeActivity.this,
+                            buildLoadErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
     }
 
     private void updateEmptyState() {

@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -12,6 +13,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
@@ -32,13 +35,23 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView dateTextView;
     private TextView deadlineTextView;
     private TextView maxEntrantsTextView;
-    private TextView totalEntrantsTextView;
+    private TextView waitlistCountTextView;
     private TextView geolocationTextView;
     private TextView descriptionTextView;
+    private TextView waitlistJoinedTextView;
     private Button editEventButton;
+    private Button joinWaitlistButton;
+    private Button leaveWaitlistButton;
+    private FirebaseAuth auth;
     private EventRepository repository;
     private String eventId;
     private boolean canEditEvent;
+    private EventItem currentEvent;
+    private boolean showJoinButton;
+    private boolean joinEnabled;
+    private boolean showJoinedLabel;
+    private boolean showLeaveButton;
+    private boolean waitlistActionLoading;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,15 +66,21 @@ public class ViewEventActivity extends AppCompatActivity {
         dateTextView = findViewById(R.id.viewEventDate);
         deadlineTextView = findViewById(R.id.viewEventDeadline);
         maxEntrantsTextView = findViewById(R.id.viewEventMaxEntrants);
-        totalEntrantsTextView = findViewById(R.id.viewEventTotalEntrants);
+        waitlistCountTextView = findViewById(R.id.viewEventWaitlistCount);
         geolocationTextView = findViewById(R.id.viewEventGeolocation);
         descriptionTextView = findViewById(R.id.viewEventDescription);
+        waitlistJoinedTextView = findViewById(R.id.viewEventWaitlistJoinedLabel);
         editEventButton = findViewById(R.id.viewEventEditButton);
+        joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
+        leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
 
+        auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
 
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
         editEventButton.setOnClickListener(v -> openEventEditor());
+        joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
+        leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -81,44 +100,193 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     private void loadEvent() {
-        repository.getEventById(eventId, new EventRepository.EventCallback() {
-            @Override
-            public void onSuccess(EventItem event) {
-                try {
-                    titleTextView.setText(event.getTitle());
-                    showPoster(event.getPosterUrl());
-                    showMetadata(event);
-                    descriptionTextView.setText(hasText(event.getDescription())
-                            ? event.getDescription()
-                            : getString(R.string.event_card_missing_description));
-                } catch (Exception exception) {
-                    Log.e(TAG, "Failed to render event details", exception);
+        repository.getEventById(eventId)
+                .addOnSuccessListener(event -> {
+                    try {
+                        currentEvent = event;
+                        titleTextView.setText(event.getTitle());
+                        showPoster(event.getPosterUrl());
+                        showMetadata(event);
+                        descriptionTextView.setText(hasText(event.getDescription())
+                                ? event.getDescription()
+                                : getString(R.string.event_card_missing_description));
+                        loadWaitlistState(event);
+                    } catch (Exception exception) {
+                        Log.e(TAG, "Failed to render event details", exception);
+                        Toast.makeText(
+                                ViewEventActivity.this,
+                                getString(R.string.failed_to_render_event),
+                                Toast.LENGTH_LONG
+                        ).show();
+                        renderLoadFailureState();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load event details", e);
                     Toast.makeText(
                             ViewEventActivity.this,
-                            getString(R.string.failed_to_render_event),
+                            buildLoadErrorMessage(e),
                             Toast.LENGTH_LONG
                     ).show();
                     renderLoadFailureState();
-                }
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Failed to load event details", e);
-                Toast.makeText(
-                        ViewEventActivity.this,
-                        buildLoadErrorMessage(e),
-                        Toast.LENGTH_LONG
-                ).show();
-                renderLoadFailureState();
-            }
-        });
+                });
     }
 
     private void openEventEditor() {
         Intent intent = new Intent(this, CreateEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
         startActivity(intent);
+    }
+
+    private void showJoinWaitlistDialog() {
+        if (currentEvent == null) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.join_waitlist)
+                .setMessage(getString(
+                        R.string.waitlist_join_dialog_message,
+                        formatMaxEntrants(currentEvent.getMaxEntrants()),
+                        currentEvent.getTitle(),
+                        formatDate(currentEvent.getEventDate()),
+                        formatDate(currentEvent.getRegistrationDeadline())
+                ))
+                .setNegativeButton(R.string.back, null)
+                .setPositiveButton(R.string.join, (dialog, which) -> joinWaitlist())
+                .show();
+    }
+
+    private void joinWaitlist() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null || currentEvent == null) {
+            return;
+        }
+        setWaitlistActionLoading(true);
+        repository.joinWaitlist(eventId, currentUser)
+                .addOnSuccessListener(ignored -> {
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            R.string.waitlist_join_success,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    loadEvent();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to join waitlist", e);
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            buildWaitlistErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    applyWaitlistViewState();
+                });
+    }
+
+    private void leaveWaitlist() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null || currentEvent == null) {
+            return;
+        }
+        setWaitlistActionLoading(true);
+        repository.leaveWaitlist(eventId, currentUser.getUid())
+                .addOnSuccessListener(ignored -> {
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            R.string.waitlist_leave_success,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    loadEvent();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to leave waitlist", e);
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            buildWaitlistErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    applyWaitlistViewState();
+                });
+    }
+
+    private void loadWaitlistState(EventItem event) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            updateWaitlistFlags(false, false, false, false);
+            applyWaitlistViewState();
+            return;
+        }
+
+        repository.getWaitlistState(eventId, currentUser.getUid())
+                .addOnSuccessListener(joined -> {
+                    updateWaitlistControls(event, currentUser.getUid(), Boolean.TRUE.equals(joined));
+                    applyWaitlistViewState();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load waitlist state", e);
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            buildWaitlistErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    updateWaitlistControls(event, currentUser.getUid(), false);
+                    applyWaitlistViewState();
+                });
+    }
+
+    private void applyWaitlistViewState() {
+        joinWaitlistButton.setVisibility(showJoinButton ? View.VISIBLE : View.GONE);
+        joinWaitlistButton.setEnabled(joinEnabled && !waitlistActionLoading);
+        waitlistCountTextView.setVisibility(currentEvent == null ? View.GONE : View.VISIBLE);
+        waitlistJoinedTextView.setVisibility(showJoinedLabel ? View.VISIBLE : View.GONE);
+        leaveWaitlistButton.setVisibility(showLeaveButton ? View.VISIBLE : View.GONE);
+        leaveWaitlistButton.setEnabled(!waitlistActionLoading);
+
+        if (currentEvent != null) {
+            waitlistCountTextView.setText(
+                    getString(R.string.event_total_entrants_label, currentEvent.getTotalEntrants())
+            );
+        }
+        waitlistJoinedTextView.setText(R.string.waitlist_joined_label);
+    }
+
+    private void setWaitlistActionLoading(boolean loading) {
+        waitlistActionLoading = loading;
+        applyWaitlistViewState();
+    }
+
+    private void updateWaitlistControls(EventItem event, String currentUserUid, boolean joined) {
+        boolean organizer = currentUserUid != null && currentUserUid.equals(event.getHostUid());
+        if (organizer) {
+            updateWaitlistFlags(false, false, false, false);
+            return;
+        }
+        if (joined) {
+            updateWaitlistFlags(false, false, true, true);
+            return;
+        }
+        boolean isOpen = EventRepository.isWaitlistJoinOpen(
+                event.isWaitlistOpen(),
+                event.getRegistrationDeadline(),
+                new Date()
+        );
+        updateWaitlistFlags(true, isOpen, false, false);
+    }
+
+    private void updateWaitlistFlags(
+            boolean showJoinButton,
+            boolean joinEnabled,
+            boolean showJoinedLabel,
+            boolean showLeaveButton
+    ) {
+        this.showJoinButton = showJoinButton;
+        this.joinEnabled = joinEnabled;
+        this.showJoinedLabel = showJoinedLabel;
+        this.showLeaveButton = showLeaveButton;
     }
 
     private void showPoster(String posterUrl) {
@@ -179,7 +347,6 @@ public class ViewEventActivity extends AppCompatActivity {
         } else {
             maxEntrantsTextView.setText(R.string.event_max_entrants_unlimited);
         }
-        totalEntrantsTextView.setText(getString(R.string.event_total_entrants_label, event.getTotalEntrants()));
         geolocationTextView.setText(event.isRequiresGeolocation()
                 ? R.string.event_geolocation_enabled
                 : R.string.event_geolocation_disabled);
@@ -194,7 +361,11 @@ public class ViewEventActivity extends AppCompatActivity {
         dateTextView.setText("");
         deadlineTextView.setText("");
         maxEntrantsTextView.setText("");
-        totalEntrantsTextView.setText("");
+        waitlistCountTextView.setText("");
+        waitlistCountTextView.setVisibility(View.GONE);
+        waitlistJoinedTextView.setVisibility(View.GONE);
+        joinWaitlistButton.setVisibility(View.GONE);
+        leaveWaitlistButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
     }
@@ -206,6 +377,13 @@ public class ViewEventActivity extends AppCompatActivity {
         return getString(R.string.failed_to_load_event);
     }
 
+    private String buildWaitlistErrorMessage(Exception exception) {
+        if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
+            return getString(R.string.waitlist_action_failed) + ": " + exception.getMessage().trim();
+        }
+        return getString(R.string.waitlist_action_failed);
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
@@ -215,5 +393,9 @@ public class ViewEventActivity extends AppCompatActivity {
             return "";
         }
         return new SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(date);
+    }
+
+    private String formatMaxEntrants(int maxEntrants) {
+        return maxEntrants > 0 ? String.valueOf(maxEntrants) : "no limit";
     }
 }
