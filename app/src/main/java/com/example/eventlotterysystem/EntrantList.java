@@ -1,6 +1,7 @@
 package com.example.eventlotterysystem;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -35,9 +36,28 @@ public class EntrantList {
         this.confirmedLimit = confirmedLimit;
     }
 
-    //TODO
+    /**
+     * This is the lottery draw function. it shuffles the waitingList,
+     * then takes the first entrant from the list and moves them to choosenList
+     * this continues until the choosenList.size == confirmedLimit
+     * the entrants are removed from the waitingList
+     * This is number of slots available to Entrants
+     */
     public void Choosing() {
-        //moves random users from waitingList to choosenList
+        //randomly choose entrants from waitinglist to put in choosenllist
+        Collections.shuffle(this.waitingList);
+        int countToDraw = Math.min(this.confirmedLimit, this.waitingList.size());
+        if(this.choosenList.size() < confirmedLimit){
+            for(int i = 0; i < countToDraw; i++){
+                UserProfile chosenOne = this.waitingList.get(0);
+                addChoosen(chosenOne);
+                //remove chosenOne from waitingList
+                this.waitingList.remove(chosenOne);
+
+            }
+        }
+
+
     }
     /**
      * This signs up a Entrant into the waitingList
