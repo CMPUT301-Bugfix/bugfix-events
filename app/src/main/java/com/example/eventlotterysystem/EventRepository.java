@@ -8,7 +8,6 @@ import androidx.annotation.Nullable;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
@@ -37,7 +36,7 @@ public class EventRepository {
         void onError(Exception e);
     }
 
-    public interface CreateEventCallback {
+    public interface SaveEventCallback {
         void onSuccess(String eventId);
         void onError(Exception e);
     }
@@ -105,7 +104,7 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser,
             @NonNull EventItem draftEvent,
             @Nullable Uri posterUri,
-            @NonNull CreateEventCallback callback
+            @NonNull SaveEventCallback callback
     ) {
         DocumentReference eventRef = firestore.collection("events").document();
         DocumentReference userRef = firestore.collection("users").document(currentUser.getUid());
@@ -148,6 +147,40 @@ public class EventRepository {
                 .addOnFailureListener(callback::onError);
     }
 
+    public void updateEvent(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull EventItem event,
+            @Nullable Uri posterUri,
+            @NonNull SaveEventCallback callback
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+        if (posterUri == null) {
+            eventRef.update(buildUpdatedEventPayload(event, null))
+                    .addOnSuccessListener(unused -> callback.onSuccess(eventId))
+                    .addOnFailureListener(callback::onError);
+            return;
+        }
+
+        StorageReference posterRef = storage.getReference()
+                .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
+
+        posterRef.putFile(posterUri)
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Poster upload failed");
+                    }
+                    return posterRef.getDownloadUrl();
+                })
+                .addOnSuccessListener(downloadUri ->
+                        eventRef.update(buildUpdatedEventPayload(event, downloadUri.toString()))
+                                .addOnSuccessListener(unused -> callback.onSuccess(eventId))
+                                .addOnFailureListener(callback::onError))
+                .addOnFailureListener(callback::onError);
+    }
+
     private void createEventRecord(
             @NonNull DocumentReference eventRef,
             @NonNull DocumentReference userRef,
@@ -156,7 +189,7 @@ public class EventRepository {
             @NonNull String hostDisplayName,
             @NonNull String posterUrl,
             @NonNull String accountType,
-            @NonNull CreateEventCallback callback,
+            @NonNull SaveEventCallback callback,
             @Nullable StorageReference posterRef
     ) {
         WriteBatch batch = firestore.batch();
@@ -212,6 +245,7 @@ public class EventRepository {
         String hostUid = doc.getString("hostUid");
         String hostDisplayName = doc.getString("hostDisplayName");
         Long maxEntrantsValue = doc.getLong("maxEntrants");
+        Long maxParticipantsValue = doc.getLong("maxParticipants");
         Long totalEntrantsValue = doc.getLong("totalEntrants");
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
@@ -242,6 +276,7 @@ public class EventRepository {
                 location,
                 posterUrl,
                 maxEntrantsValue == null ? 0 : maxEntrantsValue.intValue(),
+                maxParticipantsValue == null ? 0 : maxParticipantsValue.intValue(),
                 totalEntrantsValue == null ? 0 : totalEntrantsValue.intValue(),
                 registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
                 eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
@@ -264,6 +299,7 @@ public class EventRepository {
         payload.put("location", event.getLocation());
         payload.put("posterUrl", posterUrl);
         payload.put("maxEntrants", event.getMaxEntrants());
+        payload.put("maxParticipants", event.getMaxParticipants());
         payload.put("totalEntrants", event.getTotalEntrants());
         payload.put("registrationDeadline", event.getRegistrationDeadline());
         payload.put("eventDate", event.getEventDate());
@@ -273,6 +309,26 @@ public class EventRepository {
         payload.put("waitlistOpen", true);
         payload.put("deleted", false);
         payload.put("createdAt", Timestamp.now());
+        return payload;
+    }
+
+    @NonNull
+    private Map<String, Object> buildUpdatedEventPayload(
+            @NonNull EventItem event,
+            @Nullable String posterUrl
+    ) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("title", event.getTitle());
+        payload.put("description", event.getDescription());
+        payload.put("location", event.getLocation());
+        payload.put("maxEntrants", event.getMaxEntrants());
+        payload.put("maxParticipants", event.getMaxParticipants());
+        payload.put("registrationDeadline", event.getRegistrationDeadline());
+        payload.put("eventDate", event.getEventDate());
+        payload.put("requiresGeolocation", event.isRequiresGeolocation());
+        if (posterUrl != null) {
+            payload.put("posterUrl", posterUrl);
+        }
         return payload;
     }
 

@@ -1,8 +1,11 @@
 package com.example.eventlotterysystem;
 
 import android.app.DatePickerDialog;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -17,6 +20,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -29,15 +33,20 @@ import java.util.Locale;
 
 public class CreateEventActivity extends AppCompatActivity {
 
+    private static final String TAG = "CreateEventActivity";
     private static final String DATE_PATTERN = "MMM d, yyyy";
+    private static final long MAX_POSTER_BYTES = 4L * 1024L * 1024L;
 
     private FirebaseAuth auth;
     private EventRepository repository;
 
+    private TextView screenTitle;
+    private TextView screenSubtitle;
     private EditText titleInput;
     private EditText descriptionInput;
     private EditText locationInput;
     private EditText maxEntrantsInput;
+    private EditText maxParticipantsInput;
     private ImageView posterPreview;
     private TextView posterStatus;
     private TextView deadlineValue;
@@ -51,6 +60,9 @@ public class CreateEventActivity extends AppCompatActivity {
     private Uri selectedPosterUri;
     private LocalDate selectedDeadlineDate;
     private LocalDate selectedEventDate;
+    private String editingEventId;
+    private String currentPosterUrl = "";
+    private boolean editMode;
 
     private final ActivityResultLauncher<String> posterPickerLauncher =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
@@ -58,6 +70,7 @@ public class CreateEventActivity extends AppCompatActivity {
                     return;
                 }
                 selectedPosterUri = uri;
+                posterPreview.setVisibility(View.VISIBLE);
                 posterPreview.setImageURI(uri);
                 posterStatus.setText(R.string.poster_selected);
                 posterStatus.setError(null);
@@ -71,10 +84,13 @@ public class CreateEventActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
 
+        screenTitle = findViewById(R.id.createEventTitle);
+        screenSubtitle = findViewById(R.id.createEventSubtitle);
         titleInput = findViewById(R.id.createEventTitleInput);
         descriptionInput = findViewById(R.id.createEventDescriptionInput);
         locationInput = findViewById(R.id.createEventLocationInput);
         maxEntrantsInput = findViewById(R.id.createEventMaxEntrantsInput);
+        maxParticipantsInput = findViewById(R.id.createEventMaxParticipantsInput);
         posterPreview = findViewById(R.id.createEventPosterPreview);
         posterStatus = findViewById(R.id.createEventPosterStatus);
         deadlineValue = findViewById(R.id.createEventDeadlineValue);
@@ -91,8 +107,16 @@ public class CreateEventActivity extends AppCompatActivity {
         eventDateButton.setOnClickListener(v -> showDatePicker(false));
         submitButton.setOnClickListener(v -> submitEvent());
 
-        posterStatus.setText(R.string.poster_optional);
-        posterStatus.setTextColor(ContextCompat.getColor(this, android.R.color.secondary_text_light));
+        editingEventId = getIntent().getStringExtra("EVENT_ID");
+        editMode = hasText(editingEventId);
+
+        showPosterOptionalState();
+        if (editMode) {
+            screenTitle.setText(R.string.edit_event_title);
+            screenSubtitle.setText(R.string.edit_event_subtitle);
+            submitButton.setText(R.string.edit_event_submit);
+            loadEventForEditing(editingEventId);
+        }
     }
 
     private void showDatePicker(boolean forDeadline) {
@@ -156,9 +180,22 @@ public class CreateEventActivity extends AppCompatActivity {
 
         int maxEntrants = 0;
         try {
-            maxEntrants = parsePositiveInt(readTrimmed(maxEntrantsInput));
+            maxEntrants = parseOptionalPositiveInt(readTrimmed(maxEntrantsInput));
         } catch (IllegalArgumentException exception) {
             maxEntrantsInput.setError(getString(R.string.max_entrants_invalid));
+            hasErrors = true;
+        }
+
+        int maxParticipants = 0;
+        try {
+            maxParticipants = parseRequiredPositiveInt(readTrimmed(maxParticipantsInput));
+        } catch (IllegalArgumentException exception) {
+            maxParticipantsInput.setError(getString(R.string.max_participants_invalid));
+            hasErrors = true;
+        }
+
+        if (maxEntrants > 0 && maxParticipants > maxEntrants) {
+            maxParticipantsInput.setError(getString(R.string.max_participants_exceeds_entrants));
             hasErrors = true;
         }
 
@@ -183,12 +220,13 @@ public class CreateEventActivity extends AppCompatActivity {
         setLoading(true);
 
         EventItem draftEvent = new EventItem(
-                "",
+                editMode ? editingEventId : "",
                 title,
                 description,
                 location,
-                "",
+                currentPosterUrl,
                 maxEntrants,
+                maxParticipants,
                 0,
                 toRegistrationDeadline(selectedDeadlineDate),
                 toEventDate(selectedEventDate),
@@ -197,20 +235,34 @@ public class CreateEventActivity extends AppCompatActivity {
                 ""
         );
 
-        repository.createEvent(currentUser, draftEvent, selectedPosterUri, new EventRepository.CreateEventCallback() {
+        EventRepository.SaveEventCallback callback = new EventRepository.SaveEventCallback() {
             @Override
             public void onSuccess(String eventId) {
                 setLoading(false);
-                Toast.makeText(CreateEventActivity.this, R.string.event_created, Toast.LENGTH_SHORT).show();
+                Toast.makeText(
+                        CreateEventActivity.this,
+                        editMode ? R.string.event_updated : R.string.event_created,
+                        Toast.LENGTH_SHORT
+                ).show();
                 finish();
             }
 
             @Override
             public void onError(Exception e) {
                 setLoading(false);
-                Toast.makeText(CreateEventActivity.this, R.string.failed_to_create_event, Toast.LENGTH_SHORT).show();
+                Toast.makeText(
+                        CreateEventActivity.this,
+                        editMode ? R.string.failed_to_update_event : R.string.failed_to_create_event,
+                        Toast.LENGTH_SHORT
+                ).show();
             }
-        });
+        };
+
+        if (editMode) {
+            repository.updateEvent(editingEventId, currentUser, draftEvent, selectedPosterUri, callback);
+        } else {
+            repository.createEvent(currentUser, draftEvent, selectedPosterUri, callback);
+        }
     }
 
     private void clearErrors() {
@@ -218,6 +270,7 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput.setError(null);
         locationInput.setError(null);
         maxEntrantsInput.setError(null);
+        maxParticipantsInput.setError(null);
         posterStatus.setError(null);
         deadlineValue.setError(null);
         eventDateValue.setError(null);
@@ -232,8 +285,116 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput.setEnabled(!loading);
         locationInput.setEnabled(!loading);
         maxEntrantsInput.setEnabled(!loading);
+        maxParticipantsInput.setEnabled(!loading);
         geolocationSwitch.setEnabled(!loading);
         findViewById(R.id.createEventBackButton).setEnabled(!loading);
+    }
+
+    private void loadEventForEditing(String eventId) {
+        setLoading(true);
+        repository.getEventById(eventId, new EventRepository.EventCallback() {
+            @Override
+            public void onSuccess(EventItem event) {
+                setLoading(false);
+                populateForm(event);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Failed to load event for editing", e);
+                setLoading(false);
+                Toast.makeText(
+                        CreateEventActivity.this,
+                        buildLoadErrorMessage(e),
+                        Toast.LENGTH_LONG
+                ).show();
+                finish();
+            }
+        });
+    }
+
+    private void populateForm(EventItem event) {
+        titleInput.setText(event.getTitle());
+        descriptionInput.setText(event.getDescription());
+        locationInput.setText(event.getLocation());
+        maxEntrantsInput.setText(event.getMaxEntrants() > 0 ? String.valueOf(event.getMaxEntrants()) : "");
+        maxParticipantsInput.setText(event.getMaxParticipants() > 0 ? String.valueOf(event.getMaxParticipants()) : "");
+
+        selectedDeadlineDate = toLocalDate(event.getRegistrationDeadline());
+        selectedEventDate = toLocalDate(event.getEventDate());
+        if (selectedDeadlineDate != null) {
+            deadlineValue.setText(formatDate(toRegistrationDeadline(selectedDeadlineDate)));
+        }
+        if (selectedEventDate != null) {
+            eventDateValue.setText(formatDate(toEventDate(selectedEventDate)));
+        }
+
+        geolocationSwitch.setChecked(event.isRequiresGeolocation());
+        currentPosterUrl = event.getPosterUrl();
+        showExistingPoster(currentPosterUrl);
+    }
+
+    private void showExistingPoster(String posterUrl) {
+        if (!hasText(posterUrl)) {
+            posterPreview.setImageDrawable(null);
+            posterPreview.setVisibility(View.GONE);
+            showPosterOptionalState();
+            return;
+        }
+
+        posterPreview.setVisibility(View.VISIBLE);
+        posterPreview.setImageResource(android.R.drawable.ic_menu_gallery);
+        posterStatus.setText(R.string.poster_selected);
+        posterStatus.setError(null);
+
+        try {
+            FirebaseStorage.getInstance()
+                    .getReferenceFromUrl(posterUrl)
+                    .getBytes(MAX_POSTER_BYTES)
+                    .addOnSuccessListener(bytes -> {
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        posterPreview.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
+                    })
+                    .addOnFailureListener(exception -> {
+                        Log.e(TAG, "Failed to load current poster", exception);
+                        if (isFinishing() || isDestroyed()) {
+                            return;
+                        }
+                        posterPreview.setVisibility(View.GONE);
+                        posterPreview.setImageDrawable(null);
+                        showPosterOptionalState();
+                    });
+        } catch (IllegalArgumentException exception) {
+            Log.e(TAG, "Invalid poster URL", exception);
+            posterPreview.setVisibility(View.GONE);
+            posterPreview.setImageDrawable(null);
+            showPosterOptionalState();
+        }
+    }
+
+    private void showPosterOptionalState() {
+        if (selectedPosterUri == null && !hasText(currentPosterUrl)) {
+            posterPreview.setVisibility(View.GONE);
+            posterPreview.setImageDrawable(null);
+        }
+        posterStatus.setText(R.string.poster_optional);
+        posterStatus.setTextColor(ContextCompat.getColor(this, android.R.color.secondary_text_light));
+    }
+
+    private LocalDate toLocalDate(Date date) {
+        if (date == null) {
+            return null;
+        }
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    }
+
+    private String buildLoadErrorMessage(Exception exception) {
+        if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
+            return getString(R.string.failed_to_load_event) + ": " + exception.getMessage().trim();
+        }
+        return getString(R.string.failed_to_load_event);
     }
 
     private String readTrimmed(EditText input) {
@@ -244,9 +405,9 @@ public class CreateEventActivity extends AppCompatActivity {
         return value != null && !value.trim().isEmpty();
     }
 
-    private int parsePositiveInt(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("Missing number");
+    private int parseOptionalPositiveInt(String value) {
+        if (!hasText(value)) {
+            return 0;
         }
         try {
             int parsed = Integer.parseInt(value.trim());
@@ -257,6 +418,13 @@ public class CreateEventActivity extends AppCompatActivity {
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Invalid number", exception);
         }
+    }
+
+    private int parseRequiredPositiveInt(String value) {
+        if (!hasText(value)) {
+            throw new IllegalArgumentException("Missing number");
+        }
+        return parseOptionalPositiveInt(value);
     }
 
     private Date toRegistrationDeadline(LocalDate localDate) {

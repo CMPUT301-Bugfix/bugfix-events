@@ -125,6 +125,14 @@
                 android:hint="@string/max_entrants_hint"
                 android:inputType="number" />
 
+            <EditText
+                android:id="@+id/createEventMaxParticipantsInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:hint="@string/max_participants"
+                android:inputType="number" />
+
             <TextView
                 android:id="@+id/createEventDeadlineLabel"
                 android:layout_width="match_parent"
