@@ -235,33 +235,44 @@ public class CreateEventActivity extends AppCompatActivity {
                 ""
         );
 
-        EventRepository.SaveEventCallback callback = new EventRepository.SaveEventCallback() {
-            @Override
-            public void onSuccess(String eventId) {
-                setLoading(false);
-                Toast.makeText(
-                        CreateEventActivity.this,
-                        editMode ? R.string.event_updated : R.string.event_created,
-                        Toast.LENGTH_SHORT
-                ).show();
-                finish();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                setLoading(false);
-                Toast.makeText(
-                        CreateEventActivity.this,
-                        editMode ? R.string.failed_to_update_event : R.string.failed_to_create_event,
-                        Toast.LENGTH_SHORT
-                ).show();
-            }
-        };
-
         if (editMode) {
-            repository.updateEvent(editingEventId, currentUser, draftEvent, selectedPosterUri, callback);
+            repository.updateEvent(editingEventId, currentUser, draftEvent, selectedPosterUri)
+                    .addOnSuccessListener(eventId -> {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.event_updated,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                        finish();
+                    })
+                    .addOnFailureListener(e -> {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.failed_to_update_event,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    });
         } else {
-            repository.createEvent(currentUser, draftEvent, selectedPosterUri, callback);
+            repository.createEvent(currentUser, draftEvent, selectedPosterUri)
+                    .addOnSuccessListener(eventId -> {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.event_created,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                        finish();
+                    })
+                    .addOnFailureListener(e -> {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.failed_to_create_event,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    });
         }
     }
 
@@ -292,25 +303,21 @@ public class CreateEventActivity extends AppCompatActivity {
 
     private void loadEventForEditing(String eventId) {
         setLoading(true);
-        repository.getEventById(eventId, new EventRepository.EventCallback() {
-            @Override
-            public void onSuccess(EventItem event) {
-                setLoading(false);
-                populateForm(event);
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Failed to load event for editing", e);
-                setLoading(false);
-                Toast.makeText(
-                        CreateEventActivity.this,
-                        buildLoadErrorMessage(e),
-                        Toast.LENGTH_LONG
-                ).show();
-                finish();
-            }
-        });
+        repository.getEventById(eventId)
+                .addOnSuccessListener(event -> {
+                    setLoading(false);
+                    populateForm(event);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load event for editing", e);
+                    setLoading(false);
+                    Toast.makeText(
+                            CreateEventActivity.this,
+                            buildLoadErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                });
     }
 
     private void populateForm(EventItem event) {

@@ -8,7 +8,7 @@
     android:padding="16dp">
 
     <TextView
-        android:id="@+id/eventItemTitle"
+        android:id="@+id/waitlistItemName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="?android:textColorPrimary"
@@ -16,7 +16,7 @@
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/eventItemLocation"
+        android:id="@+id/waitlistItemDate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -24,7 +24,7 @@
         android:textSize="14sp" />
 
     <TextView
-        android:id="@+id/eventItemDate"
+        android:id="@+id/waitlistItemStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"

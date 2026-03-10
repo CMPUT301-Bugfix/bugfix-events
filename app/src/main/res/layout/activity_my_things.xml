@@ -57,8 +57,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
             android:textColor="?android:textColorPrimary"
-            android:textSize="16sp"
-            tools:text="Signed in as someone@example.com" />
+            android:textSize="16sp" />
 
         <Button
             android:id="@+id/settingsButton"
@@ -73,6 +72,13 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="10dp"
             android:text="@string/host_an_event" />
+
+        <Button
+            android:id="@+id/myWaitlistButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:text="@string/my_waitlist" />
 
         <Button
             android:id="@+id/adminZoneButton"

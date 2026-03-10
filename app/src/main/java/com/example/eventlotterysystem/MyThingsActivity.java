@@ -19,6 +19,7 @@ public class MyThingsActivity extends AppCompatActivity {
 
     private TextView myThingsSubtitle;
     private Button adminZoneButton;
+    private Button myWaitlistButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,12 +31,15 @@ public class MyThingsActivity extends AppCompatActivity {
 
         myThingsSubtitle = findViewById(R.id.myThingsSubtitle);
         adminZoneButton = findViewById(R.id.adminZoneButton);
+        myWaitlistButton = findViewById(R.id.myWaitlistButton);
 
         findViewById(R.id.myThingsBackButton).setOnClickListener(v -> finish());
         findViewById(R.id.settingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.hostEventButton).setOnClickListener(v ->
                 startActivity(new Intent(this, HostedEventsActivity.class)));
+        myWaitlistButton.setOnClickListener(v ->
+                startActivity(new Intent(this, MyWaitlistActivity.class)));
         findViewById(R.id.myThingsLogoutButton).setOnClickListener(v -> onLogOutClicked());
         adminZoneButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminZoneActivity.class)));
