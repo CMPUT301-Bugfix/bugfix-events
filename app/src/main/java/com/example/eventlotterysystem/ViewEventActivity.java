@@ -1,23 +1,36 @@
 package com.example.eventlotterysystem;
 
+import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 public class ViewEventActivity extends AppCompatActivity {
-
+    private FirebaseAuth auth;
+    private FirebaseFirestore firestore;
     private static final String TAG = "ViewEventActivity";
     private static final long MAX_POSTER_BYTES = 4L * 1024L * 1024L;
     private static final String DATE_PATTERN = "MMM d, yyyy";
@@ -33,6 +46,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView geolocationTextView;
     private TextView descriptionTextView;
     private EventRepository repository;
+    private Button signUpButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,10 +63,13 @@ public class ViewEventActivity extends AppCompatActivity {
         totalEntrantsTextView = findViewById(R.id.viewEventTotalEntrants);
         geolocationTextView = findViewById(R.id.viewEventGeolocation);
         descriptionTextView = findViewById(R.id.viewEventDescription);
+        signUpButton = findViewById(R.id.signUpEvent);
 
+        auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
 
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
+
 
         String eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -80,6 +97,39 @@ public class ViewEventActivity extends AppCompatActivity {
                     ).show();
                     renderLoadFailureState();
                 }
+
+                // No error correction
+                FirebaseUser currentUser = auth.getCurrentUser();
+                if (event.getTotalEntrants() < event.getMaxEntrants()) {
+                    signUpButton.setOnClickListener(v -> {
+                        event.signUp(currentUser.getUid(), currentUser.getDisplayName());
+                        WriteBatch batch = firestore.batch();
+                        DocumentReference eventRef = firestore.collection("events").document(event.getId());
+                        Map<String, Object> eventUpdates = new HashMap<>();
+                        eventUpdates.put("email", refreshedEmail);
+                        userUpdates.put("pendingEmail", FieldValue.delete());
+                        batch.set(userRef, userUpdates, SetOptions.merge());
+
+                        if (!TextUtils.isEmpty(originalProfile.getUsernameKey())) {
+                            DocumentReference usernameRef = firestore.collection("usernames")
+                                    .document(originalProfile.getUsernameKey());
+                            Map<String, Object> usernameUpdates = new HashMap<>();
+                            usernameUpdates.put("uid", currentUser.getUid());
+                            usernameUpdates.put("email", refreshedEmail);
+                            usernameUpdates.put("pendingEmail", FieldValue.delete());
+                            batch.set(usernameRef, usernameUpdates, SetOptions.merge());
+                        }
+
+                        batch.commit().addOnSuccessListener(unused -> {
+                            originalProfile.setEmail(refreshedEmail);
+                            updateEmailInput.setText(refreshedEmail);
+                            showMessage(getString(R.string.email_change_completed));
+                        });
+                    });
+                }
+
+
+
             }
 
             @Override

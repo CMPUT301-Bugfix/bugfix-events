@@ -10,9 +10,9 @@ import java.util.List;
 public class EntrantList {
     private int signUpLimit;
     private int confirmedLimit;
-    private List<UserProfile> waitingList = new ArrayList<>();
-    private List<UserProfile> choosenList = new ArrayList<>();
-    private List<UserProfile> confirmedList = new ArrayList<>();
+    private final List<EntrantInfo> waitingList = new ArrayList<>();
+    private final List<EntrantInfo> chosenList = new ArrayList<>();
+    private final List<EntrantInfo> confirmedList = new ArrayList<>();
 
     /**
      * This creates the EntrantList object
@@ -36,7 +36,7 @@ public class EntrantList {
     }
 
     //TODO
-    public void Choosing() {
+    public void Chosing() {
         //moves random users from waitingList to choosenList
     }
     /**
@@ -46,19 +46,19 @@ public class EntrantList {
      * @return true if add was successful
      * @throws IllegalArgumentException if Entrant is already registered
      */
-    public boolean addEntrantToWaitingList(UserProfile Entrant) {
-        for (UserProfile EntrantInWaitingList: waitingList) {
-            if (EntrantInWaitingList.getUsernameKey() == Entrant.getUsernameKey()) {
+    public boolean addEntrantToWaitingList(EntrantInfo Entrant) {
+        for (EntrantInfo EntrantInWaitingList: waitingList) {
+            if (EntrantInWaitingList.getId().equals(Entrant.getId())) {
                 throw new IllegalArgumentException("Entrant already in Waiting List");
             }
         }
-        for (UserProfile EntrantInChoosenList: choosenList) {
-            if (EntrantInChoosenList.getUsernameKey() == Entrant.getUsernameKey()) {
+        for (EntrantInfo EntrantInChosenList: chosenList) {
+            if (EntrantInChosenList.getId().equals(Entrant.getId())) {
                 throw new IllegalArgumentException("Entrant already is selected");
             }
         }
-        for (UserProfile EntrantInConfirmedList: confirmedList) {
-            if (EntrantInConfirmedList.getUsernameKey() == Entrant.getUsernameKey()) {
+        for (EntrantInfo EntrantInConfirmedList: confirmedList) {
+            if (EntrantInConfirmedList.getId().equals(Entrant.getId())) {
                 throw new IllegalArgumentException("Entrant already confirmed for event");
             }
         }
@@ -78,10 +78,10 @@ public class EntrantList {
      * This is the Entrant that confirmed
      * @return true if confirmation was successful
      */
-    public boolean confirmEntrant(UserProfile Entrant) {
-        for (Iterator<UserProfile> iterator = choosenList.iterator(); iterator.hasNext();) {
-            UserProfile EntrantInChoosenList = iterator.next();
-            if (EntrantInChoosenList.getUsernameKey().equals(Entrant.getUsernameKey())) {
+    public boolean confirmEntrant(EntrantInfo Entrant) {
+        for (Iterator<EntrantInfo> iterator = chosenList.iterator(); iterator.hasNext();) {
+            EntrantInfo EntrantInChosenList = iterator.next();
+            if (EntrantInChosenList.getId().equals(Entrant.getId())) {
                 iterator.remove();
                 confirmedList.add(Entrant);
                 return true;
@@ -122,20 +122,24 @@ public class EntrantList {
         this.confirmedLimit = confirmedLimit;
     }
 
-    public List<UserProfile> getWaitingList() {
+    public int getTotalEntrants() {
+        return waitingList.size() + chosenList.size() + confirmedList.size();
+    }
+
+    public List<EntrantInfo> getWaitingList() {
         return waitingList;
     }
 
-    public List<UserProfile> getChoosenList() {
-        return choosenList;
+    public List<EntrantInfo> getChoosenList() {
+        return chosenList;
     }
 
-    public List<UserProfile> getConfirmedList() {
+    public List<EntrantInfo> getConfirmedList() {
         return confirmedList;
     }
 
     //Temporary Method
-    public void addChoosen(UserProfile Entrant) {
-        choosenList.add(Entrant);
+    public void addChosen(EntrantInfo Entrant) {
+        chosenList.add(Entrant);
     }
 }

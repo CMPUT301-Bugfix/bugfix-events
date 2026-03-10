@@ -9,6 +9,7 @@ import java.util.UUID;
 
 /**
  * This is a class for an Event
+ * @deprecated
  */
 public class Event {
     private final UUID eventId;
@@ -96,9 +97,11 @@ public class Event {
      * @param Entrant
      * This is the Entrant to be signed up
      */
+    /*
     public void signUp(UserProfile Entrant) {
        entrantList.addEntrantToWaitingList(Entrant);
     }
+     */
 
     public String getLocation() {
         return location;

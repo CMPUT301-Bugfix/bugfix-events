@@ -2,6 +2,9 @@ package com.example.eventlotterysystem;
 
 import java.util.Date;
 
+/**
+ * This is a class for an Event
+ */
 public class EventItem {
     private final String id;
     private final String title;
@@ -9,12 +12,15 @@ public class EventItem {
     private final String location;
     private final String posterUrl;
     private final int maxEntrants;
-    private final int totalEntrants;
+    private int totalEntrants;
     private final Date registrationDeadline;
     private final Date eventDate;
     private final boolean requiresGeolocation;
     private final String hostUid;
     private final String hostDisplayName;
+
+    private final EntrantList entrantList;
+
 
     public EventItem(String id, String title, String description) {
         this(id, title, description, "", "", 0, 0, null, null, false, "", "");
@@ -46,6 +52,20 @@ public class EventItem {
         this.requiresGeolocation = requiresGeolocation;
         this.hostUid = hostUid;
         this.hostDisplayName = hostDisplayName;
+        this.entrantList = new EntrantList(maxEntrants);
+    }
+
+    /**
+     * This signs up a Entrant into the waitingList
+     * @param name
+     * This is the display name of Entrant to be signed up
+     * @param id
+     * This is the id of Entrant to be signed up
+     */
+    public void signUp(String name, String id) {
+        EntrantInfo Entrant = new EntrantInfo(name, id);
+        entrantList.addEntrantToWaitingList(Entrant);
+        totalEntrants = entrantList.getTotalEntrants();
     }
 
     public String getId() {

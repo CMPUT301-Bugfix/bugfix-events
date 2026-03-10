@@ -129,6 +129,12 @@
                 android:textColor="?android:textColorPrimary"
                 android:textSize="16sp"
                 tools:text="An evening event celebrating community art, live music, and local food vendors." />
+
+            <Button
+                android:id="@+id/signUpEvent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/event_entrant_sign_up"/>
         </LinearLayout>
     </ScrollView>
 

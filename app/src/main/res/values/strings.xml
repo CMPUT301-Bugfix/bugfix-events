@@ -131,4 +131,5 @@
     <string name="unknown_phone">(no phone)</string>
     <string name="unknown_account_type">(unknown)</string>
     <string name="no_profiles_for_filter">No profiles found for this filter.</string>
+    <string name="event_entrant_sign_up">Join Waitlist</string>
 </resources>
