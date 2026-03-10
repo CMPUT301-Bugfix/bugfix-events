@@ -9,6 +9,16 @@
     tools:context=".HomeActivity">
 
     <Button
+        android:id="@+id/qrCodeScan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="20dp"
+        android:text="@string/scan_qr_code"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        />
+    <Button
         android:id="@+id/myThingsButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

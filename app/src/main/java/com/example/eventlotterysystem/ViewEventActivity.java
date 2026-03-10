@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
@@ -60,6 +61,12 @@ public class ViewEventActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        findViewById(R.id.createQRCode).setOnClickListener(v -> {
+            Intent intent = new Intent(this, QRCode.class);
+            intent.putExtra("Event_ID", eventId);
+            startActivity(intent);
+        });
 
         repository.getEventById(eventId, new EventRepository.EventCallback() {
             @Override

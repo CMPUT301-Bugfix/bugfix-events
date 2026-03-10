@@ -1,6 +1,7 @@
 package com.example.eventlotterysystem;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -8,11 +9,14 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +49,9 @@ public class HomeActivity extends AppCompatActivity {
 
         findViewById(R.id.myThingsButton).setOnClickListener(v ->
                 startActivity(new Intent(this, MyThingsActivity.class)));
+
+        findViewById(R.id.qrCodeScan).setOnClickListener(v -> scanCode());
+
         homeEventsListView.setOnItemClickListener((parent, view, position, id) -> {
             Intent intent = new Intent(this, ViewEventActivity.class);
             intent.putExtra("EVENT_ID", events.get(position).getId());
@@ -70,6 +77,43 @@ public class HomeActivity extends AppCompatActivity {
             verifyActiveProfileAndRender(refreshedUser);
         });
     }
+
+    private void scanCode(){
+        ScanOptions options = new ScanOptions();
+        options.setPrompt("Scan a QR Code");
+        options.setBeepEnabled(true);
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        options.setCameraId(0);
+        options.setOrientationLocked(false);
+        barLauncher.launch(options);
+    }
+
+    ActivityResultLauncher<ScanOptions> barLauncher = registerForActivityResult(new ScanContract(), result -> {
+       if(result.getContents() != null){
+            String scanResults = result.getContents();
+
+            try{
+                Uri uri = Uri.parse(scanResults);
+
+                if("myapp".equals(uri.getScheme()) && "event".equals(uri.getHost())){
+                    String eventID = uri.getQueryParameter("id");
+                    if(eventID != null && !eventID.isEmpty()){
+                        Intent intent = new Intent(this, ViewEventActivity.class);
+                        intent.putExtra("EVENT_ID", eventID);
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(this, "Missing Event ID",Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(this, "Unregister QR code", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e){
+                Toast.makeText(this, "Error reading QR code", Toast.LENGTH_SHORT).show();
+            }
+       } else {
+           Toast.makeText(this, "Scan cancelled", Toast.LENGTH_SHORT).show();
+       }
+    });
 
     private void verifyActiveProfileAndRender(FirebaseUser user) {
         firestore.collection("users")
