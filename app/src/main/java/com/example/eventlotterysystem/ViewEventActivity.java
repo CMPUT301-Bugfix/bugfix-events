@@ -148,7 +148,11 @@ public class ViewEventActivity extends AppCompatActivity {
         locationTextView.setText(getString(R.string.event_location_label, location));
         dateTextView.setText(getString(R.string.event_date_label, eventDate));
         deadlineTextView.setText(getString(R.string.event_deadline_label, deadlineDate));
-        maxEntrantsTextView.setText(getString(R.string.event_max_entrants_label, event.getMaxEntrants()));
+        if (event.getMaxEntrants() > 0) {
+            maxEntrantsTextView.setText(getString(R.string.event_max_entrants_label, event.getMaxEntrants()));
+        } else {
+            maxEntrantsTextView.setText(R.string.event_max_entrants_unlimited);
+        }
         totalEntrantsTextView.setText(getString(R.string.event_total_entrants_label, event.getTotalEntrants()));
         geolocationTextView.setText(event.isRequiresGeolocation()
                 ? R.string.event_geolocation_enabled
