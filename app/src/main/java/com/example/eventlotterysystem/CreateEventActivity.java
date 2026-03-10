@@ -17,6 +17,8 @@ import androidx.core.content.ContextCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -32,8 +34,8 @@ public class CreateEventActivity extends AppCompatActivity {
     private static final String DATE_PATTERN = "MMM d, yyyy";
 
     private FirebaseAuth auth;
+    private FirebaseFirestore firestore;
     private EventRepository repository;
-
     private EditText titleInput;
     private EditText descriptionInput;
     private EditText locationInput;
@@ -202,6 +204,13 @@ public class CreateEventActivity extends AppCompatActivity {
             public void onSuccess(String eventId) {
                 setLoading(false);
                 Toast.makeText(CreateEventActivity.this, R.string.event_created, Toast.LENGTH_SHORT).show();
+
+                // adding the entrant lists
+                firestore = FirebaseFirestore.getInstance();
+                DocumentReference EventDocRef = firestore.collection("Event").document(eventId);
+                EventDocRef.collection("WaitingList").document();
+                EventDocRef.collection("ChosenList").document();
+                EventDocRef.collection("ConfirmedList").document();
                 finish();
             }
 

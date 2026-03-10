@@ -105,26 +105,8 @@ public class ViewEventActivity extends AppCompatActivity {
                         event.signUp(currentUser.getUid(), currentUser.getDisplayName());
                         WriteBatch batch = firestore.batch();
                         DocumentReference eventRef = firestore.collection("events").document(event.getId());
-                        Map<String, Object> eventUpdates = new HashMap<>();
-                        eventUpdates.put("email", refreshedEmail);
-                        userUpdates.put("pendingEmail", FieldValue.delete());
-                        batch.set(userRef, userUpdates, SetOptions.merge());
-
-                        if (!TextUtils.isEmpty(originalProfile.getUsernameKey())) {
-                            DocumentReference usernameRef = firestore.collection("usernames")
-                                    .document(originalProfile.getUsernameKey());
-                            Map<String, Object> usernameUpdates = new HashMap<>();
-                            usernameUpdates.put("uid", currentUser.getUid());
-                            usernameUpdates.put("email", refreshedEmail);
-                            usernameUpdates.put("pendingEmail", FieldValue.delete());
-                            batch.set(usernameRef, usernameUpdates, SetOptions.merge());
-                        }
-
-                        batch.commit().addOnSuccessListener(unused -> {
-                            originalProfile.setEmail(refreshedEmail);
-                            updateEmailInput.setText(refreshedEmail);
-                            showMessage(getString(R.string.email_change_completed));
-                        });
+                        //eventRef.collection("WaitingList").add(currentUser.getUid());
+                        //eventRef.collection("WaitingList").document(currentUser.getUid().add());
                     });
                 }
 
