@@ -139,4 +139,7 @@
     <string name="unknown_phone">(no phone)</string>
     <string name="unknown_account_type">(unknown)</string>
     <string name="no_profiles_for_filter">No profiles found for this filter.</string>
+    <string name="max_participants">max participants</string>
+    <string name="max_participants_invalid">Enter a valid number greater than 0.</string>
+    <string name="max_participants_exceeds_entrants">Max participants cannot exceed max entrants.</string>
 </resources>
