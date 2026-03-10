@@ -1,0 +1,71 @@
+package com.example.eventlotterysystem;
+
+import android.content.Context;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
+    private static final String DATE_PATTERN = "MMM d, yyyy";
+    private final LayoutInflater inflater;
+
+    public WaitlistEntryAdapter(@NonNull Context context, @NonNull List<WaitlistEntryItem> items) {
+        super(context, 0, items);
+        inflater = LayoutInflater.from(context);
+    }
+
+    @NonNull
+    @Override
+    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+        View view = convertView;
+        if (view == null) {
+            view = inflater.inflate(R.layout.item_waitlist_event, parent, false);
+        }
+
+        WaitlistEntryItem item = getItem(position);
+        if (item == null) {
+            return view;
+        }
+
+        TextView nameView = view.findViewById(R.id.waitlistItemName);
+        TextView dateView = view.findViewById(R.id.waitlistItemDate);
+        TextView statusView = view.findViewById(R.id.waitlistItemStatus);
+
+        nameView.setText(item.getTitle());
+        String date = formatDate(item.getEventDate());
+        if (!date.isEmpty()) {
+            dateView.setText(getContext().getString(R.string.event_date_label, date));
+        } else {
+            dateView.setText(getContext().getString(
+                    R.string.event_date_label,
+                    getContext().getString(R.string.event_card_missing_date)
+            ));
+        }
+        statusView.setText(getContext().getString(R.string.waitlist_status_label, getStatusLabel(item.getStatus())));
+        return view;
+    }
+
+    private String formatDate(Date date) {
+        if (date == null) {
+            return "";
+        }
+        return new SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(date);
+    }
+
+    private String getStatusLabel(String status) {
+        if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {
+            return getContext().getString(R.string.waitlist_status_in_waitlist);
+        }
+        return status;
+    }
+}
