@@ -21,6 +21,9 @@
     <string name="create_event">create event</string>
     <string name="create_event_title">create an event</string>
     <string name="create_event_subtitle">Set up the basics for your next hosted event.</string>
+    <string name="organize_event_title">organize event</string>
+    <string name="edit_event_title">edit event</string>
+    <string name="edit_event_subtitle">Update the details for your hosted event.</string>
     <string name="event_title_hint">event title</string>
     <string name="event_description_hint">event description</string>
     <string name="event_location_hint">event location</string>
@@ -33,8 +36,12 @@
     <string name="event_date">event date</string>
     <string name="requires_geolocation">require geolocation to join</string>
     <string name="create_event_submit">publish event</string>
+    <string name="edit_event_button">edit event</string>
+    <string name="edit_event_submit">save changes</string>
     <string name="event_created">Event created.</string>
+    <string name="event_updated">Event updated.</string>
     <string name="failed_to_create_event">Failed to create event.</string>
+    <string name="failed_to_update_event">Failed to update event.</string>
     <string name="failed_to_load_events">Failed to load events.</string>
     <string name="failed_to_load_event">Failed to load event.</string>
     <string name="failed_to_render_event">Failed to display event details.</string>
@@ -48,6 +55,7 @@
     <string name="event_date_label">Event Date: %1$s</string>
     <string name="event_deadline_label">Registration Deadline: %1$s</string>
     <string name="event_max_entrants_label">Max Entrants: %1$d</string>
+    <string name="event_max_entrants_unlimited">Max Entrants: no limit</string>
     <string name="event_total_entrants_label">Total Entrants: %1$d</string>
     <string name="event_geolocation_enabled">Geolocation required</string>
     <string name="event_geolocation_disabled">Geolocation optional</string>
@@ -65,7 +73,7 @@
     <string name="sign_out">sign out</string>
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="field_required">This field is required.</string>
-    <string name="max_entrants_invalid">Enter a valid number greater than 0.</string>
+    <string name="max_entrants_invalid">Enter a valid number greater than 0, or leave it blank.</string>
     <string name="event_date_required">Please select an event date.</string>
     <string name="registration_deadline_required">Please select a registration deadline.</string>
     <string name="registration_deadline_invalid">Registration deadline must be on or before the event date.</string>
