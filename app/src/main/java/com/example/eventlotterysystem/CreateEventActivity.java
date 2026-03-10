@@ -46,6 +46,7 @@ public class CreateEventActivity extends AppCompatActivity {
     private EditText descriptionInput;
     private EditText locationInput;
     private EditText maxEntrantsInput;
+    private EditText maxParticipantsInput;
     private ImageView posterPreview;
     private TextView posterStatus;
     private TextView deadlineValue;
@@ -89,6 +90,7 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput = findViewById(R.id.createEventDescriptionInput);
         locationInput = findViewById(R.id.createEventLocationInput);
         maxEntrantsInput = findViewById(R.id.createEventMaxEntrantsInput);
+        maxParticipantsInput = findViewById(R.id.createEventMaxParticipantsInput);
         posterPreview = findViewById(R.id.createEventPosterPreview);
         posterStatus = findViewById(R.id.createEventPosterStatus);
         deadlineValue = findViewById(R.id.createEventDeadlineValue);
@@ -184,6 +186,19 @@ public class CreateEventActivity extends AppCompatActivity {
             hasErrors = true;
         }
 
+        int maxParticipants = 0;
+        try {
+            maxParticipants = parseRequiredPositiveInt(readTrimmed(maxParticipantsInput));
+        } catch (IllegalArgumentException exception) {
+            maxParticipantsInput.setError(getString(R.string.max_participants_invalid));
+            hasErrors = true;
+        }
+
+        if (maxEntrants > 0 && maxParticipants > maxEntrants) {
+            maxParticipantsInput.setError(getString(R.string.max_participants_exceeds_entrants));
+            hasErrors = true;
+        }
+
         if (selectedDeadlineDate != null
                 && selectedEventDate != null
                 && selectedDeadlineDate.isAfter(selectedEventDate)) {
@@ -211,6 +226,7 @@ public class CreateEventActivity extends AppCompatActivity {
                 location,
                 currentPosterUrl,
                 maxEntrants,
+                maxParticipants,
                 0,
                 toRegistrationDeadline(selectedDeadlineDate),
                 toEventDate(selectedEventDate),
@@ -254,6 +270,7 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput.setError(null);
         locationInput.setError(null);
         maxEntrantsInput.setError(null);
+        maxParticipantsInput.setError(null);
         posterStatus.setError(null);
         deadlineValue.setError(null);
         eventDateValue.setError(null);
@@ -268,6 +285,7 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput.setEnabled(!loading);
         locationInput.setEnabled(!loading);
         maxEntrantsInput.setEnabled(!loading);
+        maxParticipantsInput.setEnabled(!loading);
         geolocationSwitch.setEnabled(!loading);
         findViewById(R.id.createEventBackButton).setEnabled(!loading);
     }
@@ -300,6 +318,7 @@ public class CreateEventActivity extends AppCompatActivity {
         descriptionInput.setText(event.getDescription());
         locationInput.setText(event.getLocation());
         maxEntrantsInput.setText(event.getMaxEntrants() > 0 ? String.valueOf(event.getMaxEntrants()) : "");
+        maxParticipantsInput.setText(event.getMaxParticipants() > 0 ? String.valueOf(event.getMaxParticipants()) : "");
 
         selectedDeadlineDate = toLocalDate(event.getRegistrationDeadline());
         selectedEventDate = toLocalDate(event.getEventDate());
@@ -399,6 +418,13 @@ public class CreateEventActivity extends AppCompatActivity {
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Invalid number", exception);
         }
+    }
+
+    private int parseRequiredPositiveInt(String value) {
+        if (!hasText(value)) {
+            throw new IllegalArgumentException("Missing number");
+        }
+        return parseOptionalPositiveInt(value);
     }
 
     private Date toRegistrationDeadline(LocalDate localDate) {
