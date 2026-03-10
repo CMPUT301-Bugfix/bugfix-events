@@ -450,6 +450,7 @@ public class EventRepository {
         String hostUid = doc.getString("hostUid");
         String hostDisplayName = doc.getString("hostDisplayName");
         Long maxEntrantsValue = doc.getLong("maxEntrants");
+        Long maxParticipantsValue = doc.getLong("maxParticipants");
         Long totalEntrantsValue = doc.getLong("totalEntrants");
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
@@ -481,6 +482,7 @@ public class EventRepository {
                 location,
                 posterUrl,
                 maxEntrantsValue == null ? 0 : maxEntrantsValue.intValue(),
+                maxParticipantsValue == null ? 0 : maxParticipantsValue.intValue(),
                 totalEntrantsValue == null ? 0 : totalEntrantsValue.intValue(),
                 registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
                 eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
@@ -504,6 +506,7 @@ public class EventRepository {
         payload.put("location", event.getLocation());
         payload.put("posterUrl", posterUrl);
         payload.put("maxEntrants", event.getMaxEntrants());
+        payload.put("maxParticipants", event.getMaxParticipants());
         payload.put("totalEntrants", event.getTotalEntrants());
         payload.put("registrationDeadline", event.getRegistrationDeadline());
         payload.put("eventDate", event.getEventDate());
@@ -526,6 +529,7 @@ public class EventRepository {
         payload.put("description", event.getDescription());
         payload.put("location", event.getLocation());
         payload.put("maxEntrants", event.getMaxEntrants());
+        payload.put("maxParticipants", event.getMaxParticipants());
         payload.put("registrationDeadline", event.getRegistrationDeadline());
         payload.put("eventDate", event.getEventDate());
         payload.put("requiresGeolocation", event.isRequiresGeolocation());

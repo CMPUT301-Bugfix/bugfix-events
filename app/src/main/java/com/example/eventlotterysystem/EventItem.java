@@ -9,6 +9,7 @@ public class EventItem {
     private final String location;
     private final String posterUrl;
     private final int maxEntrants;
+    private final int maxParticipants;
     private final int totalEntrants;
     private final Date registrationDeadline;
     private final Date eventDate;
@@ -18,7 +19,7 @@ public class EventItem {
     private final boolean waitlistOpen;
 
     public EventItem(String id, String title, String description) {
-        this(id, title, description, "", "", 0, 0, null, null, false, "", "", true);
+        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", true);
     }
 
     public EventItem(
@@ -28,6 +29,7 @@ public class EventItem {
             String location,
             String posterUrl,
             int maxEntrants,
+            int maxParticipants,
             int totalEntrants,
             Date registrationDeadline,
             Date eventDate,
@@ -42,6 +44,7 @@ public class EventItem {
                 location,
                 posterUrl,
                 maxEntrants,
+                maxParticipants,
                 totalEntrants,
                 registrationDeadline,
                 eventDate,
@@ -59,6 +62,7 @@ public class EventItem {
             String location,
             String posterUrl,
             int maxEntrants,
+            int maxParticipants,
             int totalEntrants,
             Date registrationDeadline,
             Date eventDate,
@@ -73,6 +77,7 @@ public class EventItem {
         this.location = location;
         this.posterUrl = posterUrl;
         this.maxEntrants = maxEntrants;
+        this.maxParticipants = maxParticipants;
         this.totalEntrants = totalEntrants;
         this.registrationDeadline = registrationDeadline;
         this.eventDate = eventDate;
@@ -104,6 +109,10 @@ public class EventItem {
 
     public int getMaxEntrants() {
         return maxEntrants;
+    }
+
+    public int getMaxParticipants() {
+        return maxParticipants;
     }
 
     public int getTotalEntrants() {
