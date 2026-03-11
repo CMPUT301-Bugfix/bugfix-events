@@ -7,7 +7,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,14 +44,12 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button editEventButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
-    private Button notifyWaitlistButton;
 
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
-    private NotificationRepository notificationRepository;
 
     private String eventId;
     private boolean canEditEvent;
@@ -93,18 +90,15 @@ public class ViewEventActivity extends AppCompatActivity {
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
-        notifyWaitlistButton = findViewById(R.id.viewEventNotifyButton);
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
-        notificationRepository = new NotificationRepository();
 
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
-        notifyWaitlistButton.setOnClickListener(v -> showNotifyDialog());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
 
@@ -117,7 +111,6 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-        notifyWaitlistButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
 
         findViewById(R.id.createQRCode).setOnClickListener(v -> {
             Intent intent = new Intent(this, QRCode.class);
@@ -174,48 +167,6 @@ public class ViewEventActivity extends AppCompatActivity {
                     ).show();
                     renderLoadFailureState();
                 });
-    }
-
-    private void showNotifyDialog() {
-        if (currentEvent == null) return;
-
-        EditText input = new EditText(this);
-        input.setHint(R.string.notification_message_hint);
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
-
-        new AlertDialog.Builder(this)
-                .setTitle(R.string.send_notification)
-                .setView(input)
-                .setPositiveButton(R.string.notification_send_action, (dialog, which) -> {
-                    String message = input.getText().toString().trim();
-                    if (message.isEmpty()) {
-                        Toast.makeText(this, R.string.field_required, Toast.LENGTH_SHORT).show();
-                    } else {
-                        sendNotification(message);
-                    }
-                })
-                .setNegativeButton(R.string.back, null)
-                .show();
-    }
-
-    private void sendNotification(String message) {
-        if (currentEvent == null) return;
-
-        notifyWaitlistButton.setEnabled(false);
-        notificationRepository.sendNotificationToWaitlist(
-                currentEvent.getId(),
-                currentEvent.getTitle(),
-                message
-        ).addOnSuccessListener(unused -> {
-            notifyWaitlistButton.setEnabled(true);
-            Toast.makeText(this, R.string.notification_sent, Toast.LENGTH_SHORT).show();
-        }).addOnFailureListener(e -> {
-            notifyWaitlistButton.setEnabled(true);
-            String errorMsg = e.getMessage() != null ? e.getMessage() : getString(R.string.unexpected_error);
-            Toast.makeText(this, "Error: " + errorMsg, Toast.LENGTH_LONG).show();
-            Log.e(TAG, "Notification failed", e);
-        });
     }
 
     /**
@@ -655,7 +606,6 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
-        notifyWaitlistButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
     }

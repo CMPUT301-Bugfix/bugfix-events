@@ -1,6 +1,7 @@
 package com.example.eventlotterysystem;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
@@ -22,36 +23,45 @@ public class NotificationRepository {
     }
 
     /**
-     * Sends a notification to all users on the waitlist for a specific event.
-     * Updated to match the events/{eventId}/waitlists/{uid} structure.
+     * Sends a targeted notification to a specific sub-group of the waitlist.
+     * @param eventId The event ID.
+     * @param eventTitle The event title.
+     * @param message The message body.
+     * @param type "WIN" or "GENERAL".
+     * @param statusFilter  "IN_WAITLIST", CHOSEN, CONFIRMED, DECLINED
+     *                     If null, sends to everyone in the waitlist.
      */
-    public Task<Void> sendNotificationToWaitlist(
+    public Task<Void> sendBatchNotification(
             @NonNull String eventId,
             @NonNull String eventTitle,
-            @NonNull String message
+            @NonNull String message,
+            @NonNull String type,
+            @Nullable String statusFilter
     ) {
-        // get the waitlist using path:  events/{eventId}/waitlists
-        return firestore.collection("events")
+        com.google.firebase.firestore.Query query = firestore.collection("events")
                 .document(eventId)
-                .collection("waitlists") // No longer need collectionGroup
-                .get()
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null ? task.getException() : new Exception("Query error");
-                    }
+                .collection("waitlist");
 
-                    List<String> recipientUids = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult()) {
-                        //  Document ID is the User ID
-                        recipientUids.add(doc.getId());
-                    }
+        if (statusFilter != null) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                    if (recipientUids.isEmpty()) {
-                        return Tasks.forResult(null);
-                    }
+        return query.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null ? task.getException() : new Exception("Query error");
+            }
 
-                    return executeBroadcast(eventId, eventTitle, message, "GENERAL", recipientUids);
-                });
+            List<String> recipientUids = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult()) {
+                recipientUids.add(doc.getId());
+            }
+
+            if (recipientUids.isEmpty()) {
+                return Tasks.forResult(null);
+            }
+
+            return executeBroadcast(eventId, eventTitle, message, type, recipientUids);
+        });
     }
 
     private Task<Void> executeBroadcast(
@@ -69,7 +79,7 @@ public class NotificationRepository {
         logItem.setId(logRef.getId());
         batch.set(logRef, logItem);
 
-        // 2. Add to each user's individual inbox
+        // 2. Add to each user's individual inbox (users/{uid}/notifications)
         for (String uid : recipientUids) {
             DocumentReference userNotifyRef = firestore.collection("users")
                     .document(uid)
@@ -103,5 +113,13 @@ public class NotificationRepository {
                     }
                     return notifications;
                 });
+    }
+
+    public Task<Void> updateNotificationStatus(@NonNull String uid, @NonNull String notificationId, @NonNull String newStatus) {
+        return firestore.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .update("status", newStatus);
     }
 }

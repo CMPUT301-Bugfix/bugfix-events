@@ -17,9 +17,10 @@ public class EventItem {
     private final String hostUid;
     private final String hostDisplayName;
     private final boolean waitlistOpen;
+    private final String winningMessage;
 
     public EventItem(String id, String title, String description) {
-        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", true);
+        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", true, "");
     }
 
     public EventItem(
@@ -51,7 +52,8 @@ public class EventItem {
                 requiresGeolocation,
                 hostUid,
                 hostDisplayName,
-                true
+                true,
+                ""
         );
     }
 
@@ -69,7 +71,8 @@ public class EventItem {
             boolean requiresGeolocation,
             String hostUid,
             String hostDisplayName,
-            boolean waitlistOpen
+            boolean waitlistOpen,
+            String winningMessage
     ) {
         this.id = id;
         this.title = title;
@@ -85,6 +88,7 @@ public class EventItem {
         this.hostUid = hostUid;
         this.hostDisplayName = hostDisplayName;
         this.waitlistOpen = waitlistOpen;
+        this.winningMessage = winningMessage;
     }
 
     public String getId() {
@@ -141,5 +145,9 @@ public class EventItem {
 
     public boolean isWaitlistOpen() {
         return waitlistOpen;
+    }
+
+    public String getWinningMessage() {
+        return winningMessage;
     }
 }

@@ -50,6 +50,7 @@ public class CreateEventActivity extends AppCompatActivity {
     private EditText locationInput;
     private EditText maxEntrantsInput;
     private EditText maxParticipantsInput;
+    private EditText winningMessageInput;
     private ImageView posterPreview;
     private TextView posterStatus;
     private TextView deadlineValue;
@@ -100,6 +101,7 @@ public class CreateEventActivity extends AppCompatActivity {
         locationInput = findViewById(R.id.createEventLocationInput);
         maxEntrantsInput = findViewById(R.id.createEventMaxEntrantsInput);
         maxParticipantsInput = findViewById(R.id.createEventMaxParticipantsInput);
+        winningMessageInput = findViewById(R.id.createEventWinningMessageInput);
         posterPreview = findViewById(R.id.createEventPosterPreview);
         posterStatus = findViewById(R.id.createEventPosterStatus);
         deadlineValue = findViewById(R.id.createEventDeadlineValue);
@@ -176,6 +178,7 @@ public class CreateEventActivity extends AppCompatActivity {
         String title = readTrimmed(titleInput);
         String description = readTrimmed(descriptionInput);
         String location = readTrimmed(locationInput);
+        String winningMessage = readTrimmed(winningMessageInput);
 
         boolean hasErrors = false;
         if (!hasText(title)) {
@@ -255,7 +258,9 @@ public class CreateEventActivity extends AppCompatActivity {
                 toEventDate(selectedEventDate),
                 geolocationSwitch.isChecked(),
                 currentUser.getUid(),
-                ""
+                "",
+                true,
+                winningMessage
         );
 
         if (editMode) {
@@ -328,6 +333,7 @@ public class CreateEventActivity extends AppCompatActivity {
         locationInput.setEnabled(!loading);
         maxEntrantsInput.setEnabled(!loading);
         maxParticipantsInput.setEnabled(!loading);
+        winningMessageInput.setEnabled(!loading);
         geolocationSwitch.setEnabled(!loading);
         findViewById(R.id.createEventBackButton).setEnabled(!loading);
     }
@@ -369,6 +375,7 @@ public class CreateEventActivity extends AppCompatActivity {
         locationInput.setText(event.getLocation());
         maxEntrantsInput.setText(event.getMaxEntrants() > 0 ? String.valueOf(event.getMaxEntrants()) : "");
         maxParticipantsInput.setText(event.getMaxParticipants() > 0 ? String.valueOf(event.getMaxParticipants()) : "");
+        winningMessageInput.setText(event.getWinningMessage());
 
         selectedDeadlineDate = toLocalDate(event.getRegistrationDeadline());
         selectedEventDate = toLocalDate(event.getEventDate());
