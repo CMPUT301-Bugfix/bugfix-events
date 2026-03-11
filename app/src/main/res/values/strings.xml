@@ -16,6 +16,14 @@
     <string name="my_things">my things</string>
     <string name="my_waitlist">My Waitlist</string>
     <string name="my_waitlist_subtitle">Events you have joined the waitlist for.</string>
+    <string name="entrants">Entrants</string>
+    <string name="entrants_title">entrants</string>
+    <string name="all_entrants">All Entrants</string>
+    <string name="entrants_button_label">Entrants %1$s</string>
+    <string name="all_entrants_button_label">All Entrants %1$s</string>
+    <string name="no_entrants">No entrants are enrolled right now.</string>
+    <string name="failed_to_load_entrants">Failed to load entrants.</string>
+    <string name="unlimited">unlimited</string>
     <string name="host_an_event">host an event</string>
     <string name="hosted_events">hosted events</string>
     <string name="browse_events_title">all events</string>

@@ -39,6 +39,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView geolocationTextView;
     private TextView descriptionTextView;
     private TextView waitlistJoinedTextView;
+    private Button entrantsButton;
     private Button editEventButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
@@ -70,6 +71,7 @@ public class ViewEventActivity extends AppCompatActivity {
         geolocationTextView = findViewById(R.id.viewEventGeolocation);
         descriptionTextView = findViewById(R.id.viewEventDescription);
         waitlistJoinedTextView = findViewById(R.id.viewEventWaitlistJoinedLabel);
+        entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
@@ -78,6 +80,7 @@ public class ViewEventActivity extends AppCompatActivity {
         repository = new EventRepository();
 
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
+        entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
@@ -135,6 +138,18 @@ public class ViewEventActivity extends AppCompatActivity {
     private void openEventEditor() {
         Intent intent = new Intent(this, CreateEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
+        startActivity(intent);
+    }
+
+    private void openEntrantsScreen() {
+        if (currentEvent == null) {
+            return;
+        }
+        Intent intent = new Intent(this, EntrantsActivity.class);
+        intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
+        intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
+        intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
+        intent.putExtra(EntrantsActivity.EVENT_TITLE, currentEvent.getTitle());
         startActivity(intent);
     }
 
@@ -250,7 +265,12 @@ public class ViewEventActivity extends AppCompatActivity {
             waitlistCountTextView.setText(
                     getString(R.string.event_total_entrants_label, currentEvent.getTotalEntrants())
             );
+            entrantsButton.setText(getString(
+                    R.string.entrants_button_label,
+                    buildEntrantCountText(currentEvent)
+            ));
         }
+        entrantsButton.setVisibility(shouldShowEntrantsButton() ? View.VISIBLE : View.GONE);
         waitlistJoinedTextView.setText(R.string.waitlist_joined_label);
     }
 
@@ -384,6 +404,13 @@ public class ViewEventActivity extends AppCompatActivity {
         return getString(R.string.waitlist_action_failed);
     }
 
+    private boolean shouldShowEntrantsButton() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        return currentEvent != null
+                && currentUser != null
+                && currentUser.getUid().equals(currentEvent.getHostUid());
+    }
+
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
@@ -397,5 +424,12 @@ public class ViewEventActivity extends AppCompatActivity {
 
     private String formatMaxEntrants(int maxEntrants) {
         return maxEntrants > 0 ? String.valueOf(maxEntrants) : "no limit";
+    }
+
+    private String buildEntrantCountText(EventItem event) {
+        String limit = event.getMaxEntrants() > 0
+                ? String.valueOf(event.getMaxEntrants())
+                : getString(R.string.unlimited);
+        return event.getTotalEntrants() + " / " + limit;
     }
 }

@@ -31,6 +31,12 @@
             android:name=".HostedEventsActivity"
             android:exported="false" />
         <activity
+            android:name=".AllEntrantsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".EntrantsActivity"
+            android:exported="false" />
+        <activity
             android:name=".MyWaitlistActivity"
             android:exported="false" />
         <activity
