@@ -213,15 +213,22 @@ public class EventRepository {
             @NonNull String uid,
             @NonNull String status
     ) {
-        DocumentReference waitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(uid, eventId);
 
         return firestore.runTransaction(transaction -> {
-            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
-            if (!membershipDoc.exists()) {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
                 throw new IllegalStateException("Waitlist entry not found");
             }
 
-            transaction.update(waitlistRef, "status", status);
+            if (eventMembershipDoc.exists()) {
+                transaction.update(eventWaitlistRef, "status", status);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.update(userWaitlistRef, "status", status);
+            }
             return null;
         });
     }
