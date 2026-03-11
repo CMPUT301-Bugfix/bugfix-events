@@ -170,14 +170,25 @@ public class EntrantsActivity extends AppCompatActivity {
                     });
         });
     }
-    //TODO
+
     private void processExpired() {
         processExpiredButton.setEnabled(false);
-        // Note: Logic for finding winners older than 3 days and replacing them
-        // This is a placeholder for the actual logic
-        Toast.makeText(this, "Processing expired responses...", Toast.LENGTH_SHORT).show();
-        // repository.processExpiredWinners(eventId)...
-        processExpiredButton.setEnabled(true);
+        repository.getEventById(eventId).addOnSuccessListener(event -> {
+            String winningMsg = event.getWinningMessage();
+            if (winningMsg == null || winningMsg.trim().isEmpty()) {
+                winningMsg = "Congratulations! You have been selected for the event.";
+            }
+            
+            repository.processExpiredWinners(eventId, winningMsg)
+                    .addOnSuccessListener(unused -> {
+                        processExpiredButton.setEnabled(true);
+                        Toast.makeText(this, R.string.expired_cleaned, Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        processExpiredButton.setEnabled(true);
+                        Toast.makeText(this, "Clean up failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+        });
     }
 
     private void openAllEntrants() {

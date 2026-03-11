@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -18,11 +19,12 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MyThingsActivity extends AppCompatActivity {
+public class MyThingsActivity extends AppCompatActivity implements NotificationAdapter.OnNotificationClickListener {
 
     private FirebaseAuth auth;
     private FirebaseFirestore firestore;
     private NotificationRepository notificationRepository;
+    private EventRepository eventRepository;
 
     private TextView myThingsSubtitle;
     private Button adminZoneButton;
@@ -39,6 +41,7 @@ public class MyThingsActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         firestore = FirebaseFirestore.getInstance();
         notificationRepository = new NotificationRepository();
+        eventRepository = new EventRepository();
 
         myThingsSubtitle = findViewById(R.id.myThingsSubtitle);
         adminZoneButton = findViewById(R.id.adminZoneButton);
@@ -46,7 +49,7 @@ public class MyThingsActivity extends AppCompatActivity {
         notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
 
         notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        notificationAdapter = new NotificationAdapter(notificationList);
+        notificationAdapter = new NotificationAdapter(notificationList, this);
         notificationsRecyclerView.setAdapter(notificationAdapter);
 
         findViewById(R.id.myThingsBackButton).setOnClickListener(v -> finish());
@@ -102,6 +105,69 @@ public class MyThingsActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(MyThingsActivity.this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    @Override
+    public void onNotificationClick(NotificationItem notification) {
+        if ("WIN".equals(notification.getType())) {
+            showWinningDialog(notification);
+        } else {
+            showGeneralDialog(notification);
+        }
+    }
+
+    @Override
+    public void onNotificationLongClick(NotificationItem notification) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Notification")
+                .setMessage("Are you sure you want to delete this notification?")
+                .setPositiveButton("Delete", (dialog, which) -> deleteNotification(notification))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showWinningDialog(NotificationItem notification) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) return;
+
+        new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage())
+                .setPositiveButton("Accept", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_CONFIRMED))
+                .setNeutralButton("Snooze", (dialog, which) -> handleInvite(notification, "SNOOZED"))
+                .setNegativeButton("Reject", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_DECLINED))
+                .show();
+    }
+
+    private void showGeneralDialog(NotificationItem notification) {
+        new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage())
+                .setPositiveButton("OK", (dialog, which) -> {
+                    notificationRepository.updateNotificationStatus(auth.getUid(), notification.getId(), "READ");
+                })
+                .show();
+    }
+
+    private void handleInvite(NotificationItem notification, String newStatus) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+        
+        eventRepository.updateWaitlistStatus(eventId, uid, newStatus)
+                .addOnSuccessListener(unused -> {
+                    notificationRepository.updateNotificationStatus(uid, notification.getId(), 
+                        newStatus.equals(EventRepository.WAITLIST_STATUS_CONFIRMED) ? "ACCEPTED" : "REJECTED");
+                    Toast.makeText(this, "Response recorded: " + newStatus, Toast.LENGTH_SHORT).show();
+                    loadNotifications(uid);
+                });
+    }
+
+    private void deleteNotification(NotificationItem notification) {
+        notificationRepository.deleteNotification(auth.getUid(), notification.getId())
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(this, "Notification deleted", Toast.LENGTH_SHORT).show();
+                    loadNotifications(auth.getUid());
                 });
     }
 

@@ -33,6 +33,7 @@ public class EventRepository {
     public static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
     public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
     public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
+    public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -204,16 +205,15 @@ public class EventRepository {
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
             DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
 
-            // Allow update if either exists (or both)
             if (eventMembershipDoc.exists()) {
                 transaction.update(eventWaitlistRef, "status", status);
-                if (WAITLIST_STATUS_CHOSEN.equals(status)) {
+                if (WAITLIST_STATUS_CHOSEN.equals(status) || WAITLIST_STATUS_SNOOZED.equals(status)) {
                     transaction.update(eventWaitlistRef, "chosenAt", FieldValue.serverTimestamp());
                 }
             }
             if (userMembershipDoc.exists()) {
                 transaction.update(userWaitlistRef, "status", status);
-                if (WAITLIST_STATUS_CHOSEN.equals(status)) {
+                if (WAITLIST_STATUS_CHOSEN.equals(status) || WAITLIST_STATUS_SNOOZED.equals(status)) {
                     transaction.update(userWaitlistRef, "chosenAt", FieldValue.serverTimestamp());
                 }
             }
@@ -455,39 +455,112 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Performs the lottery draw by moving random users from IN_WAITLIST to CHOSEN.
+     */
     public Task<Void> performLotteryDraw(String eventId, String winningMessage) {
         return firestore.collection("events").document(eventId).get().continueWithTask(task -> {
-            EventItem event = readEventItem(task.getResult());
+            DocumentSnapshot eventDoc = task.getResult();
+            if (!eventDoc.exists()) throw new Exception("Event not found");
+            
+            EventItem event = readEventItem(eventDoc);
+            int maxParticipants = event.getMaxParticipants();
+            if (maxParticipants <= 0) maxParticipants = event.getTotalEntrants();
+
+            final int finalMax = maxParticipants;
+
             return firestore.collection("events").document(eventId).collection("waitlist")
                     .whereEqualTo("status", WAITLIST_STATUS_IN)
                     .get().continueWithTask(waitlistTask -> {
                         List<DocumentSnapshot> candidates = waitlistTask.getResult().getDocuments();
+                        if (candidates.isEmpty()) return Tasks.forResult(null);
+
                         Collections.shuffle(candidates);
                         
-                        int currentChosen = 0; // Ideally fetch current count of CHOSEN
-                        int maxToDraw = event.getMaxParticipants() - currentChosen;
-                        int drawCount = Math.min(candidates.size(), Math.max(0, maxToDraw));
-                        
-                        if (drawCount <= 0) return Tasks.forResult(null);
-                        
-                        List<String> chosenUids = new ArrayList<>();
-                        WriteBatch batch = firestore.batch();
-                        for (int i = 0; i < drawCount; i++) {
-                            String uid = candidates.get(i).getId();
-                            chosenUids.add(uid);
-                            batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_CHOSEN);
-                            batch.update(eventWaitlistEntry(eventId, uid), "chosenAt", FieldValue.serverTimestamp());
-                            batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_CHOSEN);
-                            batch.update(userWaitlistEntry(uid, eventId), "chosenAt", FieldValue.serverTimestamp());
-                        }
-                        
-                        return batch.commit().continueWithTask(ignored -> {
-                            NotificationRepository notifRepo = new NotificationRepository();
-                            // Targeted broadcast to the chosen ones
-                            return notifRepo.sendBatchNotification(eventId, event.getTitle(), winningMessage, "WIN", WAITLIST_STATUS_CHOSEN);
-                        });
+                        return firestore.collection("events").document(eventId).collection("waitlist")
+                                .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_CONFIRMED, WAITLIST_STATUS_SNOOZED))
+                                .get().continueWithTask(chosenTask -> {
+                                    int alreadyChosenCount = chosenTask.getResult().size();
+                                    int spotsAvailable = finalMax - alreadyChosenCount;
+                                    int drawCount = Math.min(candidates.size(), Math.max(0, spotsAvailable));
+
+                                    if (drawCount <= 0) return Tasks.forResult(null);
+
+                                    WriteBatch batch = firestore.batch();
+                                    for (int i = 0; i < drawCount; i++) {
+                                        String uid = candidates.get(i).getId();
+                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                        
+                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                    }
+
+                                    return batch.commit().continueWithTask(ignored -> {
+                                        NotificationRepository notifRepo = new NotificationRepository();
+                                        return notifRepo.sendBatchNotification(eventId, event.getTitle(), winningMessage, "WIN", WAITLIST_STATUS_CHOSEN);
+                                    });
+                                });
                     });
         });
+    }
+
+    /**
+     * Finds users who haven't responded within 3 days and replaces them.
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
+        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
+        Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
+
+        return firestore.collection("events").document(eventId).collection("waitlist")
+                .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
+                .whereLessThan("chosenAt", threshold)
+                .get().continueWithTask(task -> {
+                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
+                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+
+                    WriteBatch batch = firestore.batch();
+                    for (DocumentSnapshot doc : expired) {
+                        String uid = doc.getId();
+                        batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
+                        batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
+                    }
+
+                    return batch.commit().continueWithTask(ignored -> performLotteryDraw(eventId, winningMessage));
+                });
+    }
+
+    public Task<Void> addDummyEntrants(String eventId, int count) {
+        WriteBatch batch = firestore.batch();
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+        
+        for (int i = 0; i < count; i++) {
+            String dummyUid = "dummy_user_" + System.currentTimeMillis() + "_" + i;
+            DocumentReference waitlistRef = eventWaitlistEntry(eventId, dummyUid);
+            DocumentReference userWaitlistRef = userWaitlistEntry(dummyUid, eventId);
+            
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("eventId", eventId);
+            payload.put("status", WAITLIST_STATUS_IN);
+            payload.put("joinedAt", FieldValue.serverTimestamp());
+            payload.put("uid", dummyUid);
+            
+            batch.set(waitlistRef, payload);
+            batch.set(userWaitlistRef, payload);
+            
+            DocumentReference userRef = firestore.collection("users").document(dummyUid);
+            Map<String, Object> userPayload = new HashMap<>();
+            userPayload.put("fullName", "Dummy User " + i);
+            userPayload.put("email", dummyUid + "@example.com");
+            userPayload.put("username", "dummy" + i);
+            userPayload.put("accountType", "user");
+            batch.set(userRef, userPayload);
+        }
+        
+        batch.update(eventRef, "totalEntrants", FieldValue.increment(count));
+        return batch.commit();
     }
 
     public Task<String> updateEvent(

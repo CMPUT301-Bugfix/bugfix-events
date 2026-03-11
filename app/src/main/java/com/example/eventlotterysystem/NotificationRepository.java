@@ -28,7 +28,7 @@ public class NotificationRepository {
      * @param eventTitle The event title.
      * @param message The message body.
      * @param type "WIN" or "GENERAL".
-     * @param statusFilter  "IN_WAITLIST", CHOSEN, CONFIRMED, DECLINED
+     * @param statusFilter The status to filter by (e.g., "IN_WAITLIST", "CHOSEN", "CONFIRMED", "DECLINED").
      *                     If null, sends to everyone in the waitlist.
      */
     public Task<Void> sendBatchNotification(
@@ -121,5 +121,13 @@ public class NotificationRepository {
                 .collection("notifications")
                 .document(notificationId)
                 .update("status", newStatus);
+    }
+
+    public Task<Void> deleteNotification(@NonNull String uid, @NonNull String notificationId) {
+        return firestore.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .delete();
     }
 }
