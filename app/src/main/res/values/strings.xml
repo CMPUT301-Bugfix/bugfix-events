@@ -152,4 +152,8 @@
     <string name="admin_delete_event_success">Event deleted</string>
     <string name="admin_delete_event_failed">Failed to delete event</string>
     <string name="admin_delete_event_permission_denied">Permission denied</string>
+    <string name="unknown_event_date">Unknown date</string>
+    <string name="unknown_organizer">Unknown organizer</string>
+    <string name="admin_event_entrants_placeholder">entrants 0/0</string>
+    <string name="admin_event_entrants_format">entrants %1$d/%2$d</string>
 </resources>

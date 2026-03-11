@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 
@@ -72,7 +73,12 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this, getString(R.string.admin_delete_event_success), Toast.LENGTH_LONG).show();
                     finish();
                 })
-                .addOnFailureListener(this::handleDeleteFailure);
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        handleDeleteFailure(e);
+                    }
+                });
     }
 
     private void handleDeleteFailure(@NonNull Exception exception) {

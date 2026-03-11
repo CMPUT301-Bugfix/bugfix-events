@@ -34,6 +34,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
     private TextView eventsEmptyState;
     private ScrollView eventsScrollView;
     private LinearLayout eventsContainer;
+    private EventRepository eventRepository;
 
     private boolean isAdminConfirmed;
     private ListenerRegistration eventsListener;
@@ -45,6 +46,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         firestore = FirebaseFirestore.getInstance();
+        eventRepository = new EventRepository();
 
         backButton = findViewById(R.id.adminEventsBackButton);
         eventsLoading = findViewById(R.id.adminEventsLoading);
@@ -113,7 +115,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                 return;
             }
 
-            List<AdminEvent> events = new ArrayList<>();
+            List<EventItem> events = new ArrayList<>();
 
             if (value != null) {
                 for (DocumentSnapshot snapshot : value.getDocuments()) {
@@ -121,20 +123,11 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                         continue;
                     }
 
-                    String id = snapshot.getId();
-                    String title = normalize(snapshot.getString("title"));
-                    String hostUid = normalize(snapshot.getString("hostUid"));
-
-                    events.add(new AdminEvent(
-                            id,
-                            title,
-                            hostUid,
-                            snapshot.getTimestamp("createdAt")
-                    ));
+                    events.add(eventRepository.readEventItem(snapshot));
                 }
             }
 
-            
+
             events.sort((a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle()));
 
             renderEvents(events);
@@ -142,7 +135,7 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         });
     }
 
-    private void renderEvents(@NonNull List<AdminEvent> events) {
+    private void renderEvents(@NonNull List<EventItem> events) {
         eventsContainer.removeAllViews();
 
         if (events.isEmpty()) {
@@ -155,19 +148,41 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         eventsEmptyState.setVisibility(View.GONE);
         eventsScrollView.setVisibility(View.VISIBLE);
 
-        for (AdminEvent event : events) {
+        for (EventItem event : events) {
             View row = getLayoutInflater().inflate(R.layout.item_admin_event, eventsContainer, false);
+
             TextView eventTitleValue = row.findViewById(R.id.eventTitleValue);
+            TextView eventDateValue = row.findViewById(R.id.eventDateValue);
+            TextView eventOrganizerValue = row.findViewById(R.id.eventOrganizerValue);
+            TextView eventEntrantsValue = row.findViewById(R.id.eventEntrantsValue);
+
 
             String title = event.getTitle();
             eventTitleValue.setText(TextUtils.isEmpty(title) ? getString(R.string.unknown_event_title) : title);
+
+
+            String dateText = getString(R.string.unknown_event_date);
+            if (event.getEventDate() != null) {
+                java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("MMM d, yyyy", java.util.Locale.getDefault());
+                dateText = fmt.format(event.getEventDate());
+            }
+            eventDateValue.setText(dateText);
+
+            String organizer = event.getHostDisplayName();
+            eventOrganizerValue.setText(TextUtils.isEmpty(organizer) ? getString(R.string.unknown_organizer) : organizer);
+
+            eventEntrantsValue.setText(getString(
+                    R.string.admin_event_entrants_format,
+                    event.getTotalEntrants(),
+                    event.getMaxEntrants()
+            ));
 
             row.setOnClickListener(v -> openEventDetails(event));
             eventsContainer.addView(row);
         }
     }
 
-    private void openEventDetails(@NonNull AdminEvent event) {
+    private void openEventDetails(@NonNull EventItem event) {
         Intent intent = new Intent(this, AdminEventDetailsActivity.class);
         intent.putExtra(AdminEventDetailsActivity.EVENT_ID, event.getId());
         intent.putExtra(AdminEventDetailsActivity.EVENT_TITLE, normalize(event.getTitle()));
