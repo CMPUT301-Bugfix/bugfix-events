@@ -9,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -32,12 +33,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     @Override
     public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
         NotificationItem item = notifications.get(position);
-        holder.eventTitle.setText(item.getEventTitle());
+        holder.title.setText(item.getTitle());
         holder.message.setText(item.getMessage());
         
-        if (item.getTimestamp() != null) {
+        if (item.getTimestamp() > 0) {
             SimpleDateFormat sdf = new SimpleDateFormat(DATE_PATTERN, Locale.getDefault());
-            holder.timestamp.setText(sdf.format(item.getTimestamp()));
+            holder.timestamp.setText(sdf.format(new Date(item.getTimestamp())));
         } else {
             holder.timestamp.setText("");
         }
@@ -48,12 +49,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         return notifications.size();
     }
 
-    static class NotificationViewHolder extends RecyclerView.ViewHolder {
-        TextView eventTitle, message, timestamp;
+    public static class NotificationViewHolder extends RecyclerView.ViewHolder {
+        TextView title, message, timestamp;
 
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
-            eventTitle = itemView.findViewById(R.id.notificationEventTitle);
+            title = itemView.findViewById(R.id.notificationEventTitle);
             message = itemView.findViewById(R.id.notificationMessage);
             timestamp = itemView.findViewById(R.id.notificationTimestamp);
         }

@@ -171,21 +171,21 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     private void sendNotification(String message) {
-        FirebaseUser user = auth.getCurrentUser();
-        if (user == null || currentEvent == null) return;
+        if (currentEvent == null) return;
 
         notifyWaitlistButton.setEnabled(false);
         notificationRepository.sendNotificationToWaitlist(
                 currentEvent.getId(),
                 currentEvent.getTitle(),
-                message,
-                user.getUid()
+                message
         ).addOnSuccessListener(unused -> {
             notifyWaitlistButton.setEnabled(true);
             Toast.makeText(this, R.string.notification_sent, Toast.LENGTH_SHORT).show();
         }).addOnFailureListener(e -> {
             notifyWaitlistButton.setEnabled(true);
-            Toast.makeText(this, R.string.unexpected_error, Toast.LENGTH_SHORT).show();
+            String errorMsg = e.getMessage() != null ? e.getMessage() : getString(R.string.unexpected_error);
+            Toast.makeText(this, "Error: " + errorMsg, Toast.LENGTH_LONG).show();
+            Log.e(TAG, "Notification failed", e);
         });
     }
 

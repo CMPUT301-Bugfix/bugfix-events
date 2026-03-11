@@ -11,15 +11,9 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 public class NotificationRepository {
-
-    public interface NotificationsCallback {
-        void onSuccess(List<NotificationItem> notifications);
-        void onError(Exception e);
-    }
 
     private final FirebaseFirestore firestore;
 
@@ -29,13 +23,11 @@ public class NotificationRepository {
 
     /**
      * Sends a notification to all users on the waitlist for a specific event.
-     * Uses a collection group query to find all users who have this event in their waitlist.
      */
     public Task<Void> sendNotificationToWaitlist(
             @NonNull String eventId,
             @NonNull String eventTitle,
-            @NonNull String message,
-            @NonNull String senderUid
+            @NonNull String message
     ) {
         // 1. Find all users on the waitlist using a collection group query
         return firestore.collectionGroup("waitlists")
@@ -43,13 +35,13 @@ public class NotificationRepository {
                 .get()
                 .continueWithTask(task -> {
                     if (!task.isSuccessful()) {
-                        throw task.getException() != null ? task.getException() : new Exception("Failed to fetch waitlist");
+                        // Throw the original exception so the UI can report the real cause (e.g., missing index)
+                        throw task.getException() != null ? task.getException() : new Exception("Unknown query error");
                     }
 
                     List<String> recipientUids = new ArrayList<>();
                     for (DocumentSnapshot doc : task.getResult()) {
-                        // The path is users/{uid}/waitlists/{eventId}
-                        // We can extract the uid from the document reference
+                        // Extract user ID from path: users/{uid}/waitlists/{eventId}
                         DocumentReference ref = doc.getReference();
                         DocumentReference userRef = ref.getParent().getParent();
                         if (userRef != null) {
@@ -61,23 +53,23 @@ public class NotificationRepository {
                         return Tasks.forResult(null);
                     }
 
-                    return executeBroadcast(eventId, eventTitle, message, senderUid, recipientUids);
+                    return executeBroadcast(eventId, eventTitle, message, "GENERAL", recipientUids);
                 });
     }
 
     private Task<Void> executeBroadcast(
             String eventId,
-            String eventTitle,
+            String title,
             String message,
-            String senderUid,
+            String type,
             List<String> recipientUids
     ) {
         WriteBatch batch = firestore.batch();
-        Date now = new Date();
 
         // 1. Add to global notification log
         DocumentReference logRef = firestore.collection("notifications").document();
-        NotificationItem logItem = new NotificationItem(logRef.getId(), eventId, eventTitle, message, senderUid, now);
+        NotificationItem logItem = new NotificationItem(eventId, title, message, type);
+        logItem.setId(logRef.getId());
         batch.set(logRef, logItem);
 
         // 2. Add to each user's individual inbox
@@ -86,7 +78,8 @@ public class NotificationRepository {
                     .document(uid)
                     .collection("notifications")
                     .document();
-            NotificationItem userItem = new NotificationItem(userNotifyRef.getId(), eventId, eventTitle, message, senderUid, now);
+            NotificationItem userItem = new NotificationItem(eventId, title, message, type);
+            userItem.setId(userNotifyRef.getId());
             batch.set(userNotifyRef, userItem);
         }
 

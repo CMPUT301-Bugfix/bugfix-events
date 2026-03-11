@@ -1,27 +1,23 @@
 package com.example.eventlotterysystem;
 
-import java.util.Date;
-
 public class NotificationItem {
-    private String id;
+    private String id; // Firestore Doc ID
     private String eventId;
-    private String eventTitle;
+    private String title;
     private String message;
-    private String senderUid;
-    private Date timestamp;
-    private boolean isRead;
+    private String type; // "WIN", "GENERAL"
+    private String status; // "PENDING", "ACCEPTED", "REJECTED", "READ"
+    private long timestamp;
 
-    // Required for Firestore
-    public NotificationItem() {}
+    public NotificationItem() {} // Required for Firestore
 
-    public NotificationItem(String id, String eventId, String eventTitle, String message, String senderUid, Date timestamp) {
-        this.id = id;
+    public NotificationItem(String eventId, String title, String message, String type) {
         this.eventId = eventId;
-        this.eventTitle = eventTitle;
+        this.title = title;
         this.message = message;
-        this.senderUid = senderUid;
-        this.timestamp = timestamp;
-        this.isRead = false;
+        this.type = type;
+        this.status = "PENDING";
+        this.timestamp = System.currentTimeMillis();
     }
 
     public String getId() { return id; }
@@ -30,18 +26,18 @@ public class NotificationItem {
     public String getEventId() { return eventId; }
     public void setEventId(String eventId) { this.eventId = eventId; }
 
-    public String getEventTitle() { return eventTitle; }
-    public void setEventTitle(String eventTitle) { this.eventTitle = eventTitle; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
 
-    public String getSenderUid() { return senderUid; }
-    public void setSenderUid(String senderUid) { this.senderUid = senderUid; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 
-    public Date getTimestamp() { return timestamp; }
-    public void setTimestamp(Date timestamp) { this.timestamp = timestamp; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public boolean isRead() { return isRead; }
-    public void setRead(boolean read) { isRead = read; }
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
 }
