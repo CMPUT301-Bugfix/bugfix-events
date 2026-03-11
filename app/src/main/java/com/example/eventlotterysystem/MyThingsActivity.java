@@ -5,21 +5,31 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MyThingsActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
     private FirebaseFirestore firestore;
+    private NotificationRepository notificationRepository;
 
     private TextView myThingsSubtitle;
     private Button adminZoneButton;
     private Button myWaitlistButton;
+    private RecyclerView notificationsRecyclerView;
+    private NotificationAdapter notificationAdapter;
+    private List<NotificationItem> notificationList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,10 +38,16 @@ public class MyThingsActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         firestore = FirebaseFirestore.getInstance();
+        notificationRepository = new NotificationRepository();
 
         myThingsSubtitle = findViewById(R.id.myThingsSubtitle);
         adminZoneButton = findViewById(R.id.adminZoneButton);
         myWaitlistButton = findViewById(R.id.myWaitlistButton);
+        notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
+
+        notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        notificationAdapter = new NotificationAdapter(notificationList);
+        notificationsRecyclerView.setAdapter(notificationAdapter);
 
         findViewById(R.id.myThingsBackButton).setOnClickListener(v -> finish());
         findViewById(R.id.settingsButton).setOnClickListener(v ->
@@ -60,6 +76,7 @@ public class MyThingsActivity extends AppCompatActivity {
         }
         myThingsSubtitle.setText(getString(R.string.signed_in_as, identity));
         loadAccountType(currentUser.getUid());
+        loadNotifications(currentUser.getUid());
     }
 
     private void loadAccountType(String uid) {
@@ -74,6 +91,18 @@ public class MyThingsActivity extends AppCompatActivity {
                     }
                 })
                 .addOnFailureListener(exception -> adminZoneButton.setVisibility(View.GONE));
+    }
+
+    private void loadNotifications(String uid) {
+        notificationRepository.getNotificationsForUser(uid)
+                .addOnSuccessListener(notifications -> {
+                    notificationList.clear();
+                    notificationList.addAll(notifications);
+                    notificationAdapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(MyThingsActivity.this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void onLogOutClicked() {
