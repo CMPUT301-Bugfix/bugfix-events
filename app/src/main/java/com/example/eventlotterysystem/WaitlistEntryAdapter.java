@@ -101,6 +101,15 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {
             return getContext().getString(R.string.waitlist_status_in_waitlist);
         }
+        if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(status)) {
+            return "Chosen";
+        }
+        if (EventRepository.WAITLIST_STATUS_CONFIRMED.equals(status)) {
+            return "Confirmed";
+        }
+        if (EventRepository.WAITLIST_STATUS_DECLINED.equals(status)) {
+            return "Declined";
+        }
         return status;
     }
 }

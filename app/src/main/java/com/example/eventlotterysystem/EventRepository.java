@@ -30,6 +30,9 @@ import java.util.Map;
 
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
+    static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
+    static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
+    static final String WAITLIST_STATUS_DECLINED = "DECLINED";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -182,6 +185,46 @@ public class EventRepository {
                     return doc != null && doc.exists();
                 });
     }
+    public Task<String> getWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventWaitlistEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load waitlist status");
+                    }
+
+                    DocumentSnapshot doc = task.getResult();
+                    if (doc == null || !doc.exists()) {
+                        return "";
+                    }
+
+                    String status = normalize(doc.getString("status"));
+                    return status.isEmpty() ? WAITLIST_STATUS_IN : status;
+                });
+    }
+
+    public Task<Void> updateWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid,
+            @NonNull String status
+    ) {
+        DocumentReference waitlistRef = eventWaitlistEntry(eventId, uid);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
+            if (!membershipDoc.exists()) {
+                throw new IllegalStateException("Waitlist entry not found");
+            }
+
+            transaction.update(waitlistRef, "status", status);
+            return null;
+        });
+    }
 
     public Task<Void> joinWaitlist(
             @NonNull String eventId,
@@ -269,12 +312,13 @@ public class EventRepository {
 
                     List<DocumentSnapshot> waitlistDocs = queryTask.getResult().getDocuments();
                     List<String> eventIds = new ArrayList<>();
+                    List<String> statuses = new ArrayList<>();
                     List<Task<DocumentSnapshot>> tasks = new ArrayList<>();
 
                     for (DocumentSnapshot doc : waitlistDocs) {
                         String status = normalize(doc.getString("status"));
-                        if (!WAITLIST_STATUS_IN.equals(status)) {
-                            continue;
+                        if (status.isEmpty()) {
+                            status = WAITLIST_STATUS_IN;
                         }
                         String eventId = firstNonEmpty(
                                 normalize(doc.getString("eventId")),
@@ -284,6 +328,7 @@ public class EventRepository {
                             continue;
                         }
                         eventIds.add(eventId);
+                        statuses.add(status);
                         tasks.add(firestore.collection("events").document(eventId).get());
                     }
 
@@ -317,7 +362,7 @@ public class EventRepository {
                                     eventIds.get(index),
                                     event.getTitle(),
                                     event.getEventDate(),
-                                    WAITLIST_STATUS_IN
+                                    statuses.get(index)
                             ));
                         }
 
