@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * This is a class that is the controller of the activity_login screen
+ */
 public class LoginActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -37,6 +40,13 @@ public class LoginActivity extends AppCompatActivity {
     private TextView forgotPasswordButton;
     private TextView backButton;
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable views to their controller
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,6 +70,11 @@ public class LoginActivity extends AppCompatActivity {
         forgotPasswordButton.setOnClickListener(v -> onForgotPasswordClicked());
     }
 
+    /**
+     * This is a controller for when loginButton is pressed
+     * ensures the user input fields are entered
+     * run resolveEmailFromIdentifier to validate login attempt
+     */
     private void onLoginClicked() {
         clearErrors();
 
@@ -80,11 +95,24 @@ public class LoginActivity extends AppCompatActivity {
 
         setLoading(true);
         resolveEmailFromIdentifier(identifier, new EmailResolverCallback() {
+
+            /**
+             * if email is obtain found thorough identifier match in database signs in using that email
+             * @param email
+             * the email of user
+             * @param pendingEmail
+             * the new email of user if email changed else an empty string
+             */
             @Override
             public void onResolved(@NonNull String email, @NonNull String pendingEmail) {
                 signInWithPendingEmail(email, password, pendingEmail);
             }
 
+            /**
+             * runs showMessage to show the error message on screen
+             * @param message
+             * the string describing the error
+             */
             @Override
             public void onError(@NonNull String message) {
                 setLoading(false);
@@ -93,6 +121,10 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This is a controller for when forgotPasswordButton is pressed
+     * runs resolveEmailFromIdentifier to send a password reset to the matching email in usernames
+     */
     private void onForgotPasswordClicked() {
         String identifier = readTrimmed(loginIdentifierInput);
         if (TextUtils.isEmpty(identifier)) {
@@ -103,6 +135,13 @@ public class LoginActivity extends AppCompatActivity {
 
         setLoading(true);
         resolveEmailFromIdentifier(identifier, new EmailResolverCallback() {
+            /**
+             * if email is obtain found thorough identifier match in database send password reset to that email
+             * @param email
+             * the email of user
+             * @param pendingEmail
+             * the new email of user user changes email
+             */
             @Override
             public void onResolved(@NonNull String email, @NonNull String pendingEmail) {
                 auth.sendPasswordResetEmail(email).addOnCompleteListener(task -> {
@@ -115,6 +154,11 @@ public class LoginActivity extends AppCompatActivity {
                 });
             }
 
+            /**
+             * runs showMessage to show the error message on screen
+             * @param message
+             * the string describing the error
+             */
             @Override
             public void onError(@NonNull String message) {
                 setLoading(false);
@@ -123,6 +167,13 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Attempts to match identifier to a stored email in Usernames collection of the Database
+     * @param identifier
+     * String of either email or Username
+     * @param callback
+     * EmailResolverCallback how the method should resolve successful and failed attempts
+     */
     private void resolveEmailFromIdentifier(
             @NonNull String identifier,
             @NonNull EmailResolverCallback callback
@@ -152,6 +203,15 @@ public class LoginActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> callback.onError(getString(R.string.unexpected_error)));
     }
 
+    /**
+     * log user in through pending email and runs syncUsernameEmailMappingForCurrentUser to convert pending email to primary
+     * @param primaryEmail
+     * the current/past email of user
+     * @param password
+     * the potential password that need to match with email to log into account
+     * @param pendingEmail
+     * the new updated email if there is one else an empty string
+     */
     private void signInWithPendingEmail(
             @NonNull String primaryEmail,
             @NonNull String password,
@@ -183,6 +243,10 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * when credentials are verified get User data from database
+     * if user data cannot be gotten runs showAuthError()
+     */
     private void onLoginSuccess() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
@@ -214,10 +278,19 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * show user error message for failed authentication
+     */
     private void showAuthError() {
         showMessage(getString(R.string.auth_failed));
     }
 
+    /**
+     * method gets name and email from user collection creates a hashtable in usernames collection
+     * this allows finding the userID from name/email with the usernames collection
+     * @param onComplete
+     * the task to be run once method has been completed
+     */
     private void syncUsernameEmailMappingForCurrentUser(@NonNull Runnable onComplete) {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
@@ -282,11 +355,23 @@ public class LoginActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> onComplete.run());
     }
 
+    /**
+     * removes extraneous whitespace and ensures that sting is non-null
+     * @param value
+     * String to be cleaned
+     * @return
+     * cleaned String
+     */
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * This finishes the current activity and open a new activity based on arguments
+     * @param destination
+     * the activity class that should be navigated to
+     */
     private void navigateAndClearTask(@NonNull Class<?> destination) {
         Intent intent = new Intent(this, destination);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -294,15 +379,28 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * display message to user through toast popup
+     * @param message
+     * the message to be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * methods clears all errors without managing them
+     */
     private void clearErrors() {
         loginIdentifierInput.setError(null);
         loginPasswordInput.setError(null);
     }
 
+    /**
+     * method Disables (stops them from being modified) login text fields when attempting a login
+     * @param loading
+     * whether the app is in the process of read/writing to the database or not
+     */
     private void setLoading(boolean loading) {
         loadingIndicator.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE);
         loginButton.setEnabled(!loading);
@@ -311,19 +409,47 @@ public class LoginActivity extends AppCompatActivity {
         backButton.setEnabled(!loading);
     }
 
+    /**
+     * converts user text input into string
+     * @param input
+     * EditText user input
+     * @return
+     * string of the user input with extraneous spaces removed
+     */
     @NonNull
     private String readTrimmed(@NonNull EditText input) {
         return input.getText() == null ? "" : input.getText().toString().trim();
     }
 
+    /**
+     * converts a user input EditText into a string
+     * @param input
+     * EditText view get text data
+     * @return
+     * String matching text in view
+     */
     @NonNull
     private String readRaw(@NonNull EditText input) {
         return input.getText() == null ? "" : input.getText().toString();
     }
 
+    /**
+     * an interface that describes what the program should do when matching email is (not) found
+     */
     private interface EmailResolverCallback {
+        /**
+         * Task to be complete when there is a match
+         * @param email
+         * the email of user
+         * @param pendingEmail
+         * the new email of user user changes email
+         */
         void onResolved(@NonNull String email, @NonNull String pendingEmail);
-
+        /**
+         * display an error message to the user
+         * @param message
+         * the string describing the error
+         */
         void onError(@NonNull String message);
     }
 }
