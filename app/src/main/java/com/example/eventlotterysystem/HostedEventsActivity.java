@@ -62,28 +62,24 @@ public class HostedEventsActivity extends AppCompatActivity {
     }
 
     private void loadHostedEvents(String uid) {
-        repository.getHostedEvents(uid, new EventRepository.EventsCallback() {
-            @Override
-            public void onSuccess(List<EventItem> events) {
-                hostedEvents.clear();
-                hostedEvents.addAll(events);
-                adapter.notifyDataSetChanged();
-                updateEmptyState();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Failed to load hosted events", e);
-                Toast.makeText(
-                        HostedEventsActivity.this,
-                        buildLoadErrorMessage(e),
-                        Toast.LENGTH_LONG
-                ).show();
-                hostedEvents.clear();
-                adapter.notifyDataSetChanged();
-                updateEmptyState();
-            }
-        });
+        repository.getHostedEvents(uid)
+                .addOnSuccessListener(events -> {
+                    hostedEvents.clear();
+                    hostedEvents.addAll(events);
+                    adapter.notifyDataSetChanged();
+                    updateEmptyState();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load hosted events", e);
+                    Toast.makeText(
+                            HostedEventsActivity.this,
+                            buildLoadErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    hostedEvents.clear();
+                    adapter.notifyDataSetChanged();
+                    updateEmptyState();
+                });
     }
 
     private void updateEmptyState() {
