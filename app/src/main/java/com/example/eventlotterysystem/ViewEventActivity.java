@@ -448,7 +448,7 @@ public class ViewEventActivity extends AppCompatActivity {
      * the current event for this activity
      * @param currentUserUid
      * Id of the user
-     * @param joined
+     * @param status
      * state of if the user is currently signed up for the event
      */
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
