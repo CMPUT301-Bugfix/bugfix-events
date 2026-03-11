@@ -173,7 +173,7 @@ public class EventRepository {
             @NonNull String eventId,
             @NonNull String uid
     ) {
-        return eventWaitlistEntry(eventId, uid)
+        return userWaitlistEntry(uid, eventId)
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
@@ -231,7 +231,8 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
+        DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
@@ -239,8 +240,9 @@ public class EventRepository {
                 throw new IllegalStateException("Event not found");
             }
 
-            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
-            if (membershipDoc.exists()) {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
                 return null;
             }
 
@@ -269,7 +271,8 @@ public class EventRepository {
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
             membershipPayload.put("uid", currentUser.getUid());
 
-            transaction.set(waitlistRef, membershipPayload);
+            transaction.set(eventWaitlistRef, membershipPayload);
+            transaction.set(userWaitlistRef, membershipPayload);
             transaction.update(eventRef, "totalEntrants", incrementWaitlistCount(totalEntrants));
             return null;
         });
@@ -280,16 +283,23 @@ public class EventRepository {
             @NonNull String uid
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(uid, eventId);
 
         return firestore.runTransaction(transaction -> {
-            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
-            if (!membershipDoc.exists()) {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
                 return null;
             }
 
             DocumentSnapshot eventDoc = transaction.get(eventRef);
-            transaction.delete(waitlistRef);
+            if (eventMembershipDoc.exists()) {
+                transaction.delete(eventWaitlistRef);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.delete(userWaitlistRef);
+            }
             if (eventDoc.exists()) {
                 Long totalEntrantsValue = eventDoc.getLong("totalEntrants");
                 int totalEntrants = totalEntrantsValue == null ? 0 : totalEntrantsValue.intValue();
@@ -300,8 +310,9 @@ public class EventRepository {
     }
 
     public Task<List<WaitlistEntryItem>> getMyWaitlists(@NonNull String uid) {
-        return firestore.collectionGroup("waitlist")
-                .whereEqualTo("uid", uid)
+        return firestore.collection("users")
+                .document(uid)
+                .collection("waitlists")
                 .get()
                 .continueWithTask(queryTask -> {
                     if (!queryTask.isSuccessful()) {
@@ -322,7 +333,7 @@ public class EventRepository {
                         }
                         String eventId = firstNonEmpty(
                                 normalize(doc.getString("eventId")),
-                                extractWaitlistEventId(doc)
+                                doc.getId()
                         );
                         if (eventId.isEmpty()) {
                             continue;
@@ -710,6 +721,17 @@ public class EventRepository {
                 .document(eventId)
                 .collection("waitlist")
                 .document(uid);
+    }
+
+    @NonNull
+    private DocumentReference userWaitlistEntry(
+            @NonNull String uid,
+            @NonNull String eventId
+    ) {
+        return firestore.collection("users")
+                .document(uid)
+                .collection("waitlists")
+                .document(eventId);
     }
 
     private void sortByEventDate(@NonNull List<EventItem> events) {
