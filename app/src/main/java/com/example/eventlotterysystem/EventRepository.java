@@ -397,7 +397,6 @@ public class EventRepository {
         return firestore.collection("events")
                 .document(eventId)
                 .collection("waitlist")
-                .whereEqualTo("status", WAITLIST_STATUS_IN)
                 .get()
                 .continueWithTask(task -> {
                     if (!task.isSuccessful()) {
