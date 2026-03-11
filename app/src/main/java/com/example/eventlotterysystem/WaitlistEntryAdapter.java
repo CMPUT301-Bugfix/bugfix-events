@@ -15,15 +15,36 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * This is a class converts the list of Events that a User has into a displayable format
+ */
 public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
     private static final String DATE_PATTERN = "MMM d, yyyy";
     private final LayoutInflater inflater;
 
+    /**
+     * This initializes the adapter with all of the WaitlistEntryItem for the User
+     * @param context
+     * Context the instance of the application running
+     * @param items
+     * List<WaitlistEntryItem> of every current event that the user is in a stage of waitlist for
+     */
     public WaitlistEntryAdapter(@NonNull Context context, @NonNull List<WaitlistEntryItem> items) {
         super(context, 0, items);
         inflater = LayoutInflater.from(context);
     }
 
+    /**
+     * This initializes the adapter with all of the WaitlistEntryItem for the User
+     * @param position
+     * The index which view in the listview that the Event information is on
+     * @param convertView
+     * The initial view of a entry without signed up Event info
+     * @param parent
+     * ViewGroup the collection of views for all listView items
+     * @return
+     * View a listView of all signed up Events
+     */
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
@@ -55,6 +76,13 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
         return view;
     }
 
+    /**
+     * This changes the date to match locality
+     * @param date
+     * Date the time of the Event
+     * @return
+     * String representation of the date that matches the timezone of the user
+     */
     private String formatDate(Date date) {
         if (date == null) {
             return "";
@@ -62,6 +90,13 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
         return new SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(date);
     }
 
+    /**
+     * This gets the matching text label for the state that the signup is in
+     * @param status
+     * String stage of the signup (waitlist, chosen, confirmed)
+     * @return
+     * String label for corresponding status
+     */
     private String getStatusLabel(String status) {
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {
             return getContext().getString(R.string.waitlist_status_in_waitlist);

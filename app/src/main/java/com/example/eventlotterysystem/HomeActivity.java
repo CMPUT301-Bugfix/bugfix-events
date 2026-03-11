@@ -21,6 +21,10 @@ import com.journeyapps.barcodescanner.ScanOptions;
 import java.util.ArrayList;
 import java.util.List;
 
+
+/**
+ * This is a class that is the controller of the activity_home screen
+ */
 public class HomeActivity extends AppCompatActivity {
 
     private static final String TAG = "HomeActivity";
@@ -33,6 +37,12 @@ public class HomeActivity extends AppCompatActivity {
     private EventListAdapter adapter;
     private final List<EventItem> events = new ArrayList<>();
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable view to their controller
+     * @param savedInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,6 +69,10 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This is the startup of the Activity
+     * This gets the current user from the database and runs verifyActiveProfileAndRender to get user data
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -122,6 +136,12 @@ public class HomeActivity extends AppCompatActivity {
        }
     });
 
+    /**
+     * method that loads the user from the database and ensure the user profile is not deleted
+     * if it is deleted run navigateToProfileRemoved()
+     * @param user
+     * The user data retried from the database
+     */
     private void verifyActiveProfileAndRender(FirebaseUser user) {
         firestore.collection("users")
                 .document(user.getUid())
@@ -139,6 +159,10 @@ public class HomeActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> loadJoinableEvents());
     }
 
+    /**
+     * method that loads all events from the database and updates the adapter to display them
+     * on failure runs updateEmptyState and creates an error message through buildLoadErrorMessage()
+     */
     private void loadJoinableEvents() {
         repository.getCurrentEvents()
                 .addOnSuccessListener(loadedEvents -> {
@@ -160,12 +184,20 @@ public class HomeActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * method that changes the views of the screen such that there is text stating no events when event list is empty
+     */
     private void updateEmptyState() {
         boolean hasEvents = !events.isEmpty();
         homeEventsListView.setVisibility(hasEvents ? View.VISIBLE : View.GONE);
         homeEventsEmptyState.setVisibility(hasEvents ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * method that coverts a raised exception during an user data load from database into a error message to be displayed
+     * @return
+     * a String message describing what the error was
+     */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
             return getString(R.string.failed_to_load_events) + ": " + exception.getMessage().trim();
@@ -173,6 +205,10 @@ public class HomeActivity extends AppCompatActivity {
         return getString(R.string.failed_to_load_events);
     }
 
+    /**
+     * navigates to AuthMenuActivity
+     * method that runs when there is no current user
+     */
     private void navigateToAuthMenu() {
         auth.signOut();
         Intent intent = new Intent(this, AuthMenuActivity.class);
@@ -181,6 +217,10 @@ public class HomeActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * navigates to ProfileRemovedActivity
+     * method that runs when the profile is deleted
+     */
     private void navigateToProfileRemoved() {
         Intent intent = new Intent(this, ProfileRemovedActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

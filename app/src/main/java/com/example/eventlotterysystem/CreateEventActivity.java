@@ -31,6 +31,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
+/**
+ * This is a class that is the controller of the activity_create_event screen
+ */
 public class CreateEventActivity extends AppCompatActivity {
 
     private static final String TAG = "CreateEventActivity";
@@ -63,7 +66,6 @@ public class CreateEventActivity extends AppCompatActivity {
     private String editingEventId;
     private String currentPosterUrl = "";
     private boolean editMode;
-
     private final ActivityResultLauncher<String> posterPickerLauncher =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri == null) {
@@ -76,6 +78,13 @@ public class CreateEventActivity extends AppCompatActivity {
                 posterStatus.setError(null);
             });
 
+    /**
+     * This is the creation of the Activity
+     * This connects to views for the screen and connects the clickable view to their controller
+     * Has an additional boolean edit mode that immediately loadEventForEditing() if there already is a event creation in progress
+     * @param savedInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -119,6 +128,12 @@ public class CreateEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * This opens a popup to select the date from a calender display
+     * this updates the date variable based on the boolean argument
+     * @param forDeadline
+     * if the method is run fo event date or registration deadline date
+     */
     private void showDatePicker(boolean forDeadline) {
         LocalDate currentValue = forDeadline ? selectedDeadlineDate : selectedEventDate;
         Calendar calendar = Calendar.getInstance();
@@ -147,6 +162,14 @@ public class CreateEventActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * This method creates the Event object from the user inputs
+     * it has error checking to ensure all mandatory fields are filled
+     * non-mandatory fields that are not filled are set to their defaults
+     * the created event is uploaded to the database in Events collection
+     * notifies user if creation was successful or not
+     * if in edit mode modifies the event in database instead of creating a new document
+     */
     private void submitEvent() {
         clearErrors();
 
@@ -276,6 +299,9 @@ public class CreateEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * methods clears all errors without managing them
+     */
     private void clearErrors() {
         titleInput.setError(null);
         descriptionInput.setError(null);
@@ -287,6 +313,11 @@ public class CreateEventActivity extends AppCompatActivity {
         eventDateValue.setError(null);
     }
 
+    /**
+     * method Unenables(stops them from being modified) interactive views when creating the event
+     * @param loading
+     * whether the app is in the process of read/writing to the database or not
+     */
     private void setLoading(boolean loading) {
         submitButton.setEnabled(!loading);
         posterButton.setEnabled(!loading);
@@ -301,6 +332,13 @@ public class CreateEventActivity extends AppCompatActivity {
         findViewById(R.id.createEventBackButton).setEnabled(!loading);
     }
 
+    /**
+     * loads the current draft event data
+     * if event data is loaded runs populateForm()
+     * if load fails notifies user though buildLoadErrorMessage()
+     * @param eventId
+     * the Event ID to get the event from the database
+     */
     private void loadEventForEditing(String eventId) {
         setLoading(true);
         repository.getEventById(eventId)
@@ -320,6 +358,11 @@ public class CreateEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * loads the event information into the Input Views
+     * @param event
+     * event whose data will be used to update the views
+     */
     private void populateForm(EventItem event) {
         titleInput.setText(event.getTitle());
         descriptionInput.setText(event.getDescription());
@@ -341,6 +384,13 @@ public class CreateEventActivity extends AppCompatActivity {
         showExistingPoster(currentPosterUrl);
     }
 
+    /**
+     * if there is a posterUrl sets the posterPreview to the Event Image
+     * tries to load image from database to be displayed
+     * on failure show no poster mode and notify user that the load failed
+     * @param posterUrl
+     * the link to the event image
+     */
     private void showExistingPoster(String posterUrl) {
         if (!hasText(posterUrl)) {
             posterPreview.setImageDrawable(null);
@@ -381,6 +431,10 @@ public class CreateEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * method to manage posterPreview when no event image
+     * sets views such that the region that would show the event image ask for image input
+     */
     private void showPosterOptionalState() {
         if (selectedPosterUri == null && !hasText(currentPosterUrl)) {
             posterPreview.setVisibility(View.GONE);
@@ -390,6 +444,13 @@ public class CreateEventActivity extends AppCompatActivity {
         posterStatus.setTextColor(ContextCompat.getColor(this, android.R.color.secondary_text_light));
     }
 
+    /**
+     * This changes the locality date to standard form so that
+     * @param date
+     * Date in Users timezone
+     * @return
+     * LocalDate the conversion to standard form to manage different timezones
+     */
     private LocalDate toLocalDate(Date date) {
         if (date == null) {
             return null;
@@ -397,6 +458,11 @@ public class CreateEventActivity extends AppCompatActivity {
         return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     }
 
+    /**
+     * method that coverts a raised exception during an event load into a error message to be displayed
+     * @return
+     * a String message describing what the error was
+     */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
             return getString(R.string.failed_to_load_event) + ": " + exception.getMessage().trim();
@@ -404,14 +470,37 @@ public class CreateEventActivity extends AppCompatActivity {
         return getString(R.string.failed_to_load_event);
     }
 
+    /**
+     * converts user text input into string
+     * @param input
+     * EditText user input
+     * @return
+     * string of the user input with extraneous spaces removed
+     */
     private String readTrimmed(EditText input) {
         return input.getText() == null ? "" : input.getText().toString().trim();
     }
 
+    /**
+     * check to see if a string is empty
+     * @param value
+     * the string to be tested
+     * @return
+     * boolean true if string contains non-space characters
+     */
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
 
+    /**
+     * converts string into integer
+     * @param value
+     * the string to be converted
+     * @return
+     * int of the converted string
+     * @exception  IllegalArgumentException
+     * if the string is converted to a negative int or cannot be converted
+     */
     private int parseOptionalPositiveInt(String value) {
         if (!hasText(value)) {
             return 0;
@@ -427,6 +516,15 @@ public class CreateEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * converts string into integer with check to see if string is non-empty
+     * @param value
+     * string to be converted
+     * @return
+     * converted string into int
+     * @exception IllegalArgumentException
+     * if the string is empty
+     */
     private int parseRequiredPositiveInt(String value) {
         if (!hasText(value)) {
             throw new IllegalArgumentException("Missing number");
@@ -434,18 +532,46 @@ public class CreateEventActivity extends AppCompatActivity {
         return parseOptionalPositiveInt(value);
     }
 
+    /**
+     * converts a user timezone day into standard form
+     * @param localDate
+     * day in current timezone form
+     * @return
+     * date in standard from assuming a time just before midnight
+     */
     private Date toRegistrationDeadline(LocalDate localDate) {
         return toDate(localDate.atTime(LocalTime.MAX));
     }
 
+    /**
+     * converts a user timezone day into standard form
+     * @param localDate
+     * day in current timezone form
+     * @return
+     * date in standard from assuming a time of Noon
+     */
     private Date toEventDate(LocalDate localDate) {
         return toDate(localDate.atTime(LocalTime.NOON));
     }
 
+    /**
+     * converts a user timezone date into standard form
+     * @param localDateTime
+     * date in current timezone form
+     * @return
+     * date in standard from
+     */
     private Date toDate(LocalDateTime localDateTime) {
         return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 
+    /**
+     * formats date into string form
+     * @param date
+     * date to be converted
+     * @return
+     * String form of the date
+     */
     private String formatDate(Date date) {
         return new SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(date);
     }
