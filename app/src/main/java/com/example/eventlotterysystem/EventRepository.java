@@ -573,7 +573,7 @@ public class EventRepository {
     }
 
     @NonNull
-    private EventItem readEventItem(@NonNull DocumentSnapshot doc) {
+    public EventItem readEventItem(@NonNull DocumentSnapshot doc) {
         String title = doc.getString("title");
         String description = doc.getString("description");
         String location = doc.getString("location");
