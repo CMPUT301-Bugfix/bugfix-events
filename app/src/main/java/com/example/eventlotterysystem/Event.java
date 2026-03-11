@@ -9,6 +9,7 @@ import java.util.UUID;
 
 /**
  * This is a class for an Event
+ * @deprecated
  */
 public class Event {
     private final UUID eventId;
