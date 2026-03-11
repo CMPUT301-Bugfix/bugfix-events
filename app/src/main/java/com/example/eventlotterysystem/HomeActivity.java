@@ -78,6 +78,13 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Configures and launches the QR code scanner interface.
+     * <p>
+     * this method sets the scanner options, including prompt text, beep sound,
+     * and camera uses (back and front camera).
+     * it use a custom {@link CaptureActivity} to manage the scanning UI
+     */
     private void scanCode(){
         ScanOptions options = new ScanOptions();
         options.setPrompt("Scan a QR Code");
