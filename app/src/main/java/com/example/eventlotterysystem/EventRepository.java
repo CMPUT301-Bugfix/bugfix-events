@@ -28,17 +28,27 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * The Even
+ */
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
 
+    /** NOT COMPLETE
+     *
+     */
     public EventRepository() {
         firestore = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
     }
 
+    /**
+     * NOT COMPLETE
+     * @return
+     */
     public Task<List<EventItem>> getCurrentEvents() {
         return firestore.collection("events")
                 .get()
@@ -63,6 +73,11 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETEv
+     *
+     * @param hostUid
+     * @return
+     */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
         return firestore.collection("events")
                 .whereEqualTo("hostUid", hostUid)
@@ -86,6 +101,11 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @return
+     */
     public Task<EventItem> getEventById(String eventId) {
         return firestore.collection("events")
                 .document(eventId)
@@ -104,6 +124,13 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param currentUser
+     * @param draftEvent
+     * @param posterUri
+     * @return
+     */
     public Task<String> createEvent(
             @NonNull FirebaseUser currentUser,
             @NonNull EventItem draftEvent,
@@ -166,6 +193,12 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @param uid
+     * @return
+     */
     public Task<Boolean> getWaitlistState(
             @NonNull String eventId,
             @NonNull String uid
@@ -183,6 +216,12 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @param currentUser
+     * @return
+     */
     public Task<Void> joinWaitlist(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser
@@ -235,6 +274,12 @@ public class EventRepository {
         });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @param uid
+     * @return
+     */
     public Task<Void> leaveWaitlist(
             @NonNull String eventId,
             @NonNull String uid
@@ -266,6 +311,11 @@ public class EventRepository {
         });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param uid
+     * @return
+     */
     public Task<List<WaitlistEntryItem>> getMyWaitlists(@NonNull String uid) {
         return firestore.collection("users")
                 .document(uid)
@@ -341,6 +391,11 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @return
+     */
     public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
         return firestore.collection("events")
                 .document(eventId)
@@ -416,6 +471,14 @@ public class EventRepository {
                 });
     }
 
+    /** NOT COMPLETE
+     *
+     * @param eventId
+     * @param currentUser
+     * @param event
+     * @param posterUri
+     * @return
+     */
     public Task<String> updateEvent(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser,
@@ -465,6 +528,27 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Updates the database
+     * @param eventRef
+     * a reference to a Event document in the database
+     * @param userRef
+     * a reference to a User document in the database
+     * @param draftEvent
+     * a Event object that needs to be updated to the database
+     * @param hostUid
+     * ID of the Event Creator
+     * @param hostDisplayName
+     * Name of the Event Creator
+     * @param posterUrl
+     * Link to the event image
+     * @param accountType
+     * what type of User the User is (Entrant(User), Organizer, Admin)
+     * @param posterRef
+     * reference to the event Image file in the database
+     * @return
+     * the next task dependant on
+     */
     private Task<String> createEventRecord(
             @NonNull DocumentReference eventRef,
             @NonNull DocumentReference userRef,
@@ -497,6 +581,15 @@ public class EventRepository {
         return taskCompletionSource.getTask();
     }
 
+    /**
+     * returns whether an event is able to have sign-ups
+     * @param doc
+     * a reference to an event document
+     * @param now
+     * time right now
+     * @return
+     * whether an event is able to have sign-ups
+     */
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
         Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
         Boolean deleted = doc.getBoolean("deleted");
@@ -521,6 +614,13 @@ public class EventRepository {
         return Boolean.TRUE.equals(waitlistOpen) && (upcomingByEventDate || beforeDeadline);
     }
 
+    /**
+     * reads in a Event document in the database into an Event object
+     * @param doc
+     * a reference to Event document in the database
+     * @return
+     * a created Event object with the data from the document
+     */
     @NonNull
     private EventItem readEventItem(@NonNull DocumentSnapshot doc) {
         String title = doc.getString("title");
@@ -573,6 +673,19 @@ public class EventRepository {
         );
     }
 
+    /**
+     * creates a map matches data with label for database writing
+     * @param event
+     * a Event object in the program
+     * @param hostUid
+     * ID of the Event host User (Current user)
+     * @param hostDisplayName
+     * name of Event host
+     * @param posterUrl
+     * a link to the Event image
+     * @return
+     * map of field names and associated data into a format writable to the database
+     */
     @NonNull
     private Map<String, Object> buildEventPayload(
             @NonNull EventItem event,
@@ -599,6 +712,15 @@ public class EventRepository {
         return payload;
     }
 
+    /**
+     * creates a map matches data with label for database writing
+     * @param event
+     * a Event object in the program
+     * @param posterUrl
+     * a link to the Event image
+     * @return
+     * map of field names and associated data into a format writable to the database
+     */
     @NonNull
     private Map<String, Object> buildUpdatedEventPayload(
             @NonNull EventItem event,
@@ -619,6 +741,15 @@ public class EventRepository {
         return payload;
     }
 
+    /**
+     * returns string text that designates who the event organizer is
+     * @param userSnapshot
+     * reference to the current user in the database
+     * @param currentUser
+     * current User document from database
+     * @return
+     * string name (or other refence label if name is missing) of the Event organizer (User)
+     */
     @NonNull
     private String getHostDisplayName(
             @NonNull DocumentSnapshot userSnapshot,
@@ -639,6 +770,13 @@ public class EventRepository {
         return currentUser.getUid();
     }
 
+    /**
+     * reads in a user from the database into a UserProfile
+     * @param doc
+     * a reference to the user document to read data of
+     * @return
+     * the User profile of matching the document in the database
+     */
     @NonNull
     private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
         UserProfile userProfile = new UserProfile(
@@ -658,6 +796,13 @@ public class EventRepository {
         return userProfile;
     }
 
+    /**
+     * gets the event ID of the event that the snapshot is contained in
+     * @param snapshot
+     * reference to a waitlist entry in an Event document
+     * @return
+     * string event ID of that the waitlist entry is for
+     */
     @NonNull
     private String extractWaitlistEventId(@NonNull DocumentSnapshot snapshot) {
         DocumentReference eventRef = snapshot.getReference().getParent().getParent();
@@ -667,6 +812,15 @@ public class EventRepository {
         return eventRef.getId();
     }
 
+    /**
+     * returns the waitlist entry of a event for a specific user from the database
+     * @param eventId
+     * Event ID
+     * @param uid
+     * User ID
+     * @return
+     * the pointer to the waitlist item in the database (under events collection)
+     */
     @NonNull
     private DocumentReference eventWaitlistEntry(
             @NonNull String eventId,
@@ -678,6 +832,15 @@ public class EventRepository {
                 .document(uid);
     }
 
+    /**
+     * returns the waitlist entry of a user for a specific event from the database
+     * @param uid
+     * User ID
+     * @param eventId
+     * event ID
+     * @return
+     * the pointer to the waitlist item in the database (under users collection)
+     */
     @NonNull
     private DocumentReference userWaitlistEntry(
             @NonNull String uid,
@@ -689,6 +852,11 @@ public class EventRepository {
                 .document(eventId);
     }
 
+    /**
+     * sorts a list of events by the time of occurrence of the Event
+     * @param events
+     * list of events to be sorted
+     */
     private void sortByEventDate(@NonNull List<EventItem> events) {
         Collections.sort(events, Comparator.comparing(
                 EventItem::getEventDate,
@@ -696,6 +864,17 @@ public class EventRepository {
         ));
     }
 
+    /**
+     * returns whether the (is waitlist open and it is before the deadline)
+     * @param waitlistOpen
+     * whether the wailist is allowing sign-ups
+     * @param registrationDeadline
+     * deadline of when sign-ups close
+     * @param now
+     * time right now
+     * @return
+     * if is is okay to sign-up for the event
+     */
     static boolean isWaitlistJoinOpen(
             boolean waitlistOpen,
             @Nullable Date registrationDeadline,
@@ -707,19 +886,47 @@ public class EventRepository {
         return registrationDeadline == null || registrationDeadline.after(now);
     }
 
+    /**
+     * return a number 1 more than the argument
+     * @param currentCount
+     * int to be incremented
+     * @return
+     * int currentCount incremented by 1
+     */
     static int incrementWaitlistCount(int currentCount) {
         return currentCount + 1;
     }
 
+    /**
+     * return a number 1 less than the argument unless negative then 0
+     * @param currentCount
+     * int to be decremented
+     * @return
+     * int currentCount after decrementing by 1
+     */
     static int decrementWaitlistCount(int currentCount) {
         return Math.max(0, currentCount - 1);
     }
 
+    /**
+     * removes extraneous whitespace and ensures that sting is non-null
+     * @param value
+     * String to be cleaned
+     * @return
+     * cleaned String
+     */
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * returns the first non-empty string in the arguments
+     * @param candidates
+     * string varable(s) to be testing
+     * @return
+     * first string that is not empty, or empty string if all are empty
+     */
     @NonNull
     private String firstNonEmpty(String... candidates) {
         for (String candidate : candidates) {
@@ -730,6 +937,13 @@ public class EventRepository {
         return "";
     }
 
+    /**
+     * method that check is there is content in the string
+     * @param value
+     * the string to be testing
+     * @return
+     * true if there was actual text in the string
+     */
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
