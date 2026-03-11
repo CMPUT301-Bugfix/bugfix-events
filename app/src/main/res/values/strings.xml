@@ -167,4 +167,10 @@
     <string name="max_participants">max participants</string>
     <string name="max_participants_invalid">Enter a valid number greater than 0.</string>
     <string name="max_participants_exceeds_entrants">Max participants cannot exceed max entrants.</string>
+    <string name="notification_send_action">send</string>
+    <string name="send_notification">send</string>
+    <string name="notification_message_hint">message</string>
+    <string name="notification_sent">notification set!</string>
+    <string name="notifications_title">My Notification Inbox</string>
+    <string name="notify_waitlist">Notify Waitlist</string>
 </resources>

@@ -23,31 +23,27 @@ public class NotificationRepository {
 
     /**
      * Sends a notification to all users on the waitlist for a specific event.
+     * Updated to match the events/{eventId}/waitlists/{uid} structure.
      */
     public Task<Void> sendNotificationToWaitlist(
             @NonNull String eventId,
             @NonNull String eventTitle,
             @NonNull String message
     ) {
-
-        // 1. Find all users on the waitlist using a collection group query
-        return firestore.collectionGroup("waitlists")
-                .whereEqualTo("eventId", eventId)
+        // get the waitlist using path:  events/{eventId}/waitlists
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("waitlists") // No longer need collectionGroup
                 .get()
                 .continueWithTask(task -> {
                     if (!task.isSuccessful()) {
-                        // Throw the original exception so the UI can report the real cause (e.g., missing index)
-                        throw task.getException() != null ? task.getException() : new Exception("Unknown query error");
+                        throw task.getException() != null ? task.getException() : new Exception("Query error");
                     }
 
                     List<String> recipientUids = new ArrayList<>();
                     for (DocumentSnapshot doc : task.getResult()) {
-                        // Extract user ID from path: users/{uid}/waitlists/{eventId}
-                        DocumentReference ref = doc.getReference();
-                        DocumentReference userRef = ref.getParent().getParent();
-                        if (userRef != null) {
-                            recipientUids.add(userRef.getId());
-                        }
+                        //  Document ID is the User ID
+                        recipientUids.add(doc.getId());
                     }
 
                     if (recipientUids.isEmpty()) {
