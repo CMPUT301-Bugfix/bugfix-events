@@ -71,7 +71,7 @@ public class HomeActivity extends AppCompatActivity {
 
     /**
      * This is the startup of the Activity
-     * This get the current user
+     * This gets the current user from the database and runs verifyActiveProfileAndRender to get user data
      */
     @Override
     protected void onStart() {
