@@ -30,6 +30,9 @@ import java.util.Map;
 
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
+    static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
+    static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
+    static final String WAITLIST_STATUS_DECLINED = "DECLINED";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -170,10 +173,7 @@ public class EventRepository {
             @NonNull String eventId,
             @NonNull String uid
     ) {
-        return firestore.collection("users")
-                .document(uid)
-                .collection("waitlists")
-                .document(eventId)
+        return userWaitlistEntry(uid, eventId)
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
@@ -185,16 +185,61 @@ public class EventRepository {
                     return doc != null && doc.exists();
                 });
     }
+    public Task<String> getWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventWaitlistEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load waitlist status");
+                    }
+
+                    DocumentSnapshot doc = task.getResult();
+                    if (doc == null || !doc.exists()) {
+                        return "";
+                    }
+
+                    String status = normalize(doc.getString("status"));
+                    return status.isEmpty() ? WAITLIST_STATUS_IN : status;
+                });
+    }
+
+    public Task<Void> updateWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid,
+            @NonNull String status
+    ) {
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(uid, eventId);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
+                throw new IllegalStateException("Waitlist entry not found");
+            }
+
+            if (eventMembershipDoc.exists()) {
+                transaction.update(eventWaitlistRef, "status", status);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.update(userWaitlistRef, "status", status);
+            }
+            return null;
+        });
+    }
 
     public Task<Void> joinWaitlist(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = firestore.collection("users")
-                .document(currentUser.getUid())
-                .collection("waitlists")
-                .document(eventId);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
+        DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
@@ -202,8 +247,9 @@ public class EventRepository {
                 throw new IllegalStateException("Event not found");
             }
 
-            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
-            if (membershipDoc.exists()) {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
                 return null;
             }
 
@@ -230,8 +276,10 @@ public class EventRepository {
             membershipPayload.put("eventId", eventId);
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
+            membershipPayload.put("uid", currentUser.getUid());
 
-            transaction.set(waitlistRef, membershipPayload);
+            transaction.set(eventWaitlistRef, membershipPayload);
+            transaction.set(userWaitlistRef, membershipPayload);
             transaction.update(eventRef, "totalEntrants", incrementWaitlistCount(totalEntrants));
             return null;
         });
@@ -242,19 +290,23 @@ public class EventRepository {
             @NonNull String uid
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = firestore.collection("users")
-                .document(uid)
-                .collection("waitlists")
-                .document(eventId);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(uid, eventId);
 
         return firestore.runTransaction(transaction -> {
-            DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
-            if (!membershipDoc.exists()) {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
                 return null;
             }
 
             DocumentSnapshot eventDoc = transaction.get(eventRef);
-            transaction.delete(waitlistRef);
+            if (eventMembershipDoc.exists()) {
+                transaction.delete(eventWaitlistRef);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.delete(userWaitlistRef);
+            }
             if (eventDoc.exists()) {
                 Long totalEntrantsValue = eventDoc.getLong("totalEntrants");
                 int totalEntrants = totalEntrantsValue == null ? 0 : totalEntrantsValue.intValue();
@@ -278,18 +330,23 @@ public class EventRepository {
 
                     List<DocumentSnapshot> waitlistDocs = queryTask.getResult().getDocuments();
                     List<String> eventIds = new ArrayList<>();
+                    List<String> statuses = new ArrayList<>();
                     List<Task<DocumentSnapshot>> tasks = new ArrayList<>();
 
                     for (DocumentSnapshot doc : waitlistDocs) {
                         String status = normalize(doc.getString("status"));
-                        if (!WAITLIST_STATUS_IN.equals(status)) {
+                        if (status.isEmpty()) {
+                            status = WAITLIST_STATUS_IN;
+                        }
+                        String eventId = firstNonEmpty(
+                                normalize(doc.getString("eventId")),
+                                doc.getId()
+                        );
+                        if (eventId.isEmpty()) {
                             continue;
                         }
-                        String eventId = normalize(doc.getString("eventId"));
-                        if (eventId.isEmpty()) {
-                            eventId = doc.getId();
-                        }
                         eventIds.add(eventId);
+                        statuses.add(status);
                         tasks.add(firestore.collection("events").document(eventId).get());
                     }
 
@@ -323,7 +380,7 @@ public class EventRepository {
                                     eventIds.get(index),
                                     event.getTitle(),
                                     event.getEventDate(),
-                                    WAITLIST_STATUS_IN
+                                    statuses.get(index)
                             ));
                         }
 
@@ -332,6 +389,80 @@ public class EventRepository {
                                 Comparator.nullsLast(Date::compareTo)
                         ));
                         return items;
+                    });
+                });
+    }
+
+    public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load entrants");
+                    }
+
+                    List<Task<UserProfile>> entrantTasks = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        String uid = firstNonEmpty(
+                                normalize(doc.getString("uid")),
+                                doc.getId()
+                        );
+                        if (!hasText(uid)) {
+                            continue;
+                        }
+                        entrantTasks.add(firestore.collection("users")
+                                .document(uid)
+                                .get()
+                                .continueWith(userTask -> {
+                                    if (!userTask.isSuccessful()) {
+                                        throw userTask.getException() != null
+                                                ? userTask.getException()
+                                                : new IllegalStateException("Failed to load entrant profile");
+                                    }
+
+                                    DocumentSnapshot userDoc = userTask.getResult();
+                                    if (userDoc == null || !userDoc.exists()) {
+                                        return null;
+                                    }
+                                    if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
+                                        return null;
+                                    }
+                                    return readUserProfile(userDoc);
+                                }));
+                    }
+
+                    if (entrantTasks.isEmpty()) {
+                        return Tasks.forResult(new ArrayList<>());
+                    }
+
+                    return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
+                        if (!resultsTask.isSuccessful()) {
+                            throw resultsTask.getException() != null
+                                    ? resultsTask.getException()
+                                    : new IllegalStateException("Failed to load entrants");
+                        }
+
+                        List<UserProfile> entrants = new ArrayList<>();
+                        for (Object result : resultsTask.getResult()) {
+                            if (result instanceof UserProfile) {
+                                entrants.add((UserProfile) result);
+                            }
+                        }
+
+                        entrants.sort(Comparator.comparing(
+                                entrant -> firstNonEmpty(
+                                        entrant.getName(),
+                                        entrant.getUsername(),
+                                        entrant.getEmail(),
+                                        entrant.getUid()
+                                ),
+                                String.CASE_INSENSITIVE_ORDER
+                        ));
+                        return entrants;
                     });
                 });
     }
@@ -559,6 +690,56 @@ public class EventRepository {
         return currentUser.getUid();
     }
 
+    @NonNull
+    private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
+        UserProfile userProfile = new UserProfile(
+                normalize(doc.getString("fullName")),
+                normalize(doc.getString("email")),
+                normalize(doc.getString("username")),
+                normalize(doc.getString("usernameKey")),
+                normalize(doc.getString("phoneNumber")),
+                normalize(doc.getString("accountType"))
+        );
+        userProfile.setUid(doc.getId());
+
+        Timestamp createdAt = doc.getTimestamp("createdAt");
+        if (createdAt != null) {
+            userProfile.setCreatedAt(createdAt);
+        }
+        return userProfile;
+    }
+
+    @NonNull
+    private String extractWaitlistEventId(@NonNull DocumentSnapshot snapshot) {
+        DocumentReference eventRef = snapshot.getReference().getParent().getParent();
+        if (eventRef == null) {
+            return "";
+        }
+        return eventRef.getId();
+    }
+
+    @NonNull
+    private DocumentReference eventWaitlistEntry(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document(uid);
+    }
+
+    @NonNull
+    private DocumentReference userWaitlistEntry(
+            @NonNull String uid,
+            @NonNull String eventId
+    ) {
+        return firestore.collection("users")
+                .document(uid)
+                .collection("waitlists")
+                .document(eventId);
+    }
+
     private void sortByEventDate(@NonNull List<EventItem> events) {
         Collections.sort(events, Comparator.comparing(
                 EventItem::getEventDate,
@@ -588,6 +769,16 @@ public class EventRepository {
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    @NonNull
+    private String firstNonEmpty(String... candidates) {
+        for (String candidate : candidates) {
+            if (hasText(candidate)) {
+                return candidate.trim();
+            }
+        }
+        return "";
     }
 
     private boolean hasText(String value) {

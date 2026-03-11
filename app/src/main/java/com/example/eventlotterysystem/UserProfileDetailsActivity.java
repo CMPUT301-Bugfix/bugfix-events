@@ -34,6 +34,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     public static final String PHONE = "phone";
     public static final String UID = "uid";
     public static final String TIME_MILLIS = "timeMillis";
+    public static final String ALLOW_DELETE = "allowDelete";
 
     private FirebaseFirestore firestore;
     private Button deleteProfileButton;
@@ -67,6 +68,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         String email = normalize(getIntent().getStringExtra(EMAIL));
         String phone = normalize(getIntent().getStringExtra(PHONE));
         long timeMillis = getIntent().getLongExtra(TIME_MILLIS, -1L);
+        boolean allowDelete = getIntent().getBooleanExtra(ALLOW_DELETE, true);
 
         detailsNameValue.setText(getString(R.string.profile_name_label, safeValue(viewedName, R.string.unknown_name)));
         detailsTypeValue.setText(getString(R.string.profile_type_label, safeValue(viewedAccountType, R.string.unknown_account_type)));
@@ -75,7 +77,8 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         detailsPhoneValue.setText(getString(R.string.profile_phone_label, safeValue(phone, R.string.unknown_phone)));
         detailsJoinDateValue.setText(getString(R.string.profile_join_date_label, formatJoinDate(timeMillis)));
 
-        boolean canDeleteViewedProfile = !TextUtils.isEmpty(viewedUid)
+        boolean canDeleteViewedProfile = allowDelete
+                && !TextUtils.isEmpty(viewedUid)
                 && !"admin".equalsIgnoreCase(viewedAccountType);
         if (!canDeleteViewedProfile) {
             deleteProfileButton.setVisibility(View.GONE);

@@ -14,6 +14,16 @@
     <string name="phone_number_optional">phone number (optional)</string>
     <string name="confirm_password">confirm password</string>
     <string name="my_things">my things</string>
+    <string name="my_waitlist">My Waitlist</string>
+    <string name="my_waitlist_subtitle">Events you have joined the waitlist for.</string>
+    <string name="entrants">Entrants</string>
+    <string name="entrants_title">entrants</string>
+    <string name="all_entrants">All Entrants</string>
+    <string name="entrants_button_label">Entrants %1$s</string>
+    <string name="all_entrants_button_label">All Entrants %1$s</string>
+    <string name="no_entrants">No entrants are enrolled right now.</string>
+    <string name="failed_to_load_entrants">Failed to load entrants.</string>
+    <string name="unlimited">unlimited</string>
     <string name="host_an_event">host an event</string>
     <string name="hosted_events">hosted events</string>
     <string name="browse_events_title">all events</string>
@@ -57,6 +67,7 @@
     <string name="event_max_entrants_label">Max Entrants: %1$d</string>
     <string name="event_max_entrants_unlimited">Max Entrants: no limit</string>
     <string name="event_total_entrants_label">Total Entrants: %1$d</string>
+    <string name="event_waitlist_total_label">Total people in waitlist: %1$d</string>
     <string name="event_geolocation_enabled">Geolocation required</string>
     <string name="event_geolocation_disabled">Geolocation optional</string>
     <string name="event_card_missing_host">organizer</string>
@@ -156,12 +167,4 @@
     <string name="max_participants">max participants</string>
     <string name="max_participants_invalid">Enter a valid number greater than 0.</string>
     <string name="max_participants_exceeds_entrants">Max participants cannot exceed max entrants.</string>
-    <string name="notify_waitlist">Notify Waitlist</string>
-    <string name="send_notification">Send Notification</string>
-    <string name="notification_message_hint">Enter your message here...</string>
-    <string name="notification_sent">Notification sent successfully</string>
-    <string name="notifications_title">Notifications</string>
-    <string name="notification_send_action">Send</string>
-    <string name="my_waitlist">My waitlist</string>
-    <string name="my_waitlist_subtitle">Track your entries and lottery status.</string>
 </resources>
