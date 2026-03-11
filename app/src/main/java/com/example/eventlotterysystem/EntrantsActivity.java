@@ -170,11 +170,11 @@ public class EntrantsActivity extends AppCompatActivity {
                     });
         });
     }
-
+    //TODO
     private void processExpired() {
         processExpiredButton.setEnabled(false);
         // Note: Logic for finding winners older than 3 days and replacing them
-        // This is a placeholder for the repository method if implemented
+        // This is a placeholder for the actual logic
         Toast.makeText(this, "Processing expired responses...", Toast.LENGTH_SHORT).show();
         // repository.processExpiredWinners(eventId)...
         processExpiredButton.setEnabled(true);
