@@ -486,6 +486,8 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an event load into a error message to be displayed
+     * @param exception
+     * the exception that was created
      * @return
      * a String message describing what the error was
      */
