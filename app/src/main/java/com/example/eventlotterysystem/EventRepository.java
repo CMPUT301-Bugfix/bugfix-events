@@ -486,9 +486,11 @@ public class EventRepository {
 
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
+                                    List<String> chosenUids = new ArrayList<>();
                                     WriteBatch batch = firestore.batch();
                                     for (int i = 0; i < drawCount; i++) {
                                         String uid = candidates.get(i).getId();
+                                        chosenUids.add(uid);
                                         DocumentReference eRef = eventWaitlistEntry(eventId, uid);
                                         DocumentReference uRef = userWaitlistEntry(uid, eventId);
                                         
@@ -500,7 +502,8 @@ public class EventRepository {
 
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
-                                        return notifRepo.sendBatchNotification(eventId, event.getTitle(), winningMessage, "WIN", WAITLIST_STATUS_CHOSEN);
+                                        // Pass the chosenUids directly to avoid re-querying!
+                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
                                     });
                                 });
                     });

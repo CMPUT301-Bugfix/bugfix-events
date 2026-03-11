@@ -24,12 +24,6 @@ public class NotificationRepository {
 
     /**
      * Sends a targeted notification to a specific sub-group of the waitlist.
-     * @param eventId The event ID.
-     * @param eventTitle The event title.
-     * @param message The message body.
-     * @param type "WIN" or "GENERAL".
-     * @param statusFilter The status to filter by (e.g., "IN_WAITLIST", "CHOSEN", "CONFIRMED", "DECLINED").
-     *                     If null, sends to everyone in the waitlist.
      */
     public Task<Void> sendBatchNotification(
             @NonNull String eventId,
@@ -60,17 +54,22 @@ public class NotificationRepository {
                 return Tasks.forResult(null);
             }
 
-            return executeBroadcast(eventId, eventTitle, message, type, recipientUids);
+            return sendToSpecificUsers(eventId, eventTitle, message, type, recipientUids);
         });
     }
 
-    private Task<Void> executeBroadcast(
-            String eventId,
-            String title,
-            String message,
-            String type,
-            List<String> recipientUids
+    /**
+     * Directly sends a notification to a provided list of user UIDs.
+     */
+    public Task<Void> sendToSpecificUsers(
+            @NonNull String eventId,
+            @NonNull String title,
+            @NonNull String message,
+            @NonNull String type,
+            @NonNull List<String> recipientUids
     ) {
+        if (recipientUids.isEmpty()) return Tasks.forResult(null);
+
         WriteBatch batch = firestore.batch();
 
         // 1. Add to global notification log
@@ -79,7 +78,7 @@ public class NotificationRepository {
         logItem.setId(logRef.getId());
         batch.set(logRef, logItem);
 
-        // 2. Add to each user's individual inbox (users/{uid}/notifications)
+        // 2. Add to each user's individual inbox
         for (String uid : recipientUids) {
             DocumentReference userNotifyRef = firestore.collection("users")
                     .document(uid)
