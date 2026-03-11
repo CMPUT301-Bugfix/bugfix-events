@@ -532,36 +532,7 @@ public class EventRepository {
                 });
     }
 
-    public Task<Void> addDummyEntrants(String eventId, int count) {
-        WriteBatch batch = firestore.batch();
-        DocumentReference eventRef = firestore.collection("events").document(eventId);
-        
-        for (int i = 0; i < count; i++) {
-            String dummyUid = "dummy_user_" + System.currentTimeMillis() + "_" + i;
-            DocumentReference waitlistRef = eventWaitlistEntry(eventId, dummyUid);
-            DocumentReference userWaitlistRef = userWaitlistEntry(dummyUid, eventId);
-            
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("eventId", eventId);
-            payload.put("status", WAITLIST_STATUS_IN);
-            payload.put("joinedAt", FieldValue.serverTimestamp());
-            payload.put("uid", dummyUid);
-            
-            batch.set(waitlistRef, payload);
-            batch.set(userWaitlistRef, payload);
-            
-            DocumentReference userRef = firestore.collection("users").document(dummyUid);
-            Map<String, Object> userPayload = new HashMap<>();
-            userPayload.put("fullName", "Dummy User " + i);
-            userPayload.put("email", dummyUid + "@example.com");
-            userPayload.put("username", "dummy" + i);
-            userPayload.put("accountType", "user");
-            batch.set(userRef, userPayload);
-        }
-        
-        batch.update(eventRef, "totalEntrants", FieldValue.increment(count));
-        return batch.commit();
-    }
+
 
     public Task<String> updateEvent(
             @NonNull String eventId,
