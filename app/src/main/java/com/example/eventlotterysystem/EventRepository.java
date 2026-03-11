@@ -170,10 +170,7 @@ public class EventRepository {
             @NonNull String eventId,
             @NonNull String uid
     ) {
-        return firestore.collection("users")
-                .document(uid)
-                .collection("waitlists")
-                .document(eventId)
+        return eventWaitlistEntry(eventId, uid)
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
@@ -191,10 +188,7 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = firestore.collection("users")
-                .document(currentUser.getUid())
-                .collection("waitlists")
-                .document(eventId);
+        DocumentReference waitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
@@ -230,6 +224,7 @@ public class EventRepository {
             membershipPayload.put("eventId", eventId);
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
+            membershipPayload.put("uid", currentUser.getUid());
 
             transaction.set(waitlistRef, membershipPayload);
             transaction.update(eventRef, "totalEntrants", incrementWaitlistCount(totalEntrants));
@@ -242,10 +237,7 @@ public class EventRepository {
             @NonNull String uid
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference waitlistRef = firestore.collection("users")
-                .document(uid)
-                .collection("waitlists")
-                .document(eventId);
+        DocumentReference waitlistRef = eventWaitlistEntry(eventId, uid);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot membershipDoc = transaction.get(waitlistRef);
@@ -265,9 +257,8 @@ public class EventRepository {
     }
 
     public Task<List<WaitlistEntryItem>> getMyWaitlists(@NonNull String uid) {
-        return firestore.collection("users")
-                .document(uid)
-                .collection("waitlists")
+        return firestore.collectionGroup("waitlist")
+                .whereEqualTo("uid", uid)
                 .get()
                 .continueWithTask(queryTask -> {
                     if (!queryTask.isSuccessful()) {
@@ -285,9 +276,12 @@ public class EventRepository {
                         if (!WAITLIST_STATUS_IN.equals(status)) {
                             continue;
                         }
-                        String eventId = normalize(doc.getString("eventId"));
+                        String eventId = firstNonEmpty(
+                                normalize(doc.getString("eventId")),
+                                extractWaitlistEventId(doc)
+                        );
                         if (eventId.isEmpty()) {
-                            eventId = doc.getId();
+                            continue;
                         }
                         eventIds.add(eventId);
                         tasks.add(firestore.collection("events").document(eventId).get());
@@ -332,6 +326,81 @@ public class EventRepository {
                                 Comparator.nullsLast(Date::compareTo)
                         ));
                         return items;
+                    });
+                });
+    }
+
+    public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .whereEqualTo("status", WAITLIST_STATUS_IN)
+                .get()
+                .continueWithTask(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load entrants");
+                    }
+
+                    List<Task<UserProfile>> entrantTasks = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        String uid = firstNonEmpty(
+                                normalize(doc.getString("uid")),
+                                doc.getId()
+                        );
+                        if (!hasText(uid)) {
+                            continue;
+                        }
+                        entrantTasks.add(firestore.collection("users")
+                                .document(uid)
+                                .get()
+                                .continueWith(userTask -> {
+                                    if (!userTask.isSuccessful()) {
+                                        throw userTask.getException() != null
+                                                ? userTask.getException()
+                                                : new IllegalStateException("Failed to load entrant profile");
+                                    }
+
+                                    DocumentSnapshot userDoc = userTask.getResult();
+                                    if (userDoc == null || !userDoc.exists()) {
+                                        return null;
+                                    }
+                                    if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
+                                        return null;
+                                    }
+                                    return readUserProfile(userDoc);
+                                }));
+                    }
+
+                    if (entrantTasks.isEmpty()) {
+                        return Tasks.forResult(new ArrayList<>());
+                    }
+
+                    return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
+                        if (!resultsTask.isSuccessful()) {
+                            throw resultsTask.getException() != null
+                                    ? resultsTask.getException()
+                                    : new IllegalStateException("Failed to load entrants");
+                        }
+
+                        List<UserProfile> entrants = new ArrayList<>();
+                        for (Object result : resultsTask.getResult()) {
+                            if (result instanceof UserProfile) {
+                                entrants.add((UserProfile) result);
+                            }
+                        }
+
+                        entrants.sort(Comparator.comparing(
+                                entrant -> firstNonEmpty(
+                                        entrant.getName(),
+                                        entrant.getUsername(),
+                                        entrant.getEmail(),
+                                        entrant.getUid()
+                                ),
+                                String.CASE_INSENSITIVE_ORDER
+                        ));
+                        return entrants;
                     });
                 });
     }
@@ -559,6 +628,45 @@ public class EventRepository {
         return currentUser.getUid();
     }
 
+    @NonNull
+    private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
+        UserProfile userProfile = new UserProfile(
+                normalize(doc.getString("fullName")),
+                normalize(doc.getString("email")),
+                normalize(doc.getString("username")),
+                normalize(doc.getString("usernameKey")),
+                normalize(doc.getString("phoneNumber")),
+                normalize(doc.getString("accountType"))
+        );
+        userProfile.setUid(doc.getId());
+
+        Timestamp createdAt = doc.getTimestamp("createdAt");
+        if (createdAt != null) {
+            userProfile.setCreatedAt(createdAt);
+        }
+        return userProfile;
+    }
+
+    @NonNull
+    private String extractWaitlistEventId(@NonNull DocumentSnapshot snapshot) {
+        DocumentReference eventRef = snapshot.getReference().getParent().getParent();
+        if (eventRef == null) {
+            return "";
+        }
+        return eventRef.getId();
+    }
+
+    @NonNull
+    private DocumentReference eventWaitlistEntry(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .document(uid);
+    }
+
     private void sortByEventDate(@NonNull List<EventItem> events) {
         Collections.sort(events, Comparator.comparing(
                 EventItem::getEventDate,
@@ -588,6 +696,16 @@ public class EventRepository {
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    @NonNull
+    private String firstNonEmpty(String... candidates) {
+        for (String candidate : candidates) {
+            if (hasText(candidate)) {
+                return candidate.trim();
+            }
+        }
+        return "";
     }
 
     private boolean hasText(String value) {
