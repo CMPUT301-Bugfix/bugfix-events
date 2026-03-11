@@ -29,6 +29,7 @@ public class NotificationRepository {
             @NonNull String eventTitle,
             @NonNull String message
     ) {
+
         // 1. Find all users on the waitlist using a collection group query
         return firestore.collectionGroup("waitlists")
                 .whereEqualTo("eventId", eventId)
