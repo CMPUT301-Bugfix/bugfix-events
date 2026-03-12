@@ -184,7 +184,6 @@ public class ViewEventActivity extends AppCompatActivity {
         intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
         intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
         intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
-        intent.putExtra(EntrantsActivity.EVENT_TITLE, currentEvent.getTitle());
         startActivity(intent);
     }
 

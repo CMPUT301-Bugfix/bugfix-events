@@ -28,6 +28,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * The Class the manages the interactions between Event as a object in the program and as a document in the database
+ */
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
     static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
@@ -37,11 +40,20 @@ public class EventRepository {
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
 
+    /**
+     * creates the EventRepository object which is just references to the database
+     * the methods allows for access to Event documents in the database through Ids and event objects
+     */
     public EventRepository() {
         firestore = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
     }
 
+    /**
+     * Loads all active events in the database into a list of event objects
+     * @return
+     * task that reads the database for all match events and creates event object for them
+     */
     public Task<List<EventItem>> getCurrentEvents() {
         return firestore.collection("events")
                 .get()
@@ -66,6 +78,13 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Load the a list event from the database for all events creator matching user ID and creates a respective event object list
+     * @param hostUid
+     * ID of the user that created the event
+     * @return
+     * task that gets all the events that the user created as a list of event objects raises an exception of failure
+     */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
         return firestore.collection("events")
                 .whereEqualTo("hostUid", hostUid)
@@ -89,6 +108,13 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Load the event from the database by its id and creates a respective event object
+     * @param eventId
+     * id of the Event
+     * @return
+     * a task that loads the event by Id into an event object and raises an exception if the task fails
+     */
     public Task<EventItem> getEventById(String eventId) {
         return firestore.collection("events")
                 .document(eventId)
@@ -107,6 +133,18 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Manages task of creating an event document in the database
+     * may also add a posterUri if there is one which it then also uploads the image file to the database
+     * @param currentUser
+     * current User document from database
+     * @param draftEvent
+     * Event object to be added as a event document to the database
+     * @param posterUri
+     * link the the event image
+     * @return
+     * appropriate task to create a new event document to the database depending on the situation that raises an exception it the task fails
+     */
     public Task<String> createEvent(
             @NonNull FirebaseUser currentUser,
             @NonNull EventItem draftEvent,
@@ -169,6 +207,15 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Check to see if there is a waitlist entry for a user signed up to an event
+     * @param eventId
+     * Id of the Event
+     * @param uid
+     * Id of the user
+     * @return
+     * Task that tries to obtains a waitlist entry matching the argument id's and returns true if found
+     */
     public Task<Boolean> getWaitlistState(
             @NonNull String eventId,
             @NonNull String uid
@@ -233,6 +280,15 @@ public class EventRepository {
         });
     }
 
+    /**
+     * Updates the database to remove a user from an event waitlist
+     * @param eventId
+     * Id of event that was signed up
+     * @param currentUser
+     * current User document from database
+     * @return
+     * Task that removes the waitlist document from the user and event documents
+     */
     public Task<Void> joinWaitlist(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser
@@ -285,6 +341,15 @@ public class EventRepository {
         });
     }
 
+    /**
+     * Updates the database to remove a user from an event waitlist
+     * @param eventId
+     * Id of event that was signed up
+     * @param uid
+     * Id of the signed up user
+     * @return
+     * Task that removes the waitlist document from the user and event
+     */
     public Task<Void> leaveWaitlist(
             @NonNull String eventId,
             @NonNull String uid
@@ -316,6 +381,14 @@ public class EventRepository {
         });
     }
 
+    /**
+     * get the all sign-up's a user has done for event
+     * Using user ID to access the database loads waitlist entries and creating WaitlistEntryItem objects
+     * @param uid
+     * Id of the User
+     * @return
+     * Task that obtains the all WaitlistEntryItem corresponding to the user
+     */
     public Task<List<WaitlistEntryItem>> getMyWaitlists(@NonNull String uid) {
         return firestore.collection("users")
                 .document(uid)
@@ -393,80 +466,132 @@ public class EventRepository {
                 });
     }
 
-    public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
-        return firestore.collection("events")
+    public Task<Integer> getEntrantCount(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
                 .document(eventId)
-                .collection("waitlist")
-                .get()
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Failed to load entrants");
-                    }
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                    List<Task<UserProfile>> entrantTasks = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        String uid = firstNonEmpty(
-                                normalize(doc.getString("uid")),
-                                doc.getId()
-                        );
-                        if (!hasText(uid)) {
-                            continue;
-                        }
-                        entrantTasks.add(firestore.collection("users")
-                                .document(uid)
-                                .get()
-                                .continueWith(userTask -> {
-                                    if (!userTask.isSuccessful()) {
-                                        throw userTask.getException() != null
-                                                ? userTask.getException()
-                                                : new IllegalStateException("Failed to load entrant profile");
-                                    }
+        return query.get().continueWith(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
+            return task.getResult().size();
+        });
+    }
+  
+    /**
+     * gets the users who have signed up for the event
+     * Using event ID to access the database loads waitlist entries
+     * then the user data matching the entry to create userprofile objects
+     * @param eventId
+     * ID of the event
+     * @param statusFilter
+     * also filers for only users of a matching status of acceptance
+     * @return
+     * Task that obtains the user profiles of user who have signed-up to the waitlist (or other stage of acceptance to event)
+     */
+    public Task<List<UserProfile>> getEntrantsForEvent(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                                    DocumentSnapshot userDoc = userTask.getResult();
-                                    if (userDoc == null || !userDoc.exists()) {
-                                        return null;
-                                    }
-                                    if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
-                                        return null;
-                                    }
-                                    return readUserProfile(userDoc);
-                                }));
-                    }
+        return query.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
 
-                    if (entrantTasks.isEmpty()) {
-                        return Tasks.forResult(new ArrayList<>());
-                    }
-
-                    return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
-                        if (!resultsTask.isSuccessful()) {
-                            throw resultsTask.getException() != null
-                                    ? resultsTask.getException()
-                                    : new IllegalStateException("Failed to load entrants");
-                        }
-
-                        List<UserProfile> entrants = new ArrayList<>();
-                        for (Object result : resultsTask.getResult()) {
-                            if (result instanceof UserProfile) {
-                                entrants.add((UserProfile) result);
+            List<Task<UserProfile>> entrantTasks = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                String uid = firstNonEmpty(
+                        normalize(doc.getString("uid")),
+                        doc.getId()
+                );
+                if (!hasText(uid)) {
+                    continue;
+                }
+                entrantTasks.add(firestore.collection("users")
+                        .document(uid)
+                        .get()
+                        .continueWith(userTask -> {
+                            if (!userTask.isSuccessful()) {
+                                throw userTask.getException() != null
+                                        ? userTask.getException()
+                                        : new IllegalStateException("Failed to load entrant profile");
                             }
-                        }
 
-                        entrants.sort(Comparator.comparing(
-                                entrant -> firstNonEmpty(
-                                        entrant.getName(),
-                                        entrant.getUsername(),
-                                        entrant.getEmail(),
-                                        entrant.getUid()
-                                ),
-                                String.CASE_INSENSITIVE_ORDER
-                        ));
-                        return entrants;
-                    });
-                });
+                            DocumentSnapshot userDoc = userTask.getResult();
+                            if (userDoc == null || !userDoc.exists()) {
+                                return null;
+                            }
+                            if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
+                                return null;
+                            }
+                            return readUserProfile(userDoc);
+                        }));
+            }
+
+            if (entrantTasks.isEmpty()) {
+                return Tasks.forResult(new ArrayList<>());
+            }
+
+            return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
+                if (!resultsTask.isSuccessful()) {
+                    throw resultsTask.getException() != null
+                            ? resultsTask.getException()
+                            : new IllegalStateException("Failed to load entrants");
+                }
+
+                List<UserProfile> entrants = new ArrayList<>();
+                for (Object result : resultsTask.getResult()) {
+                    if (result instanceof UserProfile) {
+                        entrants.add((UserProfile) result);
+                    }
+                }
+
+                entrants.sort(Comparator.comparing(
+                        entrant -> firstNonEmpty(
+                                entrant.getName(),
+                                entrant.getUsername(),
+                                entrant.getEmail(),
+                                entrant.getUid()
+                        ),
+                        String.CASE_INSENSITIVE_ORDER
+                ));
+                return entrants;
+            });
+        });
     }
 
+    /**
+     * Manages task of updating an Event into the database
+     * update the Event document, and posterUri if there is one which also uploads the image file to the database
+     * @param eventId
+     * ID of the Event to be updated
+     * @param currentUser
+     * Event Creator (current User) document from database
+     * @param event
+     * Event object with new data
+     * @param posterUri
+     * link to the Event picture
+     * @return
+     * appropriate task to update the database depending on the situation that raises an exception it the task fails
+     */
     public Task<String> updateEvent(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser,
@@ -516,6 +641,27 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * Updates the database event document to the new data with the batch commit being a task
+     * @param eventRef
+     * a reference to a Event document in the database
+     * @param userRef
+     * a reference to a User document in the database
+     * @param draftEvent
+     * a Event object that needs to be updated to the database
+     * @param hostUid
+     * ID of the Event Creator
+     * @param hostDisplayName
+     * Name of the Event Creator
+     * @param posterUrl
+     * Link to the event image
+     * @param accountType
+     * what type of User the User is (Entrant(User), Organizer, Admin)
+     * @param posterRef
+     * reference to the event Image file in the database
+     * @return
+     * a task with the result of Event id on success and an exception on failure
+     */
     private Task<String> createEventRecord(
             @NonNull DocumentReference eventRef,
             @NonNull DocumentReference userRef,
@@ -548,6 +694,15 @@ public class EventRepository {
         return taskCompletionSource.getTask();
     }
 
+    /**
+     * returns whether an event is able to have sign-ups
+     * @param doc
+     * a reference to an event document
+     * @param now
+     * time right now
+     * @return
+     * whether an event is able to have sign-ups
+     */
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
         Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
         Boolean deleted = doc.getBoolean("deleted");
@@ -572,6 +727,13 @@ public class EventRepository {
         return Boolean.TRUE.equals(waitlistOpen) && (upcomingByEventDate || beforeDeadline);
     }
 
+    /**
+     * reads in a Event document in the database into an Event object
+     * @param doc
+     * a reference to Event document in the database
+     * @return
+     * a created Event object with the data from the document
+     */
     @NonNull
     public EventItem readEventItem(@NonNull DocumentSnapshot doc) {
         String title = doc.getString("title");
@@ -624,6 +786,19 @@ public class EventRepository {
         );
     }
 
+    /**
+     * creates a map matches data with label for database writing
+     * @param event
+     * a Event object in the program
+     * @param hostUid
+     * ID of the Event host User (Current user)
+     * @param hostDisplayName
+     * name of Event host
+     * @param posterUrl
+     * a link to the Event image
+     * @return
+     * map of field names and associated data into a format writable to the database
+     */
     @NonNull
     private Map<String, Object> buildEventPayload(
             @NonNull EventItem event,
@@ -650,6 +825,15 @@ public class EventRepository {
         return payload;
     }
 
+    /**
+     * creates a map matches data with label for database writing
+     * @param event
+     * a Event object in the program
+     * @param posterUrl
+     * a link to the Event image
+     * @return
+     * map of field names and associated data into a format writable to the database
+     */
     @NonNull
     private Map<String, Object> buildUpdatedEventPayload(
             @NonNull EventItem event,
@@ -670,6 +854,15 @@ public class EventRepository {
         return payload;
     }
 
+    /**
+     * returns string text that designates who the event organizer is
+     * @param userSnapshot
+     * reference to the current user in the database
+     * @param currentUser
+     * current User document from database
+     * @return
+     * string name (or other refence label if name is missing) of the Event organizer (User)
+     */
     @NonNull
     private String getHostDisplayName(
             @NonNull DocumentSnapshot userSnapshot,
@@ -690,6 +883,13 @@ public class EventRepository {
         return currentUser.getUid();
     }
 
+    /**
+     * reads in a user from the database into a UserProfile
+     * @param doc
+     * a reference to the user document to read data of
+     * @return
+     * the User profile of matching the document in the database
+     */
     @NonNull
     private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
         UserProfile userProfile = new UserProfile(
@@ -709,6 +909,13 @@ public class EventRepository {
         return userProfile;
     }
 
+    /**
+     * gets the event ID of the event that the snapshot is contained in
+     * @param snapshot
+     * reference to a waitlist entry in an Event document
+     * @return
+     * string event ID of that the waitlist entry is for
+     */
     @NonNull
     private String extractWaitlistEventId(@NonNull DocumentSnapshot snapshot) {
         DocumentReference eventRef = snapshot.getReference().getParent().getParent();
@@ -718,6 +925,15 @@ public class EventRepository {
         return eventRef.getId();
     }
 
+    /**
+     * returns the waitlist entry of a event for a specific user from the database
+     * @param eventId
+     * Event ID
+     * @param uid
+     * User ID
+     * @return
+     * the pointer to the waitlist item in the database (under events collection)
+     */
     @NonNull
     private DocumentReference eventWaitlistEntry(
             @NonNull String eventId,
@@ -729,6 +945,15 @@ public class EventRepository {
                 .document(uid);
     }
 
+    /**
+     * returns the waitlist entry of a user for a specific event from the database
+     * @param uid
+     * User ID
+     * @param eventId
+     * event ID
+     * @return
+     * the pointer to the waitlist item in the database (under users collection)
+     */
     @NonNull
     private DocumentReference userWaitlistEntry(
             @NonNull String uid,
@@ -740,6 +965,11 @@ public class EventRepository {
                 .document(eventId);
     }
 
+    /**
+     * sorts a list of events by the time of occurrence of the Event
+     * @param events
+     * list of events to be sorted
+     */
     private void sortByEventDate(@NonNull List<EventItem> events) {
         Collections.sort(events, Comparator.comparing(
                 EventItem::getEventDate,
@@ -747,6 +977,17 @@ public class EventRepository {
         ));
     }
 
+    /**
+     * returns whether the (is waitlist open and it is before the deadline)
+     * @param waitlistOpen
+     * whether the wailist is allowing sign-ups
+     * @param registrationDeadline
+     * deadline of when sign-ups close
+     * @param now
+     * time right now
+     * @return
+     * if is is okay to sign-up for the event
+     */
     static boolean isWaitlistJoinOpen(
             boolean waitlistOpen,
             @Nullable Date registrationDeadline,
@@ -758,19 +999,47 @@ public class EventRepository {
         return registrationDeadline == null || registrationDeadline.after(now);
     }
 
+    /**
+     * return a number 1 more than the argument
+     * @param currentCount
+     * int to be incremented
+     * @return
+     * int currentCount incremented by 1
+     */
     static int incrementWaitlistCount(int currentCount) {
         return currentCount + 1;
     }
 
+    /**
+     * return a number 1 less than the argument unless negative then 0
+     * @param currentCount
+     * int to be decremented
+     * @return
+     * int currentCount after decrementing by 1
+     */
     static int decrementWaitlistCount(int currentCount) {
         return Math.max(0, currentCount - 1);
     }
 
+    /**
+     * removes extraneous whitespace and ensures that sting is non-null
+     * @param value
+     * String to be cleaned
+     * @return
+     * cleaned String
+     */
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * returns the first non-empty string in the arguments
+     * @param candidates
+     * string varable(s) to be testing
+     * @return
+     * first string that is not empty, or empty string if all are empty
+     */
     @NonNull
     private String firstNonEmpty(String... candidates) {
         for (String candidate : candidates) {
@@ -781,6 +1050,13 @@ public class EventRepository {
         return "";
     }
 
+    /**
+     * method that check is there is content in the string
+     * @param value
+     * the string to be testing
+     * @return
+     * true if there was actual text in the string
+     */
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
