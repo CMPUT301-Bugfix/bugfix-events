@@ -32,10 +32,11 @@ import java.util.Map;
  * The Class the manages the interactions between Event as a object in the program and as a document in the database
  */
 public class EventRepository {
-    static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
-    static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
-    static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
-    static final String WAITLIST_STATUS_DECLINED = "DECLINED";
+    public static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
+    public static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
+    public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
+    public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
+    public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -266,15 +267,18 @@ public class EventRepository {
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
             DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
-            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
-                throw new IllegalStateException("Waitlist entry not found");
-            }
 
             if (eventMembershipDoc.exists()) {
                 transaction.update(eventWaitlistRef, "status", status);
+                if (WAITLIST_STATUS_CHOSEN.equals(status) || WAITLIST_STATUS_SNOOZED.equals(status)) {
+                    transaction.update(eventWaitlistRef, "chosenAt", FieldValue.serverTimestamp());
+                }
             }
             if (userMembershipDoc.exists()) {
                 transaction.update(userWaitlistRef, "status", status);
+                if (WAITLIST_STATUS_CHOSEN.equals(status) || WAITLIST_STATUS_SNOOZED.equals(status)) {
+                    transaction.update(userWaitlistRef, "chosenAt", FieldValue.serverTimestamp());
+                }
             }
             return null;
         });
@@ -424,7 +428,7 @@ public class EventRepository {
                     }
 
                     if (tasks.isEmpty()) {
-                        return Tasks.forResult(new ArrayList<>());
+                        return Tasks.forResult(new ArrayList<WaitlistEntryItem>());
                     }
 
                     return Tasks.whenAllSuccess(tasks).continueWith(eventsTask -> {
@@ -515,7 +519,6 @@ public class EventRepository {
                         ? task.getException()
                         : new IllegalStateException("Failed to load entrants");
             }
-
             List<Task<UserProfile>> entrantTasks = new ArrayList<>();
             for (DocumentSnapshot doc : task.getResult().getDocuments()) {
                 String uid = firstNonEmpty(
@@ -576,6 +579,86 @@ public class EventRepository {
                 return entrants;
             });
         });
+    }
+
+    /**
+     * Performs the lottery draw by moving random users from IN_WAITLIST to CHOSEN.
+     */
+    public Task<Void> performLotteryDraw(String eventId, String winningMessage) {
+        return firestore.collection("events").document(eventId).get().continueWithTask(task -> {
+            DocumentSnapshot eventDoc = task.getResult();
+            if (!eventDoc.exists()) throw new Exception("Event not found");
+            
+            EventItem event = readEventItem(eventDoc);
+            int maxParticipants = event.getMaxParticipants();
+            if (maxParticipants <= 0) maxParticipants = event.getTotalEntrants();
+
+            final int finalMax = maxParticipants;
+
+            return firestore.collection("events").document(eventId).collection("waitlist")
+                    .whereEqualTo("status", WAITLIST_STATUS_IN)
+                    .get().continueWithTask(waitlistTask -> {
+                        List<DocumentSnapshot> candidates = waitlistTask.getResult().getDocuments();
+                        if (candidates.isEmpty()) return Tasks.forResult(null);
+
+                        Collections.shuffle(candidates);
+                        
+                        return firestore.collection("events").document(eventId).collection("waitlist")
+                                .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_CONFIRMED, WAITLIST_STATUS_SNOOZED))
+                                .get().continueWithTask(chosenTask -> {
+                                    int alreadyChosenCount = chosenTask.getResult().size();
+                                    int spotsAvailable = finalMax - alreadyChosenCount;
+                                    int drawCount = Math.min(candidates.size(), Math.max(0, spotsAvailable));
+
+                                    if (drawCount <= 0) return Tasks.forResult(null);
+
+                                    List<String> chosenUids = new ArrayList<>();
+                                    WriteBatch batch = firestore.batch();
+                                    for (int i = 0; i < drawCount; i++) {
+                                        String uid = candidates.get(i).getId();
+                                        chosenUids.add(uid);
+                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                        
+                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                    }
+
+                                    return batch.commit().continueWithTask(ignored -> {
+                                        NotificationRepository notifRepo = new NotificationRepository();
+                                        // Pass the chosenUids directly to avoid re-querying!
+                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
+                                    });
+                                });
+                    });
+        });
+    }
+
+    /**
+     * Finds users who haven't responded within 3 days and replaces them.
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
+        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
+        Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
+
+        return firestore.collection("events").document(eventId).collection("waitlist")
+                .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
+                .whereLessThan("chosenAt", threshold)
+                .get().continueWithTask(task -> {
+                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
+                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+
+                    WriteBatch batch = firestore.batch();
+                    for (DocumentSnapshot doc : expired) {
+                        String uid = doc.getId();
+                        batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
+                        batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
+                    }
+
+                    return batch.commit().continueWithTask(ignored -> performLotteryDraw(eventId, winningMessage));
+                });
     }
 
     /**
@@ -748,6 +831,7 @@ public class EventRepository {
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
         Boolean waitlistOpenValue = doc.getBoolean("waitlistOpen");
+        String winningMessage = doc.getString("winningMessage");
 
         if (!hasText(title)) {
             title = "Untitled Event";
@@ -782,7 +866,8 @@ public class EventRepository {
                 Boolean.TRUE.equals(doc.getBoolean("requiresGeolocation")),
                 hostUid,
                 hostDisplayName,
-                Boolean.TRUE.equals(waitlistOpenValue)
+                Boolean.TRUE.equals(waitlistOpenValue),
+                winningMessage != null ? winningMessage : ""
         );
     }
 
@@ -822,6 +907,7 @@ public class EventRepository {
         payload.put("waitlistOpen", true);
         payload.put("deleted", false);
         payload.put("createdAt", Timestamp.now());
+        payload.put("winningMessage", event.getWinningMessage());
         return payload;
     }
 
@@ -848,6 +934,7 @@ public class EventRepository {
         payload.put("registrationDeadline", event.getRegistrationDeadline());
         payload.put("eventDate", event.getEventDate());
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
+        payload.put("winningMessage", event.getWinningMessage());
         if (posterUrl != null) {
             payload.put("posterUrl", posterUrl);
         }

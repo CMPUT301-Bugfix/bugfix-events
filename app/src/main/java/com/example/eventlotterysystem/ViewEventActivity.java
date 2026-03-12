@@ -44,11 +44,13 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button editEventButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
+
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
+
     private String eventId;
     private boolean canEditEvent;
     private EventItem currentEvent;
@@ -109,6 +111,7 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+
         findViewById(R.id.createQRCode).setOnClickListener(v -> {
             Intent intent = new Intent(this, QRCode.class);
             intent.putExtra("Event_ID", eventId);
@@ -447,7 +450,7 @@ public class ViewEventActivity extends AppCompatActivity {
      * the current event for this activity
      * @param currentUserUid
      * Id of the user
-     * @param joined
+     * @param status
      * state of if the user is currently signed up for the event
      */
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
