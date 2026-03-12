@@ -17,6 +17,9 @@ import com.google.firebase.auth.FirebaseUser;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This is a class that is the controller of the activity_hosted_events screen
+ */
 public class HostedEventsActivity extends AppCompatActivity {
 
     private static final String TAG = "HostedEventsActivity";
@@ -29,6 +32,13 @@ public class HostedEventsActivity extends AppCompatActivity {
     private EventListAdapter adapter;
     private final List<EventItem> hostedEvents = new ArrayList<>();
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable view to their controller
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -50,6 +60,10 @@ public class HostedEventsActivity extends AppCompatActivity {
         hostedEventsListView.setOnItemClickListener((parent, view, position, id) -> openHostedEvent(hostedEvents.get(position)));
     }
 
+    /**
+     * This is the startup of the Activity
+     * get user from database and runs a load to get their created events
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -61,6 +75,13 @@ public class HostedEventsActivity extends AppCompatActivity {
         loadHostedEvents(currentUser.getUid());
     }
 
+    /**
+     * gets all of Creator's Events from the database
+     * on success updates display
+     * on failure notifies user there was a load failure
+     * @param uid
+     * ID of Event Creator to get all Events of
+     */
     private void loadHostedEvents(String uid) {
         repository.getHostedEvents(uid)
                 .addOnSuccessListener(events -> {
@@ -82,12 +103,23 @@ public class HostedEventsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * switches screen display whether User has created events
+     * if yes shows the events created
+     * if no show text staing user has no events
+     */
     private void updateEmptyState() {
         boolean hasEvents = !hostedEvents.isEmpty();
         hostedEventsListView.setVisibility(hasEvents ? View.VISIBLE : View.GONE);
         emptyState.setVisibility(hasEvents ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * This is a controller for when an event in hostedEventsListView is pressed
+     * navigates user to event they clicked
+     * @param event
+     * the Event that was clicked and to be opened in ViewEventActivity
+     */
     private void openHostedEvent(EventItem event) {
         Intent intent = new Intent(this, ViewEventActivity.class);
         intent.putExtra("EVENT_ID", event.getId());
@@ -95,6 +127,10 @@ public class HostedEventsActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * this navigates user to AuthMenuActivity
+     * should be used when a user could not be found
+     */
     private void navigateToAuthMenu() {
         Intent intent = new Intent(this, AuthMenuActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -102,6 +138,13 @@ public class HostedEventsActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * method that coverts a raised exception during an event load into a error message to be displayed
+     * @param exception
+     * the exception that was created
+     * @return
+     * a String message describing what the error was
+     */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
             return getString(R.string.failed_to_load_events) + ": " + exception.getMessage().trim();
