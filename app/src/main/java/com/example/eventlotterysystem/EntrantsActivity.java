@@ -10,6 +10,11 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+/**
+ * This is a class that is the controller of the activity_entrants screen
+ * it allows organiser to navigate to view lists of entrants
+ * it also can notify entrants and manages acceptance of entrants
+ */
 public class EntrantsActivity extends AppCompatActivity {
     private static final String TAG = "EntrantsActivity";
     public static final String EVENT_ID = "EVENT_ID";

@@ -13,6 +13,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This is a class that is the controller of the activity_all_entrants screen
+ * this is the activity that shows the Organizer all entrants of a given Status
+ */
 public class AllEntrantsActivity extends AppCompatActivity {
 
     private static final String TAG = "AllEntrantsActivity";

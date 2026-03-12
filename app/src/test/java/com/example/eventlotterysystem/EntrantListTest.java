@@ -7,6 +7,9 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+/**
+ * @deprecated
+ */
 public class EntrantListTest {
 
     private UserProfile createTestEntrant(

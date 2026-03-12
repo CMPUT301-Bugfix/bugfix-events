@@ -33,6 +33,7 @@ import java.util.Locale;
 
 /**
  * This is a class that is the controller of the activity_create_event screen
+ * this activity allows users to create events that will be added to the database
  */
 public class CreateEventActivity extends AppCompatActivity {
 

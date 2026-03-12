@@ -28,6 +28,7 @@ import java.util.Map;
 
 /**
  * This is a class that is the controller of the activity_signup screen
+ * allows a user to create an account and then naviagtes them to home activity
  */
 public class SignupActivity extends AppCompatActivity {
 
@@ -142,7 +143,7 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
-    /** NOT COMPLETE
+    /**
      * signs up the user by storing them to the database
      * edits the user in users so that it contains the user information
      * creates the user in usernames collections so that the user can log in

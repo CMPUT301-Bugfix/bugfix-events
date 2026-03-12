@@ -48,7 +48,7 @@ public class WaitlistEntryItem {
     }
 
     /**
-     * returns the date of the corresponding Event's Ocurance
+     * returns the date of the corresponding Event's Occurrence
      * @return
      * Date time the Event takes place
      */

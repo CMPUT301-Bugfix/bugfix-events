@@ -19,6 +19,8 @@ import java.util.List;
 
 /**
  * This is a class that is the controller of the activity_hosted_events screen
+ * this displays all the event the user has created
+ * allows navigation to create a new event and to events the user has hosted
  */
 public class HostedEventsActivity extends AppCompatActivity {
 
