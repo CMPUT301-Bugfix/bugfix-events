@@ -582,7 +582,17 @@ public class EventRepository {
     }
 
     /**
-     * Performs the lottery draw by moving random users from IN_WAITLIST to CHOSEN.
+     * Performs lottery draw by moving random users from IN_WAITLIST to CHOSEN.
+     * Selects up to maxParticipants winners from the pool of users who are IN_WAITLIST.
+     * Updates status in both event and user records and notifies the selected users
+     * with WINNING notification.
+     *
+     * @param eventId
+     * ID of the event to perform the draw for
+     * @param winningMessage
+     * message to be sent to users selected in the lottery
+     * @return
+     *Task that completes when the draw and notifications are finished
      */
     public Task<Void> performLotteryDraw(String eventId, String winningMessage) {
         return firestore.collection("events").document(eventId).get().continueWithTask(task -> {
@@ -607,8 +617,7 @@ public class EventRepository {
                                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_CONFIRMED, WAITLIST_STATUS_SNOOZED))
                                 .get().continueWithTask(chosenTask -> {
                                     int alreadyChosenCount = chosenTask.getResult().size();
-                                    int spotsAvailable = finalMax - alreadyChosenCount;
-                                    int drawCount = Math.min(candidates.size(), Math.max(0, spotsAvailable));
+                                    int drawCount = calculateDrawCount(candidates.size(), finalMax, alreadyChosenCount);
 
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
@@ -626,6 +635,9 @@ public class EventRepository {
                                         batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
                                     }
 
+                                    // set waitlistOpen to false in the event doc when a draw is performed
+                                    batch.update(firestore.collection("events").document(eventId), "waitlistOpen", false);
+
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
                                         // Pass the chosenUids directly to avoid re-querying!
@@ -637,7 +649,30 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them.
+     * calculates how many users should be drawn from the waitlist pool.
+     * Generalized helper function to aid with testing
+     *
+     * @param candidatesSize
+     * number of users currently in the waitlist
+     * @param maxParticipants
+     * maximum allowed winners for the event
+     * @param alreadyChosenCount
+     * number of users already in a winning or confirmed state
+     * @return The number of slots to fill in this draw
+     */
+    public static int calculateDrawCount(int candidatesSize, int maxParticipants, int alreadyChosenCount) {
+        int spotsAvailable = maxParticipants - alreadyChosenCount;
+        return Math.min(candidatesSize, Math.max(0, spotsAvailable));
+    }
+
+    /**
+     * Finds users who haven't responded within 3 days and replaces them. Keeps track of timing
+     * and calls perform lottery draw
+     * NOT QUITE WORKING
+     * @param eventId
+     * The ID of the event to process expired winners from
+     * @param winningMessage
+     * The message to be sent to users selected in the lottery.
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
         long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
@@ -1075,7 +1110,7 @@ public class EventRepository {
      * @return
      * if is is okay to sign-up for the event
      */
-    static boolean isWaitlistJoinOpen(
+    public static boolean isWaitlistJoinOpen(
             boolean waitlistOpen,
             @Nullable Date registrationDeadline,
             @NonNull Date now
