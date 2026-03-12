@@ -12,6 +12,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+/**
+ * This class deals with the Admin Zone page
+ */
+
 public class AdminZoneActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -19,6 +23,14 @@ public class AdminZoneActivity extends AppCompatActivity {
     private ProgressBar adminRoleLoading;
     private Button adminUserProfilesButton;
     private Button adminEventsButton;
+
+    /**
+     * This method sets up the UI and button navigations
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +51,11 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminEventsButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminBrowseEventsActivity.class)));
     }
+
+    /**
+     * This screen checks if the current user is an admin and is
+     * allowed to access this page
+     */
 
     @Override
     protected void onStart() {
@@ -70,6 +87,11 @@ public class AdminZoneActivity extends AppCompatActivity {
                     finish();
                 });
     }
+
+    /**
+     * If in onStart, the user was not signed in, this method
+     * forces the user back to the AuthMenu
+     */
 
     private void navigateToAuthMenu() {
         Intent intent = new Intent(this, AuthMenuActivity.class);

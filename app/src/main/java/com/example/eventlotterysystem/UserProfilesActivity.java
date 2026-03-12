@@ -28,6 +28,10 @@ import com.google.firebase.firestore.Query;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This class deals with the browsing of all users for admins
+ */
+
 public class UserProfilesActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -43,6 +47,15 @@ public class UserProfilesActivity extends AppCompatActivity {
     private boolean isAdminConfirmed;
     private String selectedAccountType = "all";
     private ListenerRegistration profilesListener;
+
+    /**
+     * This method loads the UI, initializes the firebase and event repository instances,
+     * and connects the java variables to the views in the XML
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +76,11 @@ public class UserProfilesActivity extends AppCompatActivity {
         setupFilterSpinner();
     }
 
+    /**
+     * Essentially checks whether there is a signed in user, and to navigate
+     * to the AuthMenu if not, and check if the current user is an admin.
+     */
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -76,6 +94,10 @@ public class UserProfilesActivity extends AppCompatActivity {
         verifyAdminAndLoad(currentUser.getUid());
     }
 
+    /**
+     * This method deals with the dropdown menu that allows the admin
+     * to filter between all users and just organizers.
+     */
     private void setupFilterSpinner() {
         List<String> filterOptions = new ArrayList<>();
         filterOptions.add(getString(R.string.filter_users));
@@ -108,6 +130,12 @@ public class UserProfilesActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This method checks whether or not the user is an admin, and if so
+     * then run the loadProfilesForFilter method, but if not, close the screen.
+     * @param uid the id of a user to be verified
+     */
+
     private void verifyAdminAndLoad(@NonNull String uid) {
         setLoading(true);
         firestore.collection("users")
@@ -124,6 +152,14 @@ public class UserProfilesActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(exception -> finish());
     }
+
+    /**
+     * This method is the heart of this class, it collects the users from the
+     * Firestore events collection by using a snapshot listener for live updates,
+     * and creates a list by looping through the users collection and calling the
+     * renderProfiles method to render the profiles into rows in the UI. Also deals with
+     * error handling and profilesListener cleanup.
+     */
 
     private void loadProfilesForFilter() {
         setLoading(true);
@@ -163,6 +199,14 @@ public class UserProfilesActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This method turns each profile into a row in the UI, starting by removing any
+     * previous views, and notifying the user if there are no profiles. If there are
+     * profiles, then it creates a new row for each profiles with the necessary fields
+     * that we wanted to display.
+     * @param profiles this is the list of profiles from the database
+     */
+
     private void renderProfiles(@NonNull List<UserProfile> profiles) {
         userProfilesContainer.removeAllViews();
 
@@ -188,6 +232,13 @@ public class UserProfilesActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * This method deals with converting a Firestore user from the collection into
+     * a UserProfile object, matching all necessary fields.
+     * @param snapshot a single Firestore user document
+     * @return profile
+     */
+
     @NonNull
     private UserProfile mapSnapshotToUserProfile(@NonNull DocumentSnapshot snapshot) {
         UserProfile profile = new UserProfile(
@@ -211,6 +262,12 @@ public class UserProfilesActivity extends AppCompatActivity {
         return value;
     }
 
+    /**
+     * Deals with the loading screen, this method hides data/views
+     * while we fetch current data
+     * @param loading boolean value
+     */
+
     private void setLoading(boolean loading) {
         userProfilesLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         backButton.setEnabled(!loading);
@@ -225,6 +282,10 @@ public class UserProfilesActivity extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * Navigates to the AuthMenu when called
+     */
+
     private void navigateToAuthMenu() {
         auth.signOut();
         Intent intent = new Intent(this, AuthMenuActivity.class);
@@ -232,6 +293,12 @@ public class UserProfilesActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
     }
+
+
+    /**
+     * This method sends the necessary information to the user details page
+     * @param profile this is an instance of a single user
+     */
 
     private void openProfileDetails(@NonNull UserProfile profile) {
         Intent intent = new Intent(this, UserProfileDetailsActivity.class);
@@ -245,6 +312,12 @@ public class UserProfilesActivity extends AppCompatActivity {
         intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, timeMillis);
         startActivity(intent);
     }
+
+    /**
+     * This method just cleans up a string for us
+     * @param value A string that we want to clean
+     * @return either an empty string if the value is null or the trimmed string
+     */
 
     @NonNull
     private String normalize(String value) {
