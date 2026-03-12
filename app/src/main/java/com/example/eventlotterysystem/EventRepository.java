@@ -393,78 +393,105 @@ public class EventRepository {
                 });
     }
 
-    public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
-        return firestore.collection("events")
+    public Task<Integer> getEntrantCount(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
                 .document(eventId)
-                .collection("waitlist")
-                .get()
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Failed to load entrants");
-                    }
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                    List<Task<UserProfile>> entrantTasks = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        String uid = firstNonEmpty(
-                                normalize(doc.getString("uid")),
-                                doc.getId()
-                        );
-                        if (!hasText(uid)) {
-                            continue;
-                        }
-                        entrantTasks.add(firestore.collection("users")
-                                .document(uid)
-                                .get()
-                                .continueWith(userTask -> {
-                                    if (!userTask.isSuccessful()) {
-                                        throw userTask.getException() != null
-                                                ? userTask.getException()
-                                                : new IllegalStateException("Failed to load entrant profile");
-                                    }
+        return query.get().continueWith(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
+            return task.getResult().size();
+        });
+    }
 
-                                    DocumentSnapshot userDoc = userTask.getResult();
-                                    if (userDoc == null || !userDoc.exists()) {
-                                        return null;
-                                    }
-                                    if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
-                                        return null;
-                                    }
-                                    return readUserProfile(userDoc);
-                                }));
-                    }
+    public Task<List<UserProfile>> getEntrantsForEvent(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                    if (entrantTasks.isEmpty()) {
-                        return Tasks.forResult(new ArrayList<>());
-                    }
+        return query.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
 
-                    return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
-                        if (!resultsTask.isSuccessful()) {
-                            throw resultsTask.getException() != null
-                                    ? resultsTask.getException()
-                                    : new IllegalStateException("Failed to load entrants");
-                        }
-
-                        List<UserProfile> entrants = new ArrayList<>();
-                        for (Object result : resultsTask.getResult()) {
-                            if (result instanceof UserProfile) {
-                                entrants.add((UserProfile) result);
+            List<Task<UserProfile>> entrantTasks = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                String uid = firstNonEmpty(
+                        normalize(doc.getString("uid")),
+                        doc.getId()
+                );
+                if (!hasText(uid)) {
+                    continue;
+                }
+                entrantTasks.add(firestore.collection("users")
+                        .document(uid)
+                        .get()
+                        .continueWith(userTask -> {
+                            if (!userTask.isSuccessful()) {
+                                throw userTask.getException() != null
+                                        ? userTask.getException()
+                                        : new IllegalStateException("Failed to load entrant profile");
                             }
-                        }
 
-                        entrants.sort(Comparator.comparing(
-                                entrant -> firstNonEmpty(
-                                        entrant.getName(),
-                                        entrant.getUsername(),
-                                        entrant.getEmail(),
-                                        entrant.getUid()
-                                ),
-                                String.CASE_INSENSITIVE_ORDER
-                        ));
-                        return entrants;
-                    });
-                });
+                            DocumentSnapshot userDoc = userTask.getResult();
+                            if (userDoc == null || !userDoc.exists()) {
+                                return null;
+                            }
+                            if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
+                                return null;
+                            }
+                            return readUserProfile(userDoc);
+                        }));
+            }
+
+            if (entrantTasks.isEmpty()) {
+                return Tasks.forResult(new ArrayList<>());
+            }
+
+            return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
+                if (!resultsTask.isSuccessful()) {
+                    throw resultsTask.getException() != null
+                            ? resultsTask.getException()
+                            : new IllegalStateException("Failed to load entrants");
+                }
+
+                List<UserProfile> entrants = new ArrayList<>();
+                for (Object result : resultsTask.getResult()) {
+                    if (result instanceof UserProfile) {
+                        entrants.add((UserProfile) result);
+                    }
+                }
+
+                entrants.sort(Comparator.comparing(
+                        entrant -> firstNonEmpty(
+                                entrant.getName(),
+                                entrant.getUsername(),
+                                entrant.getEmail(),
+                                entrant.getUid()
+                        ),
+                        String.CASE_INSENSITIVE_ORDER
+                ));
+                return entrants;
+            });
+        });
     }
 
     public Task<String> updateEvent(
