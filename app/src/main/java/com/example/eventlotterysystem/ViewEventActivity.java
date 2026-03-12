@@ -44,6 +44,9 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button editEventButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
+    private Button acceptInvitationButton;
+    private Button rejectInvitationButton;
+    private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
     private String eventId;
@@ -83,6 +86,8 @@ public class ViewEventActivity extends AppCompatActivity {
         editEventButton = findViewById(R.id.viewEventEditButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
+        acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
+        rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -92,6 +97,8 @@ public class ViewEventActivity extends AppCompatActivity {
         editEventButton.setOnClickListener(v -> openEventEditor());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
+        acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
+        rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -177,7 +184,6 @@ public class ViewEventActivity extends AppCompatActivity {
         intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
         intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
         intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
-        intent.putExtra(EntrantsActivity.EVENT_TITLE, currentEvent.getTitle());
         startActivity(intent);
     }
 
@@ -270,6 +276,82 @@ public class ViewEventActivity extends AppCompatActivity {
                     applyWaitlistViewState();
                 });
     }
+    private void acceptInvitation() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null || currentEvent == null) {
+            return;
+        }
+
+        setWaitlistActionLoading(true);
+        repository.updateWaitlistStatus(
+                        eventId,
+                        currentUser.getUid(),
+                        EventRepository.WAITLIST_STATUS_CONFIRMED
+                )
+                .addOnSuccessListener(ignored -> {
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            "Invitation accepted",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    currentWaitlistStatus = EventRepository.WAITLIST_STATUS_CONFIRMED;
+                    setWaitlistActionLoading(false);
+                    loadEvent();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to accept invitation", e);
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            "Failed to accept invitation",
+                            Toast.LENGTH_LONG
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    applyWaitlistViewState();
+                });
+    }
+
+    private void showRejectInvitationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Reject invitation")
+                .setMessage("Are you sure you want to reject this invitation?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Reject", (dialog, which) -> rejectInvitation())
+                .show();
+    }
+
+    private void rejectInvitation() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null || currentEvent == null) {
+            return;
+        }
+
+        setWaitlistActionLoading(true);
+        repository.updateWaitlistStatus(
+                        eventId,
+                        currentUser.getUid(),
+                        EventRepository.WAITLIST_STATUS_DECLINED
+                )
+                .addOnSuccessListener(ignored -> {
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            "Invitation rejected",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    currentWaitlistStatus = EventRepository.WAITLIST_STATUS_DECLINED;
+                    setWaitlistActionLoading(false);
+                    loadEvent();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to reject invitation", e);
+                    Toast.makeText(
+                            ViewEventActivity.this,
+                            "Failed to reject invitation",
+                            Toast.LENGTH_LONG
+                    ).show();
+                    setWaitlistActionLoading(false);
+                    applyWaitlistViewState();
+                });
+    }
 
     /**
      * This is the method that allows the user to join the waitlist
@@ -281,14 +363,16 @@ public class ViewEventActivity extends AppCompatActivity {
     private void loadWaitlistState(EventItem event) {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
+            currentWaitlistStatus = "";
             updateWaitlistFlags(false, false, false, false);
             applyWaitlistViewState();
             return;
         }
 
-        repository.getWaitlistState(eventId, currentUser.getUid())
-                .addOnSuccessListener(joined -> {
-                    updateWaitlistControls(event, currentUser.getUid(), Boolean.TRUE.equals(joined));
+        repository.getWaitlistStatus(eventId, currentUser.getUid())
+                .addOnSuccessListener(status -> {
+                    currentWaitlistStatus = status;
+                    updateWaitlistControls(event, currentUser.getUid(), status);
                     applyWaitlistViewState();
                 })
                 .addOnFailureListener(e -> {
@@ -298,21 +382,44 @@ public class ViewEventActivity extends AppCompatActivity {
                             buildWaitlistErrorMessage(e),
                             Toast.LENGTH_LONG
                     ).show();
-                    updateWaitlistControls(event, currentUser.getUid(), false);
+                    currentWaitlistStatus = "";
+                    updateWaitlistControls(event, currentUser.getUid(), "");
                     applyWaitlistViewState();
                 });
     }
-
     /**
      * This is method modifies the screen views such that the User has joined
      */
     private void applyWaitlistViewState() {
         joinWaitlistButton.setVisibility(showJoinButton ? View.VISIBLE : View.GONE);
         joinWaitlistButton.setEnabled(joinEnabled && !waitlistActionLoading);
+
         waitlistCountTextView.setVisibility(currentEvent == null ? View.GONE : View.VISIBLE);
-        waitlistJoinedTextView.setVisibility(showJoinedLabel ? View.VISIBLE : View.GONE);
+
+        boolean isChosen = EventRepository.WAITLIST_STATUS_CHOSEN.equals(currentWaitlistStatus);
+        boolean isConfirmed = EventRepository.WAITLIST_STATUS_CONFIRMED.equals(currentWaitlistStatus);
+        boolean isInWaitlist = EventRepository.WAITLIST_STATUS_IN.equals(currentWaitlistStatus);
+
+        acceptInvitationButton.setVisibility(isChosen ? View.VISIBLE : View.GONE);
+        acceptInvitationButton.setEnabled(!waitlistActionLoading);
+
+        rejectInvitationButton.setVisibility(isChosen ? View.VISIBLE : View.GONE);
+        rejectInvitationButton.setEnabled(!waitlistActionLoading);
+
         leaveWaitlistButton.setVisibility(showLeaveButton ? View.VISIBLE : View.GONE);
         leaveWaitlistButton.setEnabled(!waitlistActionLoading);
+
+        waitlistJoinedTextView.setVisibility((showJoinedLabel || isConfirmed || isInWaitlist) ? View.VISIBLE : View.GONE);
+
+        if (isConfirmed) {
+            waitlistJoinedTextView.setText("Confirmed");
+        } else if (isChosen) {
+            waitlistJoinedTextView.setText("Chosen");
+        } else if (isInWaitlist) {
+            waitlistJoinedTextView.setText(R.string.waitlist_joined_label);
+        } else if (EventRepository.WAITLIST_STATUS_DECLINED.equals(currentWaitlistStatus)) {
+            waitlistJoinedTextView.setText("Declined");
+        }
 
         if (currentEvent != null) {
             waitlistCountTextView.setText(
@@ -323,10 +430,9 @@ public class ViewEventActivity extends AppCompatActivity {
                     buildEntrantCountText(currentEvent)
             ));
         }
-        entrantsButton.setVisibility(shouldShowEntrantsButton() ? View.VISIBLE : View.GONE);
-        waitlistJoinedTextView.setText(R.string.waitlist_joined_label);
-    }
 
+        entrantsButton.setVisibility(shouldShowEntrantsButton() ? View.VISIBLE : View.GONE);
+    }
     /**
      * This is sets the whether there is a change of waitlist in the process of loading and runs update views
      */
@@ -344,16 +450,33 @@ public class ViewEventActivity extends AppCompatActivity {
      * @param joined
      * state of if the user is currently signed up for the event
      */
-    private void updateWaitlistControls(EventItem event, String currentUserUid, boolean joined) {
+    private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
         boolean organizer = currentUserUid != null && currentUserUid.equals(event.getHostUid());
         if (organizer) {
             updateWaitlistFlags(false, false, false, false);
             return;
         }
-        if (joined) {
+
+        if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(status)) {
+            updateWaitlistFlags(false, false, false, false);
+            return;
+        }
+
+        if (EventRepository.WAITLIST_STATUS_CONFIRMED.equals(status)) {
+            updateWaitlistFlags(false, false, true, false);
+            return;
+        }
+
+        if (EventRepository.WAITLIST_STATUS_DECLINED.equals(status)) {
+            updateWaitlistFlags(false, false, false, false);
+            return;
+        }
+
+        if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {
             updateWaitlistFlags(false, false, true, true);
             return;
         }
+
         boolean isOpen = EventRepository.isWaitlistJoinOpen(
                 event.isWaitlistOpen(),
                 event.getRegistrationDeadline(),
@@ -361,7 +484,6 @@ public class ViewEventActivity extends AppCompatActivity {
         );
         updateWaitlistFlags(true, isOpen, false, false);
     }
-
     /**
      * This toggles the states of booleans so that applyWaitlistViewState can update the display appropriately
      * @param showJoinButton

@@ -33,6 +33,9 @@ import java.util.Map;
  */
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
+    static final String WAITLIST_STATUS_CHOSEN = "CHOSEN";
+    static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
+    static final String WAITLIST_STATUS_DECLINED = "DECLINED";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -229,6 +232,53 @@ public class EventRepository {
                     return doc != null && doc.exists();
                 });
     }
+    public Task<String> getWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventWaitlistEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load waitlist status");
+                    }
+
+                    DocumentSnapshot doc = task.getResult();
+                    if (doc == null || !doc.exists()) {
+                        return "";
+                    }
+
+                    String status = normalize(doc.getString("status"));
+                    return status.isEmpty() ? WAITLIST_STATUS_IN : status;
+                });
+    }
+
+    public Task<Void> updateWaitlistStatus(
+            @NonNull String eventId,
+            @NonNull String uid,
+            @NonNull String status
+    ) {
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, uid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(uid, eventId);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (!eventMembershipDoc.exists() && !userMembershipDoc.exists()) {
+                throw new IllegalStateException("Waitlist entry not found");
+            }
+
+            if (eventMembershipDoc.exists()) {
+                transaction.update(eventWaitlistRef, "status", status);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.update(userWaitlistRef, "status", status);
+            }
+            return null;
+        });
+    }
 
     /**
      * Updates the database to remove a user from an event waitlist
@@ -353,12 +403,13 @@ public class EventRepository {
 
                     List<DocumentSnapshot> waitlistDocs = queryTask.getResult().getDocuments();
                     List<String> eventIds = new ArrayList<>();
+                    List<String> statuses = new ArrayList<>();
                     List<Task<DocumentSnapshot>> tasks = new ArrayList<>();
 
                     for (DocumentSnapshot doc : waitlistDocs) {
                         String status = normalize(doc.getString("status"));
-                        if (!WAITLIST_STATUS_IN.equals(status)) {
-                            continue;
+                        if (status.isEmpty()) {
+                            status = WAITLIST_STATUS_IN;
                         }
                         String eventId = firstNonEmpty(
                                 normalize(doc.getString("eventId")),
@@ -368,6 +419,7 @@ public class EventRepository {
                             continue;
                         }
                         eventIds.add(eventId);
+                        statuses.add(status);
                         tasks.add(firestore.collection("events").document(eventId).get());
                     }
 
@@ -401,7 +453,7 @@ public class EventRepository {
                                     eventIds.get(index),
                                     event.getTitle(),
                                     event.getEventDate(),
-                                    WAITLIST_STATUS_IN
+                                    statuses.get(index)
                             ));
                         }
 
@@ -414,88 +466,116 @@ public class EventRepository {
                 });
     }
 
+    public Task<Integer> getEntrantCount(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
+                .document(eventId)
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
+
+        return query.get().continueWith(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
+            return task.getResult().size();
+        });
+    }
+  
     /**
      * gets the users who have signed up for the event
      * Using event ID to access the database loads waitlist entries
      * then the user data matching the entry to create userprofile objects
      * @param eventId
      * ID of the event
+     * @param statusFilter
+     * also filers for only users of a matching status of acceptance
      * @return
-     * Task that obtains the user profiles of user who have signed up to the waitlist
+     * Task that obtains the user profiles of user who have signed-up to the waitlist (or other stage of acceptance to event)
      */
-    public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
-        return firestore.collection("events")
+    public Task<List<UserProfile>> getEntrantsForEvent(
+            @NonNull String eventId,
+            @Nullable String statusFilter
+    ) {
+        com.google.firebase.firestore.Query query = firestore.collection("events")
                 .document(eventId)
-                .collection("waitlist")
-                .whereEqualTo("status", WAITLIST_STATUS_IN)
-                .get()
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Failed to load entrants");
-                    }
+                .collection("waitlist");
+        if (hasText(statusFilter)) {
+            query = query.whereEqualTo("status", statusFilter);
+        }
 
-                    List<Task<UserProfile>> entrantTasks = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        String uid = firstNonEmpty(
-                                normalize(doc.getString("uid")),
-                                doc.getId()
-                        );
-                        if (!hasText(uid)) {
-                            continue;
-                        }
-                        entrantTasks.add(firestore.collection("users")
-                                .document(uid)
-                                .get()
-                                .continueWith(userTask -> {
-                                    if (!userTask.isSuccessful()) {
-                                        throw userTask.getException() != null
-                                                ? userTask.getException()
-                                                : new IllegalStateException("Failed to load entrant profile");
-                                    }
+        return query.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load entrants");
+            }
 
-                                    DocumentSnapshot userDoc = userTask.getResult();
-                                    if (userDoc == null || !userDoc.exists()) {
-                                        return null;
-                                    }
-                                    if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
-                                        return null;
-                                    }
-                                    return readUserProfile(userDoc);
-                                }));
-                    }
-
-                    if (entrantTasks.isEmpty()) {
-                        return Tasks.forResult(new ArrayList<>());
-                    }
-
-                    return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
-                        if (!resultsTask.isSuccessful()) {
-                            throw resultsTask.getException() != null
-                                    ? resultsTask.getException()
-                                    : new IllegalStateException("Failed to load entrants");
-                        }
-
-                        List<UserProfile> entrants = new ArrayList<>();
-                        for (Object result : resultsTask.getResult()) {
-                            if (result instanceof UserProfile) {
-                                entrants.add((UserProfile) result);
+            List<Task<UserProfile>> entrantTasks = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                String uid = firstNonEmpty(
+                        normalize(doc.getString("uid")),
+                        doc.getId()
+                );
+                if (!hasText(uid)) {
+                    continue;
+                }
+                entrantTasks.add(firestore.collection("users")
+                        .document(uid)
+                        .get()
+                        .continueWith(userTask -> {
+                            if (!userTask.isSuccessful()) {
+                                throw userTask.getException() != null
+                                        ? userTask.getException()
+                                        : new IllegalStateException("Failed to load entrant profile");
                             }
-                        }
 
-                        entrants.sort(Comparator.comparing(
-                                entrant -> firstNonEmpty(
-                                        entrant.getName(),
-                                        entrant.getUsername(),
-                                        entrant.getEmail(),
-                                        entrant.getUid()
-                                ),
-                                String.CASE_INSENSITIVE_ORDER
-                        ));
-                        return entrants;
-                    });
-                });
+                            DocumentSnapshot userDoc = userTask.getResult();
+                            if (userDoc == null || !userDoc.exists()) {
+                                return null;
+                            }
+                            if (Boolean.TRUE.equals(userDoc.getBoolean("deleted"))) {
+                                return null;
+                            }
+                            return readUserProfile(userDoc);
+                        }));
+            }
+
+            if (entrantTasks.isEmpty()) {
+                return Tasks.forResult(new ArrayList<>());
+            }
+
+            return Tasks.whenAllSuccess(entrantTasks).continueWith(resultsTask -> {
+                if (!resultsTask.isSuccessful()) {
+                    throw resultsTask.getException() != null
+                            ? resultsTask.getException()
+                            : new IllegalStateException("Failed to load entrants");
+                }
+
+                List<UserProfile> entrants = new ArrayList<>();
+                for (Object result : resultsTask.getResult()) {
+                    if (result instanceof UserProfile) {
+                        entrants.add((UserProfile) result);
+                    }
+                }
+
+                entrants.sort(Comparator.comparing(
+                        entrant -> firstNonEmpty(
+                                entrant.getName(),
+                                entrant.getUsername(),
+                                entrant.getEmail(),
+                                entrant.getUid()
+                        ),
+                        String.CASE_INSENSITIVE_ORDER
+                ));
+                return entrants;
+            });
+        });
     }
 
     /**
@@ -655,7 +735,7 @@ public class EventRepository {
      * a created Event object with the data from the document
      */
     @NonNull
-    private EventItem readEventItem(@NonNull DocumentSnapshot doc) {
+    public EventItem readEventItem(@NonNull DocumentSnapshot doc) {
         String title = doc.getString("title");
         String description = doc.getString("description");
         String location = doc.getString("location");
