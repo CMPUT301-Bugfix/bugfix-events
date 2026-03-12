@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The Even
+ * The Class the manages the interactions between Event as a object in the program and as a document in the database
  */
 public class EventRepository {
     static final String WAITLIST_STATUS_IN = "IN_WAITLIST";
@@ -37,8 +37,9 @@ public class EventRepository {
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
 
-    /** NOT COMPLETE
-     *
+    /**
+     * creates the EventRepository object which is just references to the database
+     * the methods allows for access to Event documents in the database through Ids and event objects
      */
     public EventRepository() {
         firestore = FirebaseFirestore.getInstance();
@@ -46,8 +47,9 @@ public class EventRepository {
     }
 
     /**
-     * NOT COMPLETE
+     * Loads all active events in the database into a list of event objects
      * @return
+     * task that reads the database for all match events and creates event object for them
      */
     public Task<List<EventItem>> getCurrentEvents() {
         return firestore.collection("events")
@@ -73,10 +75,12 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETEv
-     *
+    /**
+     * Load the a list event from the database for all events creator matching user ID and creates a respective event object list
      * @param hostUid
+     * ID of the user that created the event
      * @return
+     * task that gets all the events that the user created as a list of event objects raises an exception of failure
      */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
         return firestore.collection("events")
@@ -101,10 +105,12 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Load the event from the database by its id and creates a respective event object
      * @param eventId
+     * id of the Event
      * @return
+     * a task that loads the event by Id into an event object and raises an exception if the task fails
      */
     public Task<EventItem> getEventById(String eventId) {
         return firestore.collection("events")
@@ -124,12 +130,17 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Manages task of creating an event document in the database
+     * may also add a posterUri if there is one which it then also uploads the image file to the database
      * @param currentUser
+     * current User document from database
      * @param draftEvent
+     * Event object to be added as a event document to the database
      * @param posterUri
+     * link the the event image
      * @return
+     * appropriate task to create a new event document to the database depending on the situation that raises an exception it the task fails
      */
     public Task<String> createEvent(
             @NonNull FirebaseUser currentUser,
@@ -193,11 +204,14 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Check to see if there is a waitlist entry for a user signed up to an event
      * @param eventId
+     * Id of the Event
      * @param uid
+     * Id of the user
      * @return
+     * Task that tries to obtains a waitlist entry matching the argument id's and returns true if found
      */
     public Task<Boolean> getWaitlistState(
             @NonNull String eventId,
@@ -216,11 +230,14 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Updates the database to remove a user from an event waitlist
      * @param eventId
+     * Id of event that was signed up
      * @param currentUser
+     * current User document from database
      * @return
+     * Task that removes the waitlist document from the user and event documents
      */
     public Task<Void> joinWaitlist(
             @NonNull String eventId,
@@ -274,11 +291,14 @@ public class EventRepository {
         });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Updates the database to remove a user from an event waitlist
      * @param eventId
+     * Id of event that was signed up
      * @param uid
+     * Id of the signed up user
      * @return
+     * Task that removes the waitlist document from the user and event
      */
     public Task<Void> leaveWaitlist(
             @NonNull String eventId,
@@ -311,10 +331,13 @@ public class EventRepository {
         });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * get the all sign-up's a user has done for event
+     * Using user ID to access the database loads waitlist entries and creating WaitlistEntryItem objects
      * @param uid
+     * Id of the User
      * @return
+     * Task that obtains the all WaitlistEntryItem corresponding to the user
      */
     public Task<List<WaitlistEntryItem>> getMyWaitlists(@NonNull String uid) {
         return firestore.collection("users")
@@ -391,10 +414,14 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * gets the users who have signed up for the event
+     * Using event ID to access the database loads waitlist entries
+     * then the user data matching the entry to create userprofile objects
      * @param eventId
+     * ID of the event
      * @return
+     * Task that obtains the user profiles of user who have signed up to the waitlist
      */
     public Task<List<UserProfile>> getEntrantsForEvent(@NonNull String eventId) {
         return firestore.collection("events")
@@ -471,13 +498,19 @@ public class EventRepository {
                 });
     }
 
-    /** NOT COMPLETE
-     *
+    /**
+     * Manages task of updating an Event into the database
+     * update the Event document, and posterUri if there is one which also uploads the image file to the database
      * @param eventId
+     * ID of the Event to be updated
      * @param currentUser
+     * Event Creator (current User) document from database
      * @param event
+     * Event object with new data
      * @param posterUri
+     * link to the Event picture
      * @return
+     * appropriate task to update the database depending on the situation that raises an exception it the task fails
      */
     public Task<String> updateEvent(
             @NonNull String eventId,
@@ -529,7 +562,7 @@ public class EventRepository {
     }
 
     /**
-     * Updates the database
+     * Updates the database event document to the new data with the batch commit being a task
      * @param eventRef
      * a reference to a Event document in the database
      * @param userRef
@@ -547,7 +580,7 @@ public class EventRepository {
      * @param posterRef
      * reference to the event Image file in the database
      * @return
-     * the next task dependant on
+     * a task with the result of Event id on success and an exception on failure
      */
     private Task<String> createEventRecord(
             @NonNull DocumentReference eventRef,
