@@ -50,7 +50,7 @@ public class AuthMenuActivity extends AppCompatActivity {
     /**
      * This finished the current activity and open a new activity based on arguments
      * @param destination
-     * the activity class that should be naviagted to
+     * the activity class that should be navigated to
      */
     private void navigateAndClearTask(Class<?> destination) {
         Intent intent = new Intent(this, destination);

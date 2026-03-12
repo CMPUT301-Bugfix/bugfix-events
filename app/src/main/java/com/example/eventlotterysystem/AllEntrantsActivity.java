@@ -16,10 +16,13 @@ import java.util.List;
 public class AllEntrantsActivity extends AppCompatActivity {
 
     private static final String TAG = "AllEntrantsActivity";
+    public static final String STATUS_FILTER = "STATUS_FILTER";
 
     private EventRepository repository;
     private String eventId;
+    private String statusFilter;
     private ListView entrantsListView;
+    private TextView titleView;
     private TextView emptyState;
     private EntrantAdapter adapter;
     private final List<UserProfile> entrants = new ArrayList<>();
@@ -31,17 +34,20 @@ public class AllEntrantsActivity extends AppCompatActivity {
 
         repository = new EventRepository();
         eventId = getIntent().getStringExtra(EntrantsActivity.EVENT_ID);
+        statusFilter = normalizeStatusFilter(getIntent().getStringExtra(STATUS_FILTER));
         if (eventId == null || eventId.trim().isEmpty()) {
             Toast.makeText(this, R.string.missing_event_id, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
+        titleView = findViewById(R.id.allEntrantsTitle);
         entrantsListView = findViewById(R.id.allEntrantsListView);
         emptyState = findViewById(R.id.allEntrantsEmptyState);
         adapter = new EntrantAdapter(this, entrants);
         entrantsListView.setAdapter(adapter);
 
+        applyFilterUi();
         findViewById(R.id.allEntrantsBackButton).setOnClickListener(v -> finish());
         entrantsListView.setOnItemClickListener((parent, view, position, id) -> openEntrantDetails(entrants.get(position)));
     }
@@ -53,7 +59,7 @@ public class AllEntrantsActivity extends AppCompatActivity {
     }
 
     private void loadEntrants() {
-        repository.getEntrantsForEvent(eventId)
+        repository.getEntrantsForEvent(eventId, statusFilter)
                 .addOnSuccessListener(items -> {
                     entrants.clear();
                     entrants.addAll(items);
@@ -98,5 +104,28 @@ public class AllEntrantsActivity extends AppCompatActivity {
             return getString(R.string.failed_to_load_entrants) + ": " + exception.getMessage().trim();
         }
         return getString(R.string.failed_to_load_entrants);
+    }
+
+    private String normalizeStatusFilter(String value) {
+        if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(value)
+                || EventRepository.WAITLIST_STATUS_DECLINED.equals(value)) {
+            return value;
+        }
+        return null;
+    }
+
+    private void applyFilterUi() {
+        if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(statusFilter)) {
+            titleView.setText(R.string.chosen_entrants);
+            emptyState.setText(R.string.no_chosen_entrants);
+            return;
+        }
+        if (EventRepository.WAITLIST_STATUS_DECLINED.equals(statusFilter)) {
+            titleView.setText(R.string.cancelled_entrants);
+            emptyState.setText(R.string.no_cancelled_entrants);
+            return;
+        }
+        titleView.setText(R.string.all_entrants);
+        emptyState.setText(R.string.no_entrants);
     }
 }

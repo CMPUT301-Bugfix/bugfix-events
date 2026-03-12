@@ -187,7 +187,6 @@ public class ViewEventActivity extends AppCompatActivity {
         intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
         intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
         intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
-        intent.putExtra(EntrantsActivity.EVENT_TITLE, currentEvent.getTitle());
         startActivity(intent);
     }
 
@@ -612,6 +611,8 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an event load into a error message to be displayed
+     * @param exception
+     * the exception that was created
      * @return
      * a String message describing what the error was
      */
