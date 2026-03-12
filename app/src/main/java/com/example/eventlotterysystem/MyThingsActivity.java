@@ -1,25 +1,39 @@
 package com.example.eventlotterysystem;
 
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-public class MyThingsActivity extends AppCompatActivity {
+import java.util.ArrayList;
+import java.util.List;
 
+public class MyThingsActivity extends AppCompatActivity implements NotificationAdapter.OnNotificationClickListener {
+
+    private static final String TAG = "MyThingsActivity";
     private FirebaseAuth auth;
     private FirebaseFirestore firestore;
+    private NotificationRepository notificationRepository;
+    private EventRepository eventRepository;
 
     private TextView myThingsSubtitle;
     private Button adminZoneButton;
     private Button myWaitlistButton;
+    private RecyclerView notificationsRecyclerView;
+    private NotificationAdapter notificationAdapter;
+    private List<NotificationItem> notificationList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,10 +42,17 @@ public class MyThingsActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         firestore = FirebaseFirestore.getInstance();
+        notificationRepository = new NotificationRepository();
+        eventRepository = new EventRepository();
 
         myThingsSubtitle = findViewById(R.id.myThingsSubtitle);
         adminZoneButton = findViewById(R.id.adminZoneButton);
         myWaitlistButton = findViewById(R.id.myWaitlistButton);
+        notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
+
+        notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        notificationAdapter = new NotificationAdapter(notificationList, this);
+        notificationsRecyclerView.setAdapter(notificationAdapter);
 
         findViewById(R.id.myThingsBackButton).setOnClickListener(v -> finish());
         findViewById(R.id.settingsButton).setOnClickListener(v ->
@@ -60,6 +81,7 @@ public class MyThingsActivity extends AppCompatActivity {
         }
         myThingsSubtitle.setText(getString(R.string.signed_in_as, identity));
         loadAccountType(currentUser.getUid());
+        loadNotifications(currentUser.getUid());
     }
 
     private void loadAccountType(String uid) {
@@ -74,6 +96,105 @@ public class MyThingsActivity extends AppCompatActivity {
                     }
                 })
                 .addOnFailureListener(exception -> adminZoneButton.setVisibility(View.GONE));
+    }
+
+    private void loadNotifications(String uid) {
+        notificationRepository.getNotificationsForUser(uid)
+                .addOnSuccessListener(notifications -> {
+                    notificationList.clear();
+                    notificationList.addAll(notifications);
+                    notificationAdapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(MyThingsActivity.this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    @Override
+    public void onNotificationClick(NotificationItem notification) {
+        if ("WIN".equals(notification.getType())) {
+            showWinningDialog(notification);
+        } else {
+            showGeneralDialog(notification);
+        }
+    }
+
+    @Override
+    public void onNotificationLongClick(NotificationItem notification) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Notification")
+                .setMessage("Are you sure you want to delete this notification?")
+                .setPositiveButton("Delete", (dialog, which) -> deleteNotification(notification))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showWinningDialog(NotificationItem notification) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Accept", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_CONFIRMED))
+                   .setNeutralButton("Snooze", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_SNOOZED))
+                   .setNegativeButton("Reject", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_DECLINED));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
+    }
+
+    private void showGeneralDialog(NotificationItem notification) {
+        new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage())
+                .setPositiveButton("OK", (dialog, which) -> {
+                    notificationRepository.updateNotificationStatus(auth.getUid(), notification.getId(), "READ");
+                })
+                .show();
+    }
+
+    private void handleInvite(NotificationItem notification, String newStatus) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+        
+        Toast.makeText(this, "Updating status to " + newStatus + "...", Toast.LENGTH_SHORT).show();
+        
+        eventRepository.updateWaitlistStatus(eventId, uid, newStatus)
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(this, "Waitlist updated successfully", Toast.LENGTH_SHORT).show();
+                    
+                    String notifStatus = EventRepository.WAITLIST_STATUS_SNOOZED.equals(newStatus) ? "PENDING" : 
+                                        (EventRepository.WAITLIST_STATUS_CONFIRMED.equals(newStatus) ? "ACCEPTED" : "REJECTED");
+                    
+                    notificationRepository.updateNotificationStatus(uid, notification.getId(), notifStatus)
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(this, "Notification status updated", Toast.LENGTH_SHORT).show();
+                            loadNotifications(uid);
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(this, "Failed to update notification: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            Log.e(TAG, "Notification update failed", e);
+                        });
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Waitlist update failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "Waitlist update failed", e);
+                });
+    }
+
+    private void deleteNotification(NotificationItem notification) {
+        notificationRepository.deleteNotification(auth.getUid(), notification.getId())
+                .addOnSuccessListener(unused -> {
+                    Toast.makeText(this, "Notification deleted", Toast.LENGTH_SHORT).show();
+                    loadNotifications(auth.getUid());
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void onLogOutClicked() {
