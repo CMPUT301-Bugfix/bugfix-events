@@ -22,9 +22,6 @@ public class NotificationRepository {
         this.firestore = FirebaseFirestore.getInstance();
     }
 
-    /**
-     * Sends a targeted notification to a specific sub-group of the waitlist.
-     */
     public Task<Void> sendBatchNotification(
             @NonNull String eventId,
             @NonNull String eventTitle,
@@ -36,6 +33,8 @@ public class NotificationRepository {
                 .document(eventId)
                 .collection("waitlist");
 
+        // FIX: Only add the status filter if one is actually provided. 
+        // If null, it now correctly targets Everyone.
         if (statusFilter != null) {
             query = query.whereEqualTo("status", statusFilter);
         }
@@ -58,9 +57,6 @@ public class NotificationRepository {
         });
     }
 
-    /**
-     * Directly sends a notification to a provided list of user UIDs.
-     */
     public Task<Void> sendToSpecificUsers(
             @NonNull String eventId,
             @NonNull String title,
@@ -72,13 +68,11 @@ public class NotificationRepository {
 
         WriteBatch batch = firestore.batch();
 
-        // 1. Add to global notification log
         DocumentReference logRef = firestore.collection("notifications").document();
         NotificationItem logItem = new NotificationItem(eventId, title, message, type);
         logItem.setId(logRef.getId());
         batch.set(logRef, logItem);
 
-        // 2. Add to each user's individual inbox
         for (String uid : recipientUids) {
             DocumentReference userNotifyRef = firestore.collection("users")
                     .document(uid)

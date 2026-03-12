@@ -177,4 +177,5 @@
     <string name="draw_success">Draw completed! Winners notified.</string>
     <string name="process_expired">Clean Expired</string>
     <string name="expired_cleaned">Expired responses handled and new winners drawn.</string>
+    <string name="waitlist_closed">waitlist closed</string>
 </resources>

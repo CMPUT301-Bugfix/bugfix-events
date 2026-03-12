@@ -3,6 +3,7 @@ package com.example.eventlotterysystem;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -21,6 +22,7 @@ import java.util.List;
 
 public class MyThingsActivity extends AppCompatActivity implements NotificationAdapter.OnNotificationClickListener {
 
+    private static final String TAG = "MyThingsActivity";
     private FirebaseAuth auth;
     private FirebaseFirestore firestore;
     private NotificationRepository notificationRepository;
@@ -128,16 +130,21 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     }
 
     private void showWinningDialog(NotificationItem notification) {
-        FirebaseUser user = auth.getCurrentUser();
-        if (user == null) return;
-
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(notification.getTitle())
-                .setMessage(notification.getMessage())
-                .setPositiveButton("Accept", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_CONFIRMED))
-                .setNeutralButton("Snooze", (dialog, which) -> handleInvite(notification, "SNOOZED"))
-                .setNegativeButton("Reject", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_DECLINED))
-                .show();
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Accept", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_CONFIRMED))
+                   .setNeutralButton("Snooze", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_SNOOZED))
+                   .setNegativeButton("Reject", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_DECLINED));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
     }
 
     private void showGeneralDialog(NotificationItem notification) {
@@ -154,12 +161,28 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         String uid = auth.getUid();
         String eventId = notification.getEventId();
         
+        Toast.makeText(this, "Updating status to " + newStatus + "...", Toast.LENGTH_SHORT).show();
+        
         eventRepository.updateWaitlistStatus(eventId, uid, newStatus)
                 .addOnSuccessListener(unused -> {
-                    notificationRepository.updateNotificationStatus(uid, notification.getId(), 
-                        newStatus.equals(EventRepository.WAITLIST_STATUS_CONFIRMED) ? "ACCEPTED" : "REJECTED");
-                    Toast.makeText(this, "Response recorded: " + newStatus, Toast.LENGTH_SHORT).show();
-                    loadNotifications(uid);
+                    Toast.makeText(this, "Waitlist updated successfully", Toast.LENGTH_SHORT).show();
+                    
+                    String notifStatus = EventRepository.WAITLIST_STATUS_SNOOZED.equals(newStatus) ? "PENDING" : 
+                                        (EventRepository.WAITLIST_STATUS_CONFIRMED.equals(newStatus) ? "ACCEPTED" : "REJECTED");
+                    
+                    notificationRepository.updateNotificationStatus(uid, notification.getId(), notifStatus)
+                        .addOnSuccessListener(aVoid -> {
+                            Toast.makeText(this, "Notification status updated", Toast.LENGTH_SHORT).show();
+                            loadNotifications(uid);
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(this, "Failed to update notification: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            Log.e(TAG, "Notification update failed", e);
+                        });
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Waitlist update failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "Waitlist update failed", e);
                 });
     }
 
@@ -168,6 +191,9 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(this, "Notification deleted", Toast.LENGTH_SHORT).show();
                     loadNotifications(auth.getUid());
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
 
