@@ -19,9 +19,15 @@
     <string name="entrants">Entrants</string>
     <string name="entrants_title">entrants</string>
     <string name="all_entrants">All Entrants</string>
+    <string name="chosen_entrants">Chosen</string>
+    <string name="cancelled_entrants">Cancelled</string>
     <string name="entrants_button_label">Entrants %1$s</string>
     <string name="all_entrants_button_label">All Entrants %1$s</string>
+    <string name="chosen_entrants_button_label">Chosen %1$d</string>
+    <string name="cancelled_entrants_button_label">Cancelled %1$d</string>
     <string name="no_entrants">No entrants are enrolled right now.</string>
+    <string name="no_chosen_entrants">No chosen entrants right now.</string>
+    <string name="no_cancelled_entrants">No cancelled entrants right now.</string>
     <string name="failed_to_load_entrants">Failed to load entrants.</string>
     <string name="unlimited">unlimited</string>
     <string name="host_an_event">host an event</string>
