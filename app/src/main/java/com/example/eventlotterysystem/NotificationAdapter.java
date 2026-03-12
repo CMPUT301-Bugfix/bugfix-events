@@ -13,10 +13,27 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Adapter for displaying a list of NotificationItem objects in a RecyclerView.
+ * This class handles the layout inflation and data binding for individual notification items,
+ * and provides click listeners for interaction.
+ */
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.NotificationViewHolder> {
 
+    /**
+     * Interface for handling click and long-click events on notification items.
+     */
     public interface OnNotificationClickListener {
+        /**
+         * Triggered when a notification is clicked.
+         * @param notification  NotificationItem that was clicked.
+         */
         void onNotificationClick(NotificationItem notification);
+
+        /**
+         * Triggered when a notification is long-clicked.
+         * @param notification NotificationItem that was long-clicked.
+         */
         void onNotificationLongClick(NotificationItem notification);
     }
 
@@ -24,6 +41,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     private final OnNotificationClickListener listener;
     private static final String DATE_PATTERN = "MMM d, yyyy h:mm a";
 
+    /**
+     * Constructs a new NotificationAdapter with the provided list of notifications and click listener
+     *
+     * @param notifications list of NotificationItem objects to display.
+     * @param listener      click listener for notification interactions.
+     */
     public NotificationAdapter(List<NotificationItem> notifications, OnNotificationClickListener listener) {
         this.notifications = notifications;
         this.listener = listener;
@@ -69,9 +92,16 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         return notifications.size();
     }
 
+    /**
+     * ViewHolder class for individual notification list items
+     */
     public static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView title, message, timestamp;
 
+        /**
+         * Initializes the ViewHolder by finding the relevant views in the item layout
+         * @param itemView The root view of the individual list item
+         */
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.notificationEventTitle);
