@@ -6,6 +6,7 @@ import java.util.List;
 
 /**
  * This is a class that Contains Entrant Information related to associated Event
+ * @deprecated
  */
 public class EntrantList {
     private int signUpLimit;
