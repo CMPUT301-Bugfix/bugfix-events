@@ -1,13 +1,19 @@
 package com.example.eventlotterysystem;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
+/**
+ * Local unit tests for the {@link NotificationItem} data model.
+ */
 public class NotificationItemTest {
 
+    /**
+     * Tests that the constructor correctly initializes
+     * and sets the default status of notification to "PENDING"
+     */
     @Test
     public void testConstructor() {
         String eventId = "event123";
@@ -25,6 +31,9 @@ public class NotificationItemTest {
         assertTrue(item.getTimestamp() > 0);
     }
 
+    /**
+     * Tests that setters and getters work for all fields
+     */
     @Test
     public void testSettersAndGetters() {
         NotificationItem item = new NotificationItem();

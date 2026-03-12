@@ -33,13 +33,13 @@ public class NotificationRepository {
     /**
      * Sends a notification to a specific sub-group of an event's waitlist based on their status.
      *
-     * @param eventId      The ID of the event.
-     * @param eventTitle   The title of the event.
-     * @param message      The message content.
-     * @param type         The type of notification (e.g., "WIN", "GENERAL").
-     * @param statusFilter The status to filter recipients by (e.g., "IN_WAITLIST", "CHOSEN").
-     *                     If null, all users in the waitlist will be notified.
-     * @return A Task representing the completion of the batch send operation.
+     * @param eventId       ID of the event
+     * @param eventTitle   title of the event
+     * @param message      message content
+     * @param type          type of notification (e.g., "WIN", "GENERAL").
+     * @param statusFilter status to filter recipients by (e.g., "IN_WAITLIST", "CHOSEN")
+     *                     If null, all users in the waitlist will be notified
+     * @return A Task representing the completion of the batch send operation
      */
     public Task<Void> sendBatchNotification(
             @NonNull String eventId,
@@ -76,14 +76,14 @@ public class NotificationRepository {
 
     /**
      * Sends a notification to a specific list of user IDs.
-     * Records the notification in the global log and individual user inboxes.
+     * Records the notification in the global log and individual user inbox
      *
-     * @param eventId      The ID of the event associated with the notification.
-     * @param title        The title of the notification.
-     * @param message      The message content.
-     * @param type         The type of notification.
-     * @param recipientUids A list of user UIDs who should receive the notification.
-     * @return A Task representing the completion of the write operation.
+     * @param eventId       ID of the event associated with the notification
+     * @param title         title of the notification
+     * @param message       message content
+     * @param type          type of notification
+     * @param recipientUids A list of user UIDs who should receive the notification
+     * @return A Task representing the completion of the write operation
      */
     public Task<Void> sendToSpecificUsers(
             @NonNull String eventId,
@@ -117,10 +117,10 @@ public class NotificationRepository {
     }
 
     /**
-     * Retrieves all notifications for a specific user, ordered by timestamp (newest first).
+     * Retrieves all notifications for a specific user, ordered by timestamp (newest first)
      *
-     * @param uid The UID of the user.
-     * @return A Task containing a list of NotificationItem objects.
+     * @param uid UID of the user
+     * @return A Task containing a list of NotificationItem objects
      */
     public Task<List<NotificationItem>> getNotificationsForUser(@NonNull String uid) {
         return firestore.collection("users")
@@ -145,12 +145,12 @@ public class NotificationRepository {
     }
 
     /**
-     * Updates the status of a specific notification in a user's inbox.
+     * Updates the status of a specific notification in a user inbox
      *
-     * @param uid            The UID of the user.
-     * @param notificationId The ID of the notification document.
-     * @param newStatus      The new status to set (e.g., "READ", "ACCEPTED").
-     * @return A Task representing the completion of the update operation.
+     * @param uid            UID of the user
+     * @param notificationId ID of the notification
+     * @param newStatus      new status to set (e.g., "READ", "ACCEPTED")
+     * @return A Task representing completion of upddte
      */
     public Task<Void> updateNotificationStatus(@NonNull String uid, @NonNull String notificationId, @NonNull String newStatus) {
         return firestore.collection("users")
@@ -163,9 +163,9 @@ public class NotificationRepository {
     /**
      * Deletes a specific notification from a user's inbox.
      *
-     * @param uid            The UID of the user.
-     * @param notificationId The ID of the notification document to delete.
-     * @return A Task representing the completion of the delete operation.
+     * @param uid            UID of the user
+     * @param notificationId ID of the notif to delete
+     * @return A Task representing the complete delete
      */
     public Task<Void> deleteNotification(@NonNull String uid, @NonNull String notificationId) {
         return firestore.collection("users")

@@ -26,13 +26,13 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     public interface OnNotificationClickListener {
         /**
          * Triggered when a notification is clicked.
-         * @param notification The NotificationItem that was clicked.
+         * @param notification  NotificationItem that was clicked.
          */
         void onNotificationClick(NotificationItem notification);
 
         /**
          * Triggered when a notification is long-clicked.
-         * @param notification The NotificationItem that was long-clicked.
+         * @param notification NotificationItem that was long-clicked.
          */
         void onNotificationLongClick(NotificationItem notification);
     }
@@ -42,10 +42,10 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     private static final String DATE_PATTERN = "MMM d, yyyy h:mm a";
 
     /**
-     * Constructs a new NotificationAdapter.
+     * Constructs a new NotificationAdapter with the provided list of notifications and click listener
      *
-     * @param notifications The list of NotificationItem objects to display.
-     * @param listener      The click listener for notification interactions.
+     * @param notifications list of NotificationItem objects to display.
+     * @param listener      click listener for notification interactions.
      */
     public NotificationAdapter(List<NotificationItem> notifications, OnNotificationClickListener listener) {
         this.notifications = notifications;
@@ -93,14 +93,14 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     }
 
     /**
-     * ViewHolder class for individual notification list items.
+     * ViewHolder class for individual notification list items
      */
     public static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView title, message, timestamp;
 
         /**
-         * Initializes the ViewHolder by finding the relevant views in the item layout.
-         * @param itemView The root view of the individual list item.
+         * Initializes the ViewHolder by finding the relevant views in the item layout
+         * @param itemView The root view of the individual list item
          */
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);
