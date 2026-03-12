@@ -74,6 +74,12 @@
             android:stateNotNeeded="true"
             android:theme="@style/zxing_CaptureTheme"/>
         <activity
+            android:name=".AdminBrowseEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminEventDetailsActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

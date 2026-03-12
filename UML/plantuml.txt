@@ -1,0 +1,675 @@
+@startuml
+title Event Lottery System UML
+
+top to bottom direction
+scale max 1800 width
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam roundcorner 10
+skinparam nodesep 26
+skinparam ranksep 34
+skinparam defaultFontSize 9
+skinparam ClassBackgroundColor #F9FBFF
+skinparam PackageBackgroundColor #F4F4F4
+skinparam NoteBackgroundColor #FFF8DC
+skinparam ArrowColor #555555
+
+package "Authentication" {
+  class MainActivity {
+    #onCreate(savedInstanceState: Bundle): void
+  }
+
+  class AuthMenuActivity {
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -navigateAndClearTask(destination: Class<?>): void
+  }
+
+  class LoginActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -loginIdentifierInput: EditText
+    -loginPasswordInput: EditText
+    -rememberMeCheckBox: CheckBox
+    -loadingIndicator: ProgressBar
+    -loginButton: Button
+    -forgotPasswordButton: TextView
+    -backButton: TextView
+    #onCreate(savedInstanceState: Bundle): void
+    -onLoginClicked(): void
+    -onForgotPasswordClicked(): void
+    -resolveEmailFromIdentifier(identifier: String, callback: EmailResolverCallback): void
+    -signInWithPendingEmail(primaryEmail: String, password: String, pendingEmail: String): void
+    -onLoginSuccess(): void
+    -showAuthError(): void
+    -syncUsernameEmailMappingForCurrentUser(onComplete: Runnable): void
+    -normalize(value: String): String
+    -navigateAndClearTask(destination: Class<?>): void
+    -showMessage(message: String): void
+    -clearErrors(): void
+    -setLoading(loading: boolean): void
+    -readTrimmed(input: EditText): String
+    -readRaw(input: EditText): String
+  }
+
+  interface EmailResolverCallback <<Interface>> {
+    ~onResolved(email: String, pendingEmail: String): void
+    ~onError(message: String): void
+  }
+
+  class SignupActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -createNameInput: EditText
+    -createEmailInput: EditText
+    -createUsernameInput: EditText
+    -createPhoneInput: EditText
+    -createPasswordInput: EditText
+    -createConfirmPasswordInput: EditText
+    -loadingIndicator: ProgressBar
+    -createAccountButton: Button
+    -backButton: TextView
+    #onCreate(savedInstanceState: Bundle): void
+    -onCreateAccountClicked(): void
+    -saveUserProfile(user: FirebaseUser, fullName: String, email: String, username: String, usernameKey: String, phone: String): void
+    -rollbackUserCreation(user: FirebaseUser, message: String): void
+    -navigateAndClearTask(destination: Class<?>): void
+    -showMessage(message: String): void
+    -clearErrors(): void
+    -setLoading(loading: boolean): void
+    -readTrimmed(input: EditText): String
+    -readRaw(input: EditText): String
+  }
+
+  class ProfileRemovedActivity {
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -navigateToAuthMenu(): void
+  }
+
+  class AuthSessionPreference {
+    -{static} PREFERENCES_NAME: String
+    -{static} REMEMBER_ME_KEY: String
+    +{static} shouldRemember(context: Context): boolean
+    +{static} setRemember(context: Context, remember: boolean): void
+  }
+
+}
+
+package "Participant and Organizer Flow" {
+  class HomeActivity {
+    -{static} TAG: String
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -repository: EventRepository
+    -homeEventsEmptyState: TextView
+    -homeEventsListView: ListView
+    -adapter: EventListAdapter
+    -events: List<EventItem>
+    ~barLauncher: ActivityResultLauncher<ScanOptions>
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -scanCode(): void
+    -verifyActiveProfileAndRender(user: FirebaseUser): void
+    -loadJoinableEvents(): void
+    -updateEmptyState(): void
+    -buildLoadErrorMessage(exception: Exception): String
+    -navigateToAuthMenu(): void
+    -navigateToProfileRemoved(): void
+  }
+
+  class MyThingsActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -myThingsSubtitle: TextView
+    -adminZoneButton: Button
+    -myWaitlistButton: Button
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -loadAccountType(uid: String): void
+    -onLogOutClicked(): void
+    -navigateToAuthMenu(): void
+  }
+
+  class CaptureActivity {
+  }
+
+  class ViewEventActivity {
+    -{static} TAG: String
+    -{static} MAX_POSTER_BYTES: long
+    -{static} DATE_PATTERN: String
+    -posterImageView: ImageView
+    -screenTitleTextView: TextView
+    -titleTextView: TextView
+    -hostTextView: TextView
+    -locationTextView: TextView
+    -dateTextView: TextView
+    -deadlineTextView: TextView
+    -maxEntrantsTextView: TextView
+    -waitlistCountTextView: TextView
+    -geolocationTextView: TextView
+    -descriptionTextView: TextView
+    -waitlistJoinedTextView: TextView
+    -entrantsButton: Button
+    -editEventButton: Button
+    -joinWaitlistButton: Button
+    -leaveWaitlistButton: Button
+    -acceptInvitationButton: Button
+    -rejectInvitationButton: Button
+    -currentWaitlistStatus: String
+    -auth: FirebaseAuth
+    -repository: EventRepository
+    -eventId: String
+    -canEditEvent: boolean
+    -currentEvent: EventItem
+    -showJoinButton: boolean
+    -joinEnabled: boolean
+    -showJoinedLabel: boolean
+    -showLeaveButton: boolean
+    -waitlistActionLoading: boolean
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -loadEvent(): void
+    -openEventEditor(): void
+    -openEntrantsScreen(): void
+    -showJoinWaitlistDialog(): void
+    -joinWaitlist(): void
+    -leaveWaitlist(): void
+    -acceptInvitation(): void
+    -showRejectInvitationDialog(): void
+    -rejectInvitation(): void
+    -loadWaitlistState(event: EventItem): void
+    -applyWaitlistViewState(): void
+    -setWaitlistActionLoading(loading: boolean): void
+    -updateWaitlistControls(event: EventItem, currentUserUid: String, status: String): void
+    -updateWaitlistFlags(showJoinButton: boolean, joinEnabled: boolean, showJoinedLabel: boolean, showLeaveButton: boolean): void
+    -showPoster(posterUrl: String): void
+    -showMetadata(event: EventItem): void
+    -renderLoadFailureState(): void
+    -buildLoadErrorMessage(exception: Exception): String
+    -buildWaitlistErrorMessage(exception: Exception): String
+    -shouldShowEntrantsButton(): boolean
+    -hasText(value: String): boolean
+    -formatDate(date: Date): String
+    -formatMaxEntrants(maxEntrants: int): String
+    -buildEntrantCountText(event: EventItem): String
+  }
+
+  class QRCode {
+    #onCreate(saveInstanceState: Bundle): void
+  }
+
+  class MyWaitlistActivity {
+    -{static} TAG: String
+    -auth: FirebaseAuth
+    -repository: EventRepository
+    -myWaitlistListView: ListView
+    -emptyState: TextView
+    -adapter: WaitlistEntryAdapter
+    -waitlistEntries: List<WaitlistEntryItem>
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -loadMyWaitlists(uid: String): void
+    -updateEmptyState(): void
+    -navigateToAuthMenu(): void
+    -buildLoadErrorMessage(exception: Exception): String
+  }
+
+  class EntrantsActivity {
+    -{static} TAG: String
+    +{static} EVENT_ID: String
+    +{static} TOTAL_ENTRANTS: String
+    +{static} MAX_ENTRANTS: String
+    -repository: EventRepository
+    -eventId: String
+    -totalEntrants: int
+    -maxEntrants: int
+    -chosenEntrants: int
+    -cancelledEntrants: int
+    -allEntrantsButton: Button
+    -chosenEntrantsButton: Button
+    -cancelledEntrantsButton: Button
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -updateButtons(): void
+    -openEntrantsList(statusFilter: String): void
+    -buildEntrantCountText(totalEntrants: int, maxEntrants: int): String
+  }
+
+  class HostedEventsActivity {
+    -{static} TAG: String
+    -auth: FirebaseAuth
+    -repository: EventRepository
+    -hostedEventsListView: ListView
+    -emptyState: TextView
+    -adapter: EventListAdapter
+    -hostedEvents: List<EventItem>
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -loadHostedEvents(uid: String): void
+    -updateEmptyState(): void
+    -openHostedEvent(event: EventItem): void
+    -navigateToAuthMenu(): void
+    -buildLoadErrorMessage(exception: Exception): String
+  }
+
+  class SettingsActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -backButton: TextView
+    -updateInformationHeader: LinearLayout
+    -updateInformationIndicator: TextView
+    -updateInformationContent: LinearLayout
+    -updateNameInput: EditText
+    -updateEmailInput: EditText
+    -updateUsernameInput: EditText
+    -updatePhoneInput: EditText
+    -currentPasswordInput: EditText
+    -newPasswordInput: EditText
+    -confirmNewPasswordInput: EditText
+    -saveProfileChangesButton: Button
+    -deleteAccountButton: Button
+    -loadingIndicator: ProgressBar
+    -isAccordionExpanded: boolean
+    -isSaving: boolean
+    -pendingSignOutAfterSave: boolean
+    -profileLoaded: boolean
+    -originalProfile: UserProfile
+    #onCreate(savedInstanceState: Bundle): void
+    #onResume(): void
+    -setAccordionExpanded(expanded: boolean): void
+    -loadCurrentProfile(): void
+    -applyLoadedProfile(snapshot: DocumentSnapshot, authEmail: String): void
+    -refreshVerifiedEmailIfNeeded(): void
+    -onSaveClicked(): void
+    -onDeleteAccountClicked(): void
+    -deleteAccount(currentPassword: String): void
+    -deleteAccountProfileAndAuth(currentUser: FirebaseUser): void
+    -onDeleteAccountSuccess(): void
+    -handleDeleteAccountReauthFailure(exception: Exception): void
+    -handleDeleteAccountDataFailure(exception: Exception): void
+    -handleDeleteAccountAuthFailure(exception: Exception): void
+    -reauthenticateCurrentUser(currentUser: FirebaseUser, currentPassword: String, onSuccess: Runnable): void
+    -updateAuthAndSave(currentUser: FirebaseUser, editedProfile: UserProfile, emailChanged: boolean, wantsPasswordChange: boolean, newPassword: String, hadAuthSensitiveChange: boolean): void
+    -updatePasswordAndSave(currentUser: FirebaseUser, editedProfile: UserProfile, wantsPasswordChange: boolean, newPassword: String, hadAuthSensitiveChange: boolean): void
+    -syncProfileToFirestore(currentUser: FirebaseUser, editedProfile: UserProfile, hadAuthSensitiveChange: boolean): void
+    -moveUsernameMapping(currentUser: FirebaseUser, editedProfile: UserProfile, userUpdates: Map<String, Object>, emailVerificationPending: boolean, hadAuthSensitiveChange: boolean): void
+    -saveWithoutUsernameMove(currentUser: FirebaseUser, editedProfile: UserProfile, userUpdates: Map<String, Object>, emailVerificationPending: boolean, hadAuthSensitiveChange: boolean): void
+    -onProfileSaved(editedProfile: UserProfile): void
+    -handleReauthFailure(exception: Exception): void
+    -handleAuthFailure(exception: Exception): void
+    -handleProfileSyncFailure(exception: Exception, hadAuthSensitiveChange: boolean): void
+    -clearErrors(): void
+    -clearPasswordInputs(): void
+    -setSaving(saving: boolean): void
+    -showMessage(message: String): void
+    -navigateToAuthMenu(): void
+    -normalize(value: String): String
+  }
+
+  class CreateEventActivity {
+    -{static} TAG: String
+    -{static} DATE_PATTERN: String
+    -{static} MAX_POSTER_BYTES: long
+    -auth: FirebaseAuth
+    -repository: EventRepository
+    -screenTitle: TextView
+    -screenSubtitle: TextView
+    -titleInput: EditText
+    -descriptionInput: EditText
+    -locationInput: EditText
+    -maxEntrantsInput: EditText
+    -maxParticipantsInput: EditText
+    -posterPreview: ImageView
+    -posterStatus: TextView
+    -deadlineValue: TextView
+    -eventDateValue: TextView
+    -posterButton: Button
+    -deadlineButton: Button
+    -eventDateButton: Button
+    -submitButton: Button
+    -geolocationSwitch: SwitchCompat
+    -selectedPosterUri: Uri
+    -selectedDeadlineDate: LocalDate
+    -selectedEventDate: LocalDate
+    -editingEventId: String
+    -currentPosterUrl: String
+    -editMode: boolean
+    -posterPickerLauncher: ActivityResultLauncher<String>
+    #onCreate(savedInstanceState: Bundle): void
+    -showDatePicker(forDeadline: boolean): void
+    -submitEvent(): void
+    -clearErrors(): void
+    -setLoading(loading: boolean): void
+    -loadEventForEditing(eventId: String): void
+    -populateForm(event: EventItem): void
+    -showExistingPoster(posterUrl: String): void
+    -showPosterOptionalState(): void
+    -toLocalDate(date: Date): LocalDate
+    -buildLoadErrorMessage(exception: Exception): String
+    -readTrimmed(input: EditText): String
+    -hasText(value: String): boolean
+    -parseOptionalPositiveInt(value: String): int
+    -parseRequiredPositiveInt(value: String): int
+    -toRegistrationDeadline(localDate: LocalDate): Date
+    -toEventDate(localDate: LocalDate): Date
+    -toDate(localDateTime: LocalDateTime): Date
+    -formatDate(date: Date): String
+  }
+
+  class AllEntrantsActivity {
+    -{static} TAG: String
+    +{static} STATUS_FILTER: String
+    -repository: EventRepository
+    -eventId: String
+    -statusFilter: String
+    -entrantsListView: ListView
+    -titleView: TextView
+    -emptyState: TextView
+    -adapter: EntrantAdapter
+    -entrants: List<UserProfile>
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -loadEntrants(): void
+    -updateEmptyState(): void
+    -openEntrantDetails(entrant: UserProfile): void
+    -buildLoadErrorMessage(exception: Exception): String
+    -normalizeStatusFilter(value: String): String
+    -applyFilterUi(): void
+  }
+
+}
+
+package "Administration" {
+  class AdminZoneActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -adminRoleLoading: ProgressBar
+    -adminUserProfilesButton: Button
+    -adminEventsButton: Button
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -navigateToAuthMenu(): void
+  }
+
+  class UserProfilesActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -backButton: TextView
+    -userTypeFilterSpinner: Spinner
+    -userProfilesLoading: ProgressBar
+    -userProfilesEmptyState: TextView
+    -userProfilesScrollView: ScrollView
+    -userProfilesContainer: LinearLayout
+    -isAdminConfirmed: boolean
+    -selectedAccountType: String
+    -profilesListener: ListenerRegistration
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    -setupFilterSpinner(): void
+    -verifyAdminAndLoad(uid: String): void
+    -loadProfilesForFilter(): void
+    -renderProfiles(profiles: List<UserProfile>): void
+    -mapSnapshotToUserProfile(snapshot: DocumentSnapshot): UserProfile
+    -safeValue(value: String, fallbackResId: int): String
+    -setLoading(loading: boolean): void
+    -showMessage(message: String): void
+    -navigateToAuthMenu(): void
+    -openProfileDetails(profile: UserProfile): void
+    -normalize(value: String): String
+  }
+
+  class UserProfileDetailsActivity {
+    +{static} NAME: String
+    +{static} ACCOUNT_TYPE: String
+    +{static} USERNAME: String
+    +{static} EMAIL: String
+    +{static} PHONE: String
+    +{static} UID: String
+    +{static} TIME_MILLIS: String
+    +{static} ALLOW_DELETE: String
+    -firestore: FirebaseFirestore
+    -deleteProfileButton: Button
+    -isDeleting: boolean
+    -viewedUid: String
+    -viewedAccountType: String
+    -viewedName: String
+    #onCreate(savedInstanceState: Bundle): void
+    -onDeleteProfileClicked(): void
+    -deleteViewedProfile(): void
+    -handleDeleteFailure(exception: Exception): void
+    -setDeleting(deleting: boolean): void
+    -showMessage(message: String): void
+    -safeValue(value: String, fallbackResId: int): String
+    -formatJoinDate(createdAtMillis: long): String
+    -normalize(value: String): String
+  }
+
+  class AdminBrowseEventsActivity {
+    -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
+    -backButton: TextView
+    -eventsLoading: ProgressBar
+    -eventsEmptyState: TextView
+    -eventsScrollView: ScrollView
+    -eventsContainer: LinearLayout
+    -eventRepository: EventRepository
+    -isAdminConfirmed: boolean
+    -eventsListener: ListenerRegistration
+    #onCreate(savedInstanceState: Bundle): void
+    #onStart(): void
+    #onStop(): void
+    -verifyAdminAndLoad(uid: String): void
+    -loadEvents(): void
+    -renderEvents(events: List<EventItem>): void
+    -openEventDetails(event: EventItem): void
+    -setLoading(loading: boolean): void
+    -navigateToAuthMenu(): void
+    -normalize(value: String): String
+  }
+
+  class AdminEventDetailsActivity {
+    +{static} EVENT_ID: String
+    +{static} EVENT_TITLE: String
+    -firestore: FirebaseFirestore
+    -deleteEventButton: Button
+    -eventId: String
+    -eventTitle: String
+    -isDeleting: boolean
+    #onCreate(savedInstanceState: Bundle): void
+    -confirmDelete(): void
+    -deleteEvent(): void
+    -handleDeleteFailure(exception: Exception): void
+    -setDeleting(deleting: boolean): void
+    -normalize(value: String): String
+  }
+
+}
+
+package "Data and Rendering" {
+  class EventRepository {
+    -firestore: FirebaseFirestore
+    -storage: FirebaseStorage
+    +EventRepository()
+    +getCurrentEvents(): Task<List<EventItem>>
+    +getHostedEvents(hostUid: String): Task<List<EventItem>>
+    +getEventById(eventId: String): Task<EventItem>
+    +createEvent(currentUser: FirebaseUser, draftEvent: EventItem, posterUri: Uri): Task<String>
+    +getWaitlistState(eventId: String, uid: String): Task<Boolean>
+    +getWaitlistStatus(eventId: String, uid: String): Task<String>
+    +updateWaitlistStatus(eventId: String, uid: String, status: String): Task<Void>
+    +joinWaitlist(eventId: String, currentUser: FirebaseUser): Task<Void>
+    +leaveWaitlist(eventId: String, uid: String): Task<Void>
+    +getMyWaitlists(uid: String): Task<List<WaitlistEntryItem>>
+    +getEntrantCount(eventId: String, statusFilter: String): Task<Integer>
+    +getEntrantsForEvent(eventId: String, statusFilter: String): Task<List<UserProfile>>
+    +updateEvent(eventId: String, currentUser: FirebaseUser, event: EventItem, posterUri: Uri): Task<String>
+    -createEventRecord(eventRef: DocumentReference, userRef: DocumentReference, draftEvent: EventItem, hostUid: String, hostDisplayName: String, posterUrl: String, accountType: String, posterRef: StorageReference): Task<String>
+    -isJoinableEvent(doc: DocumentSnapshot, now: Date): boolean
+    +readEventItem(doc: DocumentSnapshot): EventItem
+    -buildEventPayload(event: EventItem, hostUid: String, hostDisplayName: String, posterUrl: String): Map<String, Object>
+    -buildUpdatedEventPayload(event: EventItem, posterUrl: String): Map<String, Object>
+    -getHostDisplayName(userSnapshot: DocumentSnapshot, currentUser: FirebaseUser): String
+    -readUserProfile(doc: DocumentSnapshot): UserProfile
+    -extractWaitlistEventId(snapshot: DocumentSnapshot): String
+    -eventWaitlistEntry(eventId: String, uid: String): DocumentReference
+    -userWaitlistEntry(uid: String, eventId: String): DocumentReference
+    -sortByEventDate(events: List<EventItem>): void
+    -normalize(value: String): String
+    -firstNonEmpty(candidates: String...): String
+    -hasText(value: String): boolean
+  }
+
+  class EventItem {
+    -id: String
+    -title: String
+    -description: String
+    -location: String
+    -posterUrl: String
+    -maxEntrants: int
+    -maxParticipants: int
+    -totalEntrants: int
+    -registrationDeadline: Date
+    -eventDate: Date
+    -requiresGeolocation: boolean
+    -hostUid: String
+    -hostDisplayName: String
+    -waitlistOpen: boolean
+    +EventItem(id: String, title: String, description: String)
+    +EventItem(id: String, title: String, description: String, location: String, posterUrl: String, maxEntrants: int, maxParticipants: int, totalEntrants: int, registrationDeadline: Date, eventDate: Date, requiresGeolocation: boolean, hostUid: String, hostDisplayName: String)
+    +EventItem(id: String, title: String, description: String, location: String, posterUrl: String, maxEntrants: int, maxParticipants: int, totalEntrants: int, registrationDeadline: Date, eventDate: Date, requiresGeolocation: boolean, hostUid: String, hostDisplayName: String, waitlistOpen: boolean)
+    +getId(): String
+    +getTitle(): String
+    +getDescription(): String
+    +getLocation(): String
+    +getPosterUrl(): String
+    +getMaxEntrants(): int
+    +getMaxParticipants(): int
+    +getTotalEntrants(): int
+    +getRegistrationDeadline(): Date
+    +getEventDate(): Date
+    +isRequiresGeolocation(): boolean
+    +getHostUid(): String
+    +getHostDisplayName(): String
+    +isWaitlistOpen(): boolean
+  }
+
+  class WaitlistEntryItem {
+    -eventId: String
+    -title: String
+    -eventDate: Date
+    -status: String
+    +WaitlistEntryItem(eventId: String, title: String, eventDate: Date, status: String)
+    +getEventId(): String
+    +getTitle(): String
+    +getEventDate(): Date
+    +getStatus(): String
+  }
+
+  class UserProfile {
+    -uid: String
+    -name: String
+    -email: String
+    -username: String
+    -usernameKey: String
+    -phoneNumber: String
+    -accountType: String
+    -createdAt: Timestamp
+    +UserProfile(name: String, email: String, username: String, usernameKey: String, phoneNumber: String)
+    +UserProfile(name: String, email: String, username: String, usernameKey: String, phoneNumber: String, accountType: String)
+    +getName(): String
+    +getUid(): String
+    +setUid(uid: String): void
+    +setName(name: String): void
+    +getEmail(): String
+    +setEmail(email: String): void
+    +getUsername(): String
+    +setUsername(username: String): void
+    +getUsernameKey(): String
+    +setUsernameKey(usernameKey: String): void
+    +getPhoneNumber(): String
+    +setPhoneNumber(phoneNumber: String): void
+    +getAccountType(): String
+    +setAccountType(accountType: String): void
+    +getCreatedAt(): Timestamp
+    +setCreatedAt(createdAt: Timestamp): void
+  }
+
+  class EventListAdapter {
+    -{static} DATE_PATTERN: String
+    -inflater: LayoutInflater
+    +EventListAdapter(context: Context, items: List<EventItem>)
+    +getView(position: int, convertView: View, parent: ViewGroup): View
+    -hasText(value: String): boolean
+    -formatDate(date: Date): String
+  }
+
+  class WaitlistEntryAdapter {
+    -{static} DATE_PATTERN: String
+    -inflater: LayoutInflater
+    +WaitlistEntryAdapter(context: Context, items: List<WaitlistEntryItem>)
+    +getView(position: int, convertView: View, parent: ViewGroup): View
+    -formatDate(date: Date): String
+    -getStatusLabel(status: String): String
+  }
+
+  class EntrantAdapter {
+    -inflater: LayoutInflater
+    +EntrantAdapter(context: Context, items: List<UserProfile>)
+    +getView(position: int, convertView: View, parent: ViewGroup): View
+    -safeValue(value: String, fallback: String): String
+  }
+
+}
+
+MainActivity ..> AuthSessionPreference : checks session
+MainActivity --> AuthMenuActivity
+MainActivity --> HomeActivity
+AuthMenuActivity --> LoginActivity
+AuthMenuActivity --> SignupActivity
+LoginActivity ..> AuthSessionPreference : stores remember-me
+LoginActivity ..> EmailResolverCallback
+ProfileRemovedActivity ..> AuthSessionPreference : clears session
+ProfileRemovedActivity --> AuthMenuActivity
+HomeActivity --> MyThingsActivity
+HomeActivity --> ViewEventActivity
+HomeActivity ..> CaptureActivity : scanner UI
+MyThingsActivity --> SettingsActivity
+MyThingsActivity --> HostedEventsActivity
+MyThingsActivity --> MyWaitlistActivity
+MyThingsActivity --> AdminZoneActivity : admin accounts
+HostedEventsActivity --> CreateEventActivity
+HostedEventsActivity --> ViewEventActivity
+ViewEventActivity --> CreateEventActivity
+ViewEventActivity --> EntrantsActivity
+ViewEventActivity --> QRCode
+MyWaitlistActivity --> ViewEventActivity
+EntrantsActivity --> AllEntrantsActivity
+AllEntrantsActivity --> UserProfileDetailsActivity
+AdminZoneActivity --> UserProfilesActivity
+AdminZoneActivity --> AdminBrowseEventsActivity
+UserProfilesActivity --> UserProfileDetailsActivity
+AdminBrowseEventsActivity --> AdminEventDetailsActivity
+EventRepository --> EventItem
+EventRepository --> WaitlistEntryItem
+EventRepository --> UserProfile
+
+' Hidden links below are for layout control only.
+' They are not semantic relationships in the design.
+ProfileRemovedActivity -[hidden]down-> HomeActivity
+HomeActivity -[hidden]right-> MyThingsActivity
+MyThingsActivity -[hidden]right-> CaptureActivity
+ViewEventActivity -[hidden]right-> MyWaitlistActivity
+MyWaitlistActivity -[hidden]right-> EntrantsActivity
+EntrantsActivity -[hidden]right-> HostedEventsActivity
+HostedEventsActivity -[hidden]right-> SettingsActivity
+CreateEventActivity -[hidden]right-> QRCode
+QRCode -[hidden]right-> AllEntrantsActivity
+AdminZoneActivity -[hidden]down-> UserProfilesActivity
+UserProfilesActivity -[hidden]right-> AdminBrowseEventsActivity
+UserProfileDetailsActivity -[hidden]right-> AdminEventDetailsActivity
+AdminEventDetailsActivity -[hidden]down-> EventRepository
+
+@enduml
