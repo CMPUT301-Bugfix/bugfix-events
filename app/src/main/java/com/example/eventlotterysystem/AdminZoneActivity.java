@@ -18,6 +18,7 @@ public class AdminZoneActivity extends AppCompatActivity {
     private FirebaseFirestore firestore;
     private ProgressBar adminRoleLoading;
     private Button adminUserProfilesButton;
+    private Button adminEventsButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,10 +30,14 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminRoleLoading = findViewById(R.id.adminRoleLoading);
         adminUserProfilesButton = findViewById(R.id.adminUserProfilesButton);
         adminUserProfilesButton.setEnabled(false);
+        adminEventsButton = findViewById(R.id.adminEventsButton);
+        adminEventsButton.setEnabled(false);
 
         findViewById(R.id.adminZoneBackButton).setOnClickListener(v -> finish());
         adminUserProfilesButton.setOnClickListener(v ->
                 startActivity(new Intent(this, UserProfilesActivity.class)));
+        adminEventsButton.setOnClickListener(v ->
+                startActivity(new Intent(this, AdminBrowseEventsActivity.class)));
     }
 
     @Override
@@ -46,6 +51,7 @@ public class AdminZoneActivity extends AppCompatActivity {
 
         adminRoleLoading.setVisibility(View.VISIBLE);
         adminUserProfilesButton.setEnabled(false);
+        adminEventsButton.setEnabled(false);
         firestore.collection("users")
                 .document(currentUser.getUid())
                 .get()
@@ -57,6 +63,7 @@ public class AdminZoneActivity extends AppCompatActivity {
                         return;
                     }
                     adminUserProfilesButton.setEnabled(true);
+                    adminEventsButton.setEnabled(true);
                 })
                 .addOnFailureListener(exception -> {
                     adminRoleLoading.setVisibility(View.GONE);

@@ -173,4 +173,18 @@
     <string name="max_participants">max participants</string>
     <string name="max_participants_invalid">Enter a valid number greater than 0.</string>
     <string name="max_participants_exceeds_entrants">Max participants cannot exceed max entrants.</string>
+    <string name="view_events">Events</string>
+    <string name="no_events">No events found.</string>
+    <string name="unknown_event_title">Unknown event</string>
+    <string name="admin_delete_event_confirm_title">Delete event?</string>
+    <string name="admin_delete_event_confirm_message">This will permanently delete: %1$s</string>
+    <string name="admin_delete_event_cancel_action">Cancel</string>
+    <string name="admin_delete_event_confirm_action">Delete</string>
+    <string name="admin_delete_event_success">Event deleted</string>
+    <string name="admin_delete_event_failed">Failed to delete event</string>
+    <string name="admin_delete_event_permission_denied">Permission denied</string>
+    <string name="unknown_event_date">Unknown date</string>
+    <string name="unknown_organizer">Unknown organizer</string>
+    <string name="admin_event_entrants_placeholder">entrants 0/0</string>
+    <string name="admin_event_entrants_format">entrants %1$d/%2$d</string>
 </resources>
