@@ -25,6 +25,11 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * This class deals with displaying the user details page for the
+ * admins, which will allow admins to delete an event
+ */
+
 public class UserProfileDetailsActivity extends AppCompatActivity {
 
     public static final String NAME = "name";
@@ -42,6 +47,15 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     private String viewedUid;
     private String viewedAccountType;
     private String viewedName;
+
+    /**
+     * This method deals with the creation of the user profile details screen and its component views
+     * as well as initializing and getting all the necessary information for that screen,
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +101,10 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         deleteProfileButton.setOnClickListener(v -> onDeleteProfileClicked());
     }
 
+    /**
+     * This method shows the dialog for confirming deletion
+     */
+
     private void onDeleteProfileClicked() {
         if (isDeleting) {
             return;
@@ -102,6 +120,10 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.admin_delete_profile_confirm_action, (dialog, which) -> deleteViewedProfile())
                 .show();
     }
+
+    /**
+     * This method deletes the user document from the firestore user collection
+     */
 
     private void deleteViewedProfile() {
         if (TextUtils.isEmpty(viewedUid)) {
@@ -126,6 +148,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * In the case where we are unable to delete an event, we display a message stating as such
+     * @param exception This is the error from deleteEvent()
+     */
+
     private void handleDeleteFailure(@NonNull Exception exception) {
         setDeleting(false);
         if (exception instanceof FirebaseFirestoreException
@@ -136,6 +163,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         }
         showMessage(getString(R.string.admin_delete_profile_failed));
     }
+
+    /**
+     * Disables the delete button when deleting
+     * @param deleting boolean value
+     */
 
     private void setDeleting(boolean deleting) {
         isDeleting = deleting;
@@ -154,6 +186,12 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         return value;
     }
 
+    /**
+     * This method formats a long value into a readable date
+     * @param createdAtMillis the long value that we want to format into the date
+     * @return The formatted date
+     */
+
     @NonNull
     private String formatJoinDate(long createdAtMillis) {
         if (createdAtMillis < 0L) {
@@ -161,6 +199,12 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         }
         return new SimpleDateFormat("MMM d, yyyy", Locale.US).format(new Date(createdAtMillis));
     }
+
+    /**
+     * This method just cleans up a string for us
+     * @param value A string that we want to clean up
+     * @return either an empty string if the value is null or the trimmed string
+     */
 
     @NonNull
     private String normalize(String value) {

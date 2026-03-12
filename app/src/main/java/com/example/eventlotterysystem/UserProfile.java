@@ -2,6 +2,11 @@ package com.example.eventlotterysystem;
 
 import com.google.firebase.Timestamp;
 
+/**
+ * This class represents a Users profile and has all the getters and setters
+ * associated with all of the necessary fields for each user.
+ */
+
 public class UserProfile {
     private String uid;
     private String name;
