@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * screen where the entrant can view waitlist and invitation
+ *  * statuses
  * This is a class that is the controller of the activity_my_waitlist screen
  */
 public class MyWaitlistActivity extends AppCompatActivity {
@@ -31,12 +33,8 @@ public class MyWaitlistActivity extends AppCompatActivity {
     private final List<WaitlistEntryItem> waitlistEntries = new ArrayList<>();
 
     /**
-     * This is the creation of the Activity
      * This connects to all the view on the screen and connects the clickable view to the controller
      * also creates a connection to the database
-     * @param savedInstanceState If the activity is being re-initialized after
-     *     previously being shut down then this Bundle contains the data it most
-     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,7 +58,7 @@ public class MyWaitlistActivity extends AppCompatActivity {
     }
 
     /**
-     * This is the startup of the Activity
+     * startup of the Activity
      * get user from database and runs a load to get their waitlist
      */
     @Override
@@ -78,8 +76,7 @@ public class MyWaitlistActivity extends AppCompatActivity {
      * gets all of Users waitlist from the database
      * on success updates display
      * on failure notifies user there was a load failure
-     * @param uid
-     * ID of User to get all Event sign-ups of
+     * ID of User to get all Event sign-ups
      */
     private void loadMyWaitlists(String uid) {
         repository.getMyWaitlists(uid)
@@ -126,10 +123,6 @@ public class MyWaitlistActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an event load into a error message to be displayed
-     * @param exception
-     * the exception that was created
-     * @return
-     * a String message describing what the error was
      */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {

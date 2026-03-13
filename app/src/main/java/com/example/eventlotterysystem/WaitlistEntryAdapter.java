@@ -78,10 +78,6 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
 
     /**
      * This changes the date to match locality
-     * @param date
-     * Date the time of the Event
-     * @return
-     * String representation of the date that matches the timezone of the user
      */
     private String formatDate(Date date) {
         if (date == null) {
@@ -93,9 +89,6 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
     /**
      * This gets the matching text label for the state that the signup is in
      * @param status
-     * String stage of the signup (waitlist, chosen, confirmed)
-     * @return
-     * String label for corresponding status
      */
     private String getStatusLabel(String status) {
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {

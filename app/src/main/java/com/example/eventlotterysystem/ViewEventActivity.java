@@ -392,6 +392,11 @@ public class ViewEventActivity extends AppCompatActivity {
     }
     /**
      * This is method modifies the screen views such that the User has joined
+     * For US 01.05.03:
+     *      * - CHOSEN shows Accept and Reject buttons
+     *      * - CONFIRMED shows confirmed state
+     *      * - DECLINED shows declined state
+     *      * - IN_WAITLIST keeps the regular waitlist state
      */
     private void applyWaitlistViewState() {
         joinWaitlistButton.setVisibility(showJoinButton ? View.VISIBLE : View.GONE);
@@ -446,11 +451,8 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * This is method modifies the screen views to match the state of signed up and if joining is allowable
-     * @param event
      * the current event for this activity
-     * @param currentUserUid
      * Id of the user
-     * @param status
      * state of if the user is currently signed up for the event
      */
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
