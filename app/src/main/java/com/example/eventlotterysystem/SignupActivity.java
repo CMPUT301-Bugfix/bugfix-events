@@ -28,7 +28,7 @@ import java.util.Map;
 
 /**
  * This is a class that is the controller of the activity_signup screen
- * allows a user to create an account and then naviagtes them to home activity
+ * allows a user to create an account and then navigates them to home activity
  */
 public class SignupActivity extends AppCompatActivity {
 
@@ -75,7 +75,7 @@ public class SignupActivity extends AppCompatActivity {
     }
 
     /**
-     * This is the  controller for when createAccountButton is pressed
+     * This is the controller for when createAccountButton is pressed
      * it has error checking to ensure all mandatory fields are filled
      * the created user is uploaded to the database in Users collection
      */
