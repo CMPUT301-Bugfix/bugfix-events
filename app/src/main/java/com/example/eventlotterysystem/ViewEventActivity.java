@@ -23,6 +23,8 @@ import java.util.Locale;
 
 /**
  * This is a class that is the controller of the activity_view_event screen
+ * this is the activity that shows event Information to Entrants
+ * It has the controllers that let the Entrant signup/leave the waitlist
  */
 public class ViewEventActivity extends AppCompatActivity {
     private static final String TAG = "ViewEventActivity";
@@ -573,9 +575,8 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * This set the image view for the event to be it's picture if it has one
-     * will load image from the database
-     * on load failure will notify the user that there is a failure ant its cause
+     * This method populates the events metadata fields and displays a
+     * generic message in the event that the field's value is missing
      * @param event
      * the event that was used to open this activity
      */
@@ -630,7 +631,7 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * method that coverts a raised exception during an event load into a error message to be displayed
+     * method that converts a raised exception during an event load into a error message to be displayed
      * @param exception
      * the exception that was created
      * @return

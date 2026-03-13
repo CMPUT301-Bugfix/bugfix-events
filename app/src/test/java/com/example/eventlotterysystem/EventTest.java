@@ -7,6 +7,9 @@ import org.junit.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated
+ */
 public class EventTest {
     private UserProfile createTestEntrant() {
         return new UserProfile("John Smith","example@test.com","User", "IDK","1234567890");

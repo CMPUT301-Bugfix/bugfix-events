@@ -13,6 +13,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This is a class that is the controller of the activity_all_entrants screen
+ * this is the activity that shows the Organizer all entrants of a given Status
+ */
 public class AllEntrantsActivity extends AppCompatActivity {
 
     private static final String TAG = "AllEntrantsActivity";
@@ -27,6 +31,13 @@ public class AllEntrantsActivity extends AppCompatActivity {
     private EntrantAdapter adapter;
     private final List<UserProfile> entrants = new ArrayList<>();
 
+    /**
+     * This is the creation of the Activity
+     * This connects to layout for the screen and connects the clickable view to their controller
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,12 +63,19 @@ public class AllEntrantsActivity extends AppCompatActivity {
         entrantsListView.setOnItemClickListener((parent, view, position, id) -> openEntrantDetails(entrants.get(position)));
     }
 
+    /**
+     * This is the startup of the Activity
+     * runs loadEntrants
+     */
     @Override
     protected void onStart() {
         super.onStart();
         loadEntrants();
     }
 
+    /**
+     * loads all Entrant information of Entrants of a given status(ie INWAITLIST,CONFIRMED) into the display views
+     */
     private void loadEntrants() {
         repository.getEntrantsForEvent(eventId, statusFilter)
                 .addOnSuccessListener(items -> {
@@ -79,12 +97,21 @@ public class AllEntrantsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * hides the listview of entrants and replaces it with the text stating there are no Entrants
+     */
     private void updateEmptyState() {
         boolean hasEntrants = !entrants.isEmpty();
         entrantsListView.setVisibility(hasEntrants ? View.VISIBLE : View.GONE);
         emptyState.setVisibility(hasEntrants ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * This is a controller for when an Entrant in entrantsListView is pressed
+     * Opens the UserProfileDetailsActivity and supplies it with the Entrant Information
+     * @param entrant
+     * the User object that was clicked on
+     */
     private void openEntrantDetails(UserProfile entrant) {
         Intent intent = new Intent(this, UserProfileDetailsActivity.class);
         intent.putExtra(UserProfileDetailsActivity.NAME, entrant.getName());
@@ -99,6 +126,13 @@ public class AllEntrantsActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * method that coverts a raised exception during the loading of entrants into a error message to be displayed
+     * @param exception
+     * the exception that was created
+     * @return
+     * a String message describing what the error was
+     */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
             return getString(R.string.failed_to_load_entrants) + ": " + exception.getMessage().trim();
@@ -106,6 +140,13 @@ public class AllEntrantsActivity extends AppCompatActivity {
         return getString(R.string.failed_to_load_entrants);
     }
 
+    /**
+     * Checks the status text of a Entrant to make sure it is valid
+     * @param value
+     * the String of text of what status an Entrant is
+     * @return
+     * same status if the status matches a allowable one, non if there was no match
+     */
     private String normalizeStatusFilter(String value) {
         if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(value)
                 || EventRepository.WAITLIST_STATUS_DECLINED.equals(value)) {
@@ -114,6 +155,9 @@ public class AllEntrantsActivity extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * Sets the Title of the activity stating which kind of Entrants for the Event are listed
+     */
     private void applyFilterUi() {
         if (EventRepository.WAITLIST_STATUS_CHOSEN.equals(statusFilter)) {
             titleView.setText(R.string.chosen_entrants);

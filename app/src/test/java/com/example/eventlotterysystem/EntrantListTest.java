@@ -8,25 +8,9 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * Unit tests for the EntrantList class.
- *
- * - adding entrants to the waiting list
- * - preventing duplicate entries
- * - enforcing the signup limit
- * - confirming chosen entrants
+ * @deprecated
  */
-
 public class EntrantListTest {
-    /**
-     * Creates a test UserProfile object for use in unit tests.
-     *
-     *  fullName full name of the test user
-     *  email email of the test user
-     *  username username of the test user
-     *  usernameKey unique username key of the test user
-     *  phoneNumber phone number of the test user
-     * @return a UserProfile instance with the provided values
-     */
 
     private UserProfile createTestEntrant(
             String fullName,
@@ -107,11 +91,6 @@ public class EntrantListTest {
         assertEquals(2, testList.getWaitingList().size());
     }
 
-    /**
-     * Verifies that confirming a chosen entrant removes them from the chosen list
-     * and places them into the confirmed list.
-     */
-
     @Test
     public void testConfirmEntrant() {
         UserProfile testEntrant = createTestEntrant(
@@ -132,11 +111,6 @@ public class EntrantListTest {
         assertEquals(1, testList.getConfirmedList().size());
         assertEquals(testEntrant, testList.getConfirmedList().get(0));
     }
-
-    /**
-     * Verifies that confirming an entrant who was never chosen fails
-     * and does not modify the confirmed list.
-     */
 
     @Test
     public void testConfirmEntrantReturnsFalseWhenNotChosen() {
