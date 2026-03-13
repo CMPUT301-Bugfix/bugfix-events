@@ -27,7 +27,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
      * @param context
      * Context the instance of the application running
      * @param items
-     * List<WaitlistEntryItem> of every current event that the user is in a stage of waitlist for
+     * List of WaitlistEntryItem for every current event that the user is in a stage of waitlist for
      */
     public WaitlistEntryAdapter(@NonNull Context context, @NonNull List<WaitlistEntryItem> items) {
         super(context, 0, items);
@@ -42,7 +42,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
      * The initial view of a entry without signed up Event info
      * @param parent
      * ViewGroup the collection of views for all listView items
-     * @return
+     * @return a populated list item view for the current waitlist entry
      * View a listView of all signed up Events
      */
     @NonNull
@@ -78,10 +78,8 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
 
     /**
      * This changes the date to match locality
-     * @param date
-     * Date the time of the Event
-     * @return
-     * String representation of the date that matches the timezone of the user
+     * @param date the event date
+     * @return a formatted date string, or an empty string if the date is null
      */
     private String formatDate(Date date) {
         if (date == null) {
@@ -93,9 +91,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
     /**
      * This gets the matching text label for the state that the signup is in
      * @param status
-     * String stage of the signup (waitlist, chosen, confirmed)
-     * @return
-     * String label for corresponding status
+     * @return the label that should be displayed for the corresponding status
      */
     private String getStatusLabel(String status) {
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {

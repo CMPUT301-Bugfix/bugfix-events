@@ -24,6 +24,10 @@ import com.google.firebase.firestore.Query;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This class deals with the browsing of all events for admins
+ */
+
 public class AdminBrowseEventsActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -38,6 +42,15 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
 
     private boolean isAdminConfirmed;
     private ListenerRegistration eventsListener;
+
+    /**
+     * This method loads the UI, initializes the firebase and event repository instances,
+     * and connects the java variables to the views in the XML
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     *
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +70,11 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         backButton.setOnClickListener(v -> finish());
     }
 
+    /**
+     * Essentially checks whether there is a signed in user, and to navigate
+     * to the AuthMenu if not, and check if the current user is an admin.
+     */
+
     @Override
     protected void onStart() {
         super.onStart();
@@ -70,6 +88,10 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         verifyAdminAndLoad(currentUser.getUid());
     }
 
+    /**
+     * Removes event listeners in the event this function is called.
+     */
+
     @Override
     protected void onStop() {
         super.onStop();
@@ -78,6 +100,12 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             eventsListener = null;
         }
     }
+
+    /**
+     * This method checks whether or not the user is an admin, and if so
+     * then run the loadEvents method, but if not, close the screen.
+     * @param uid the id of a user to be verified
+     */
 
     private void verifyAdminAndLoad(@NonNull String uid) {
         setLoading(true);
@@ -96,6 +124,14 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> finish());
     }
 
+
+    /**
+     * This method is the heart of this class, it collects the events from the
+     * Firestore events collection by using a snapshot listener for live updates,
+     * and creates a list by looping through the events collection and calling the
+     * renderEvents method to render the events into rows in the UI. Also deals with
+     * error handling and eventListener cleanup.
+     */
     private void loadEvents() {
         setLoading(true);
 
@@ -134,6 +170,15 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
             setLoading(false);
         });
     }
+
+
+    /**
+     * This method turns each event into a row in the UI, starting by removing any
+     * previous views, and notifying the user if there are no events. If there are
+     * events, then it creates a new row for each event with the necessary fields
+     * that we wanted to display.
+     * @param events this is the list of events from the database
+     */
 
     private void renderEvents(@NonNull List<EventItem> events) {
         eventsContainer.removeAllViews();
@@ -182,12 +227,24 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * This method sends the event id and event title to the event details page
+     * @param event this is an instance of a single event
+     */
+
     private void openEventDetails(@NonNull EventItem event) {
         Intent intent = new Intent(this, AdminEventDetailsActivity.class);
         intent.putExtra(AdminEventDetailsActivity.EVENT_ID, event.getId());
         intent.putExtra(AdminEventDetailsActivity.EVENT_TITLE, normalize(event.getTitle()));
         startActivity(intent);
     }
+
+
+    /**
+     * Deals with the loading screen, this method hides data/views
+     * while we fetch current data
+     * @param loading boolean value
+     */
 
     private void setLoading(boolean loading) {
         eventsLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
@@ -198,6 +255,10 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Navigates to the AuthMenu when called
+     */
+
     private void navigateToAuthMenu() {
         auth.signOut();
         Intent intent = new Intent(this, AuthMenuActivity.class);
@@ -205,6 +266,13 @@ public class AdminBrowseEventsActivity extends AppCompatActivity {
         startActivity(intent);
         finish();
     }
+
+
+    /**
+     * This method just cleans up a string for us
+     * @param value A string that we want to clean
+     * @return either an empty string if the value is null or the trimmed string
+     */
 
     @NonNull
     private String normalize(String value) {

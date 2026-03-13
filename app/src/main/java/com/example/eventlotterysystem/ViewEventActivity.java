@@ -23,6 +23,8 @@ import java.util.Locale;
 
 /**
  * This is a class that is the controller of the activity_view_event screen
+ * this is the activity that shows event Information to Entrants
+ * It has the controllers that let the Entrant signup/leave the waitlist
  */
 public class ViewEventActivity extends AppCompatActivity {
     private static final String TAG = "ViewEventActivity";
@@ -279,6 +281,13 @@ public class ViewEventActivity extends AppCompatActivity {
                     applyWaitlistViewState();
                 });
     }
+
+    /**
+     * Accepts an invitation for the current user by updating the waitlist status
+     * to {@code CONFIRMED}.
+     *
+     * On success, the event is reloaded so the confirmed state is reflected in the UI.
+     */
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -321,6 +330,13 @@ public class ViewEventActivity extends AppCompatActivity {
                 .setPositiveButton("Reject", (dialog, which) -> rejectInvitation())
                 .show();
     }
+
+    /**
+     * Rejects an invitation for the current user by updating the waitlist status
+     * to {@code DECLINED}.
+     *
+     * On success, the event is reloaded so the declined state is reflected in the UI.
+     */
 
     private void rejectInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
@@ -392,6 +408,11 @@ public class ViewEventActivity extends AppCompatActivity {
     }
     /**
      * This is method modifies the screen views such that the User has joined
+     * For US 01.05.03:
+     *      * - CHOSEN shows Accept and Reject buttons
+     *      * - CONFIRMED shows confirmed state
+     *      * - DECLINED shows declined state
+     *      * - IN_WAITLIST keeps the regular waitlist state
      */
     private void applyWaitlistViewState() {
         joinWaitlistButton.setVisibility(showJoinButton ? View.VISIBLE : View.GONE);
@@ -438,6 +459,7 @@ public class ViewEventActivity extends AppCompatActivity {
     }
     /**
      * This is sets the whether there is a change of waitlist in the process of loading and runs update views
+     * @param loading true if a waitlist action is in progress, otherwise false
      */
     private void setWaitlistActionLoading(boolean loading) {
         waitlistActionLoading = loading;
@@ -445,14 +467,14 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * This is method modifies the screen views to match the state of signed up and if joining is allowable
-     * @param event
-     * the current event for this activity
-     * @param currentUserUid
-     * Id of the user
-     * @param status
-     * state of if the user is currently signed up for the event
+     * Updates the internal waitlist UI flags based on the user's current status
+     * for the selected event.
+     *
+     * @param event the current event being displayed
+     * @param currentUserUid the ID of the signed-in user
+     * @param status the current waitlist status for this user and event
      */
+
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
         boolean organizer = currentUserUid != null && currentUserUid.equals(event.getHostUid());
         if (organizer) {
@@ -553,9 +575,8 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * This set the image view for the event to be it's picture if it has one
-     * will load image from the database
-     * on load failure will notify the user that there is a failure ant its cause
+     * This method populates the events metadata fields and displays a
+     * generic message in the event that the field's value is missing
      * @param event
      * the event that was used to open this activity
      */
@@ -610,7 +631,7 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * method that coverts a raised exception during an event load into a error message to be displayed
+     * method that converts a raised exception during an event load into a error message to be displayed
      * @param exception
      * the exception that was created
      * @return
@@ -624,6 +645,7 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
+     *  @param exception the exception raised during a waitlist action
      * method that coverts a raised exception during a change in waitlist (join/leave) into a error message to be displayed
      * @return
      * a String message describing what the error was
@@ -634,6 +656,12 @@ public class ViewEventActivity extends AppCompatActivity {
         }
         return getString(R.string.waitlist_action_failed);
     }
+
+    /**
+     * Determines whether the entrants button should be shown for the current user.
+     *
+     * @return true if the signed-in user is the host of the current event, otherwise false
+     */
 
     private boolean shouldShowEntrantsButton() {
         FirebaseUser currentUser = auth.getCurrentUser();
@@ -677,6 +705,13 @@ public class ViewEventActivity extends AppCompatActivity {
     private String formatMaxEntrants(int maxEntrants) {
         return maxEntrants > 0 ? String.valueOf(maxEntrants) : "no limit";
     }
+
+    /**
+     * Builds the entrant count text shown for the current event.
+     *
+     * @param event the event whose entrant count should be displayed
+     * @return a formatted entrant count string
+     */
 
     private String buildEntrantCountText(EventItem event) {
         String limit = event.getMaxEntrants() > 0

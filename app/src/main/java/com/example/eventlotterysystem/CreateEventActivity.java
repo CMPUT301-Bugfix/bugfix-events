@@ -33,6 +33,8 @@ import java.util.Locale;
 
 /**
  * This is a class that is the controller of the activity_create_event screen
+ * this activity allows users to create events that will be added to the database
+ * is also used to edit an event by populating the input view with Event data
  */
 public class CreateEventActivity extends AppCompatActivity {
 
@@ -319,7 +321,7 @@ public class CreateEventActivity extends AppCompatActivity {
     }
 
     /**
-     * method Unenables(stops them from being modified) interactive views when creating the event
+     * method Disables(stops them from being modified) interactive views when creating the event
      * @param loading
      * whether the app is in the process of read/writing to the database or not
      */

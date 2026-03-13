@@ -37,6 +37,12 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * This is a class that is the controller of the activity_settings screen
+ * this is the activity that allows a user to change their preference settings(when implemented) and account information
+ * allows a user to create an account and then navigates them to home activity
+ * also is where the user can delete their account
+ */
 public class SettingsActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -64,6 +70,13 @@ public class SettingsActivity extends AppCompatActivity {
 
     private UserProfile originalProfile = new UserProfile("", "", "", "", "");
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable views to their controller
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -100,18 +113,31 @@ public class SettingsActivity extends AppCompatActivity {
         loadCurrentProfile();
     }
 
+    /**
+     * This when the Activity is resumed (is returned to)
+     * runs refreshVerifiedEmailIfNeeded to finish the process of changing emails
+     */
     @Override
     protected void onResume() {
         super.onResume();
         refreshVerifiedEmailIfNeeded();
     }
 
+    /**
+     * managed the screen views to either show or hide the field that allow changing user information
+     * @param expanded
+     * whether the form should be expanded to user information fields and allowing editing
+     */
     private void setAccordionExpanded(boolean expanded) {
         isAccordionExpanded = expanded;
         updateInformationContent.setVisibility(expanded ? View.VISIBLE : View.GONE);
         updateInformationIndicator.setText(getString(expanded ? R.string.hide : R.string.show));
     }
 
+    /**
+     * get a pointer to the user profile document and runs applyLoadedProfile if successful
+     * notifies user if the was an error in the process
+     */
     private void loadCurrentProfile() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
@@ -132,6 +158,14 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> showMessage(getString(R.string.unexpected_error)));
     }
 
+    /**
+     * loads the user profile information from the database to populate the input form with the users current information
+     * also crate the UserProfile object matching the database data
+     * @param snapshot
+     * a reference to the user profile document in users
+     * @param authEmail
+     * the email that is being used to authenticate the changes
+     */
     private void applyLoadedProfile(@NonNull DocumentSnapshot snapshot, @NonNull String authEmail) {
         String loadedName = normalize(snapshot.getString("fullName"));
         String loadedEmail = normalize(snapshot.getString("email")).toLowerCase(Locale.US);
@@ -162,6 +196,11 @@ public class SettingsActivity extends AppCompatActivity {
         updatePhoneInput.setText(loadedPhone);
     }
 
+    /**
+     * This removes the extra field of pendingEmail for user & usernames collection
+     * this is run once verification to change the email has occurred
+     * give the user a popup once the change has been completed notifying the completion
+     */
     private void refreshVerifiedEmailIfNeeded() {
         if (!profileLoaded || isSaving) {
             return;
@@ -207,6 +246,13 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This is a controller for when saveProfileChangesButton is pressed
+     * get the user input for all the input fields
+     * validates that all necessary fields are filled
+     * creates new user profile account object with the changed information
+     * manages what methods need to be called for proper level of verification and which writes to the database need to be done
+     */
     private void onSaveClicked() {
         clearErrors();
 
@@ -299,6 +345,11 @@ public class SettingsActivity extends AppCompatActivity {
         updateAuthAndSave(currentUser, editedProfile, emailChanged, wantsPasswordChange, newPassword, false);
     }
 
+    /**
+     * This is a controller for when deleteAccountButton is pressed
+     * crates confirmation popup requiring password to proceed
+     * if user confirms process runs deleteAccount to start the deletion process
+     */
     private void onDeleteAccountClicked() {
         if (isSaving) {
             return;
@@ -329,6 +380,12 @@ public class SettingsActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * start management of account deletion
+     * ensure that the pointer to the user is still connected and manages confirmation of deletion
+     * @param currentPassword
+     * the original password before any user profile changes
+     */
     private void deleteAccount(@NonNull String currentPassword) {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
@@ -351,6 +408,12 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(this::handleDeleteAccountReauthFailure);
     }
 
+    /**
+     * writes to the database to delete the user profile and account information
+     * does not actually delete the account just tags it as a deleted one so that it cant be used
+     * @param currentUser
+     * pointer to the user in the database
+     */
     private void deleteAccountProfileAndAuth(@NonNull FirebaseUser currentUser) {
         WriteBatch batch = firestore.batch();
         String uid = currentUser.getUid();
@@ -373,6 +436,11 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(this::handleDeleteAccountDataFailure);
     }
 
+    /**
+     * runs showMessage to inform user that the deletion was a success
+     * runs navigateToAuthMenu to exit user from account
+     * also turns of saving mode for the screen
+     */
     private void onDeleteAccountSuccess() {
         setSaving(false);
         showMessage(getString(R.string.account_deleted));
@@ -381,6 +449,12 @@ public class SettingsActivity extends AppCompatActivity {
         navigateToAuthMenu();
     }
 
+    /** NOT
+     * handle an exception when a user fails to validate confirmation of profile deletion
+     * runs showMessage to inform user of the cause for the failure
+     * @param exception
+     * what the cause for the failure was
+     */
     private void handleDeleteAccountReauthFailure(@NonNull Exception exception) {
         setSaving(false);
         if (exception instanceof FirebaseAuthInvalidCredentialsException) {
@@ -394,16 +468,37 @@ public class SettingsActivity extends AppCompatActivity {
         showMessage(getString(R.string.unexpected_error));
     }
 
+    /**
+     * handle an exception when a an attempt to delete a profile fails
+     * runs showMessage to inform user of the cause for the failure
+     * @param exception
+     * what the cause for the failure was
+     */
     private void handleDeleteAccountDataFailure(@NonNull Exception exception) {
         setSaving(false);
         showMessage(getString(R.string.account_delete_failed));
     }
 
+    /**
+     * handle an exception when account is only partially deleted instead of full
+     * runs showMessage to inform user of the cause for the failure
+     * @param exception
+     * what the cause for the failure was
+     */
     private void handleDeleteAccountAuthFailure(@NonNull Exception exception) {
         setSaving(false);
         showMessage(getString(R.string.account_delete_partial_retry));
     }
 
+    /**
+     * prompt user for credentials for authentication for changes to key login fields
+     * @param currentUser
+     * pointer to the user in the database
+     * @param currentPassword
+     * the original password before any user profile changes
+     * @param onSuccess
+     * that task that is to be run if the changes are authenticated
+     */
     private void reauthenticateCurrentUser(
             @NonNull FirebaseUser currentUser,
             @NonNull String currentPassword,
@@ -421,6 +516,22 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(this::handleReauthFailure);
     }
 
+    /**
+     * if the email is also being changed runs email verification for changed email
+     * afterwards runs updatePasswordAndSave to continue the preparation before changing the data base
+     * @param currentUser
+     * pointer to the user in the database
+     * @param editedProfile
+     * userprofile account object with user inputted changes
+     * @param emailChanged
+     * if the email is being changed
+     * @param wantsPasswordChange
+     * if the password is being changed
+     * @param newPassword
+     * the new password that the user changed to will be "" if password is not being changed
+     * @param hadAuthSensitiveChange
+     * whether one of the changes to the user profile is used for signing in
+     */
     private void updateAuthAndSave(
             @NonNull FirebaseUser currentUser,
             @NonNull UserProfile editedProfile,
@@ -451,6 +562,20 @@ public class SettingsActivity extends AppCompatActivity {
         updatePasswordAndSave(currentUser, editedProfile, wantsPasswordChange, newPassword, hadAuthSensitiveChange);
     }
 
+    /**
+     * manages whether updatePassword password need to be run
+     * or if can go straight manging writing to database with syncProfileToFirestore
+     * @param currentUser
+     * pointer to the user in the database
+     * @param editedProfile
+     * userprofile account object with user inputted changes
+     * @param wantsPasswordChange
+     * if the password is being changed
+     * @param newPassword
+     * the string of the new password
+     * @param hadAuthSensitiveChange
+     * whether one of the changes to the user profile is used for signing in
+     */
     private void updatePasswordAndSave(
             @NonNull FirebaseUser currentUser,
             @NonNull UserProfile editedProfile,
@@ -468,6 +593,16 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(this::handleAuthFailure);
     }
 
+    /**
+     * creates the the userUpdates hash that will be used to update fields in the database
+     * depending on which fields were changed manges whether  usernames collection also need to be updated
+     * @param currentUser
+     * pointer to the user in the database
+     * @param editedProfile
+     * userprofile account object with user inputted changes
+     * @param hadAuthSensitiveChange
+     * whether one of the changes to the user profile is used for signing in
+     */
     private void syncProfileToFirestore(
             @NonNull FirebaseUser currentUser,
             @NonNull UserProfile editedProfile,
@@ -501,6 +636,21 @@ public class SettingsActivity extends AppCompatActivity {
         saveWithoutUsernameMove(currentUser, editedProfile, userUpdates, emailVerificationPending, hadAuthSensitiveChange);
     }
 
+    /**
+     * updates the usernames database to create new mapping of username to user id
+     * if there is a user already with the name stops writing and runs handleProfileSyncFailure
+     * otherwise continues writing with through onProfileSaved
+     * @param currentUser
+     * pointer to the user in the database
+     * @param editedProfile
+     * userprofile account object with user inputted changes
+     * @param userUpdates
+     * a Map to organize the write to update fields in the database
+     * @param emailVerificationPending
+     * whether there was an email send out to verify the changes
+     * @param hadAuthSensitiveChange
+     * whether one of the changes to the user profile is used for signing in
+     */
     private void moveUsernameMapping(
             @NonNull FirebaseUser currentUser,
             @NonNull UserProfile editedProfile,
@@ -551,6 +701,20 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> handleProfileSyncFailure(exception, hadAuthSensitiveChange));
     }
 
+    /**
+     * writes to the changes to user in users profile
+     * if hadAuthSensitiveChange is true also adds the new pending email the usernames collection (which manages authorization)
+     * @param currentUser
+     * pointer to the user in the database
+     * @param editedProfile
+     * userprofile account object with user inputted changes
+     * @param userUpdates
+     * a Map to organize the write to update fields in the database
+     * @param emailVerificationPending
+     * whether there was an email send out to verify the changes
+     * @param hadAuthSensitiveChange
+     * whether one of the changes to the user profile is used for signing in
+     */
     private void saveWithoutUsernameMove(
             @NonNull FirebaseUser currentUser,
             @NonNull UserProfile editedProfile,
@@ -576,6 +740,13 @@ public class SettingsActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> handleProfileSyncFailure(exception, hadAuthSensitiveChange));
     }
 
+    /**
+     * updates the views to their original state(but with changed account information)
+     * notifies user of the success of the change
+     * signs the user out(by navigating to AuthMenu if a sign-out was pending
+     * @param editedProfile
+     * user Profile object that has the changed profile information
+     */
     private void onProfileSaved(@NonNull UserProfile editedProfile) {
         setSaving(false);
         originalProfile = editedProfile;
@@ -597,6 +768,11 @@ public class SettingsActivity extends AppCompatActivity {
         showMessage(getString(R.string.profile_updated));
     }
 
+    /**
+     * for when the authentication for a when a password/email change fails notifies user of the failure
+     * @param exception
+     * the exception that was created by a user no longer being authenticated for the profile they are not
+     */
     private void handleReauthFailure(@NonNull Exception exception) {
         setSaving(false);
         pendingSignOutAfterSave = false;
@@ -612,6 +788,12 @@ public class SettingsActivity extends AppCompatActivity {
         showMessage(getString(R.string.unexpected_error));
     }
 
+    /**
+     * handles exceptions that led to write failure to database and notifies the user of the cause
+     * special popup text for matching email, password issues
+     * @param exception
+     * the exception that was created from the write attempt
+     */
     private void handleAuthFailure(@NonNull Exception exception) {
         setSaving(false);
         pendingSignOutAfterSave = false;
@@ -638,6 +820,13 @@ public class SettingsActivity extends AppCompatActivity {
         showMessage(getString(R.string.unexpected_error));
     }
 
+    /**
+     * notifies user that some (or all) of the changed account information failed to sync and there was not updated
+     * @param exception
+     * The exception that caused the failure (ie a user with that username already exists)
+     * @param hadAuthSensitiveChange
+     * Whether the write to the database changed authentication data (first stage or write)
+     */
     private void handleProfileSyncFailure(@NonNull Exception exception, boolean hadAuthSensitiveChange) {
         setSaving(false);
         pendingSignOutAfterSave = false;
@@ -654,6 +843,9 @@ public class SettingsActivity extends AppCompatActivity {
                 : R.string.profile_update_failed_retry));
     }
 
+    /**
+     * methods clears all errors from input fields without managing them
+     */
     private void clearErrors() {
         updateNameInput.setError(null);
         updateEmailInput.setError(null);
@@ -663,12 +855,20 @@ public class SettingsActivity extends AppCompatActivity {
         confirmNewPasswordInput.setError(null);
     }
 
+    /**
+     * sets the password input views to be blank (back to initial state)
+     */
     private void clearPasswordInputs() {
         currentPasswordInput.setText("");
         newPasswordInput.setText("");
         confirmNewPasswordInput.setText("");
     }
 
+    /**
+     * method removes the interactivity of interactive views when saves changes so the fields data is not modified
+     * @param saving
+     * whether the app is in the process of writing to the database or not
+     */
     private void setSaving(boolean saving) {
         isSaving = saving;
         loadingIndicator.setVisibility(saving ? ProgressBar.VISIBLE : ProgressBar.GONE);
@@ -685,10 +885,18 @@ public class SettingsActivity extends AppCompatActivity {
         deleteAccountButton.setEnabled(!saving);
     }
 
+    /**
+     * display message to user through toast popup
+     * @param message
+     * the message to be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * navigates user to AuthMenuActivity (signup/login prompt) and finishes this activity
+     */
     private void navigateToAuthMenu() {
         Intent intent = new Intent(this, AuthMenuActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -696,6 +904,13 @@ public class SettingsActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * removes extraneous whitespace and ensures that string is non-null
+     * @param value
+     * String to be cleaned
+     * @return
+     * the cleaned up String
+     */
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();

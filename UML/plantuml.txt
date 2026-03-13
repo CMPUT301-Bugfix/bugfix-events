@@ -54,7 +54,7 @@ package "Authentication" {
     -readRaw(input: EditText): String
   }
 
-  interface EmailResolverCallback <<Interface>> {
+  interface EmailResolverCallback {
     ~onResolved(email: String, pendingEmail: String): void
     ~onError(message: String): void
   }
@@ -121,14 +121,27 @@ package "Participant and Organizer Flow" {
   }
 
   class MyThingsActivity {
+    -{static} TAG: String
     -auth: FirebaseAuth
     -firestore: FirebaseFirestore
+    -notificationRepository: NotificationRepository
+    -eventRepository: EventRepository
     -myThingsSubtitle: TextView
     -adminZoneButton: Button
     -myWaitlistButton: Button
+    -notificationsRecyclerView: RecyclerView
+    -notificationAdapter: NotificationAdapter
+    -notificationList: List<NotificationItem>
     #onCreate(savedInstanceState: Bundle): void
     #onStart(): void
     -loadAccountType(uid: String): void
+    -loadNotifications(uid: String): void
+    +onNotificationClick(notification: NotificationItem): void
+    +onNotificationLongClick(notification: NotificationItem): void
+    -showWinningDialog(notification: NotificationItem): void
+    -showGeneralDialog(notification: NotificationItem): void
+    -handleInvite(notification: NotificationItem, newStatus: String): void
+    -deleteNotification(notification: NotificationItem): void
     -onLogOutClicked(): void
     -navigateToAuthMenu(): void
   }
@@ -223,19 +236,31 @@ package "Participant and Organizer Flow" {
     +{static} TOTAL_ENTRANTS: String
     +{static} MAX_ENTRANTS: String
     -repository: EventRepository
+    -notificationRepository: NotificationRepository
     -eventId: String
+    -eventTitle: String
     -totalEntrants: int
     -maxEntrants: int
     -chosenEntrants: int
     -cancelledEntrants: int
     -allEntrantsButton: Button
+    -notifyWaitlistButton: Button
+    -performDrawButton: Button
+    -processExpiredButton: Button
     -chosenEntrantsButton: Button
     -cancelledEntrantsButton: Button
     #onCreate(savedInstanceState: Bundle): void
     #onStart(): void
     -updateButtons(): void
+    -showNotifyOptionsDialog(): void
+    -showNotificationInputDialog(statusFilter: String): void
+    -sendBatchNotification(message: String, statusFilter: String): void
+    -showDrawConfirmation(): void
+    -performDraw(): void
+    -processExpired(): void
     -openEntrantsList(statusFilter: String): void
     -buildEntrantCountText(totalEntrants: int, maxEntrants: int): String
+    -hasEventTitle(): boolean
   }
 
   class HostedEventsActivity {
@@ -322,6 +347,7 @@ package "Participant and Organizer Flow" {
     -locationInput: EditText
     -maxEntrantsInput: EditText
     -maxParticipantsInput: EditText
+    -winningMessageInput: EditText
     -posterPreview: ImageView
     -posterStatus: TextView
     -deadlineValue: TextView
@@ -490,6 +516,11 @@ package "Administration" {
 
 package "Data and Rendering" {
   class EventRepository {
+    +{static} WAITLIST_STATUS_IN: String
+    +{static} WAITLIST_STATUS_CHOSEN: String
+    +{static} WAITLIST_STATUS_CONFIRMED: String
+    +{static} WAITLIST_STATUS_DECLINED: String
+    +{static} WAITLIST_STATUS_SNOOZED: String
     -firestore: FirebaseFirestore
     -storage: FirebaseStorage
     +EventRepository()
@@ -505,6 +536,9 @@ package "Data and Rendering" {
     +getMyWaitlists(uid: String): Task<List<WaitlistEntryItem>>
     +getEntrantCount(eventId: String, statusFilter: String): Task<Integer>
     +getEntrantsForEvent(eventId: String, statusFilter: String): Task<List<UserProfile>>
+    +performLotteryDraw(eventId: String, winningMessage: String): Task<Void>
+    +{static} calculateDrawCount(candidatesSize: int, maxParticipants: int, alreadyChosenCount: int): int
+    +processExpiredWinners(eventId: String, winningMessage: String): Task<Void>
     +updateEvent(eventId: String, currentUser: FirebaseUser, event: EventItem, posterUri: Uri): Task<String>
     -createEventRecord(eventRef: DocumentReference, userRef: DocumentReference, draftEvent: EventItem, hostUid: String, hostDisplayName: String, posterUrl: String, accountType: String, posterRef: StorageReference): Task<String>
     -isJoinableEvent(doc: DocumentSnapshot, now: Date): boolean
@@ -517,6 +551,7 @@ package "Data and Rendering" {
     -eventWaitlistEntry(eventId: String, uid: String): DocumentReference
     -userWaitlistEntry(uid: String, eventId: String): DocumentReference
     -sortByEventDate(events: List<EventItem>): void
+    +{static} isWaitlistJoinOpen(waitlistOpen: boolean, registrationDeadline: Date, now: Date): boolean
     -normalize(value: String): String
     -firstNonEmpty(candidates: String...): String
     -hasText(value: String): boolean
@@ -537,9 +572,10 @@ package "Data and Rendering" {
     -hostUid: String
     -hostDisplayName: String
     -waitlistOpen: boolean
+    -winningMessage: String
     +EventItem(id: String, title: String, description: String)
     +EventItem(id: String, title: String, description: String, location: String, posterUrl: String, maxEntrants: int, maxParticipants: int, totalEntrants: int, registrationDeadline: Date, eventDate: Date, requiresGeolocation: boolean, hostUid: String, hostDisplayName: String)
-    +EventItem(id: String, title: String, description: String, location: String, posterUrl: String, maxEntrants: int, maxParticipants: int, totalEntrants: int, registrationDeadline: Date, eventDate: Date, requiresGeolocation: boolean, hostUid: String, hostDisplayName: String, waitlistOpen: boolean)
+    +EventItem(id: String, title: String, description: String, location: String, posterUrl: String, maxEntrants: int, maxParticipants: int, totalEntrants: int, registrationDeadline: Date, eventDate: Date, requiresGeolocation: boolean, hostUid: String, hostDisplayName: String, waitlistOpen: boolean, winningMessage: String)
     +getId(): String
     +getTitle(): String
     +getDescription(): String
@@ -554,6 +590,7 @@ package "Data and Rendering" {
     +getHostUid(): String
     +getHostDisplayName(): String
     +isWaitlistOpen(): boolean
+    +getWinningMessage(): String
   }
 
   class WaitlistEntryItem {
@@ -622,6 +659,50 @@ package "Data and Rendering" {
     -safeValue(value: String, fallback: String): String
   }
 
+  class NotificationRepository {
+    -firestore: FirebaseFirestore
+    +NotificationRepository()
+    +sendBatchNotification(eventId: String, eventTitle: String, message: String, type: String, statusFilter: String): Task<Void>
+    +sendToSpecificUsers(eventId: String, title: String, message: String, type: String, recipientUids: List<String>): Task<Void>
+    +getNotificationsForUser(uid: String): Task<List<NotificationItem>>
+    +updateNotificationStatus(uid: String, notificationId: String, newStatus: String): Task<Void>
+    +deleteNotification(uid: String, notificationId: String): Task<Void>
+  }
+
+  class NotificationItem {
+    -id: String
+    -eventId: String
+    -title: String
+    -message: String
+    -type: String
+    -status: String
+    -timestamp: long
+    +NotificationItem()
+    +NotificationItem(eventId: String, title: String, message: String, type: String)
+  }
+
+  class NotificationAdapter {
+    -notifications: List<NotificationItem>
+    -listener: OnNotificationClickListener
+    -{static} DATE_PATTERN: String
+    +NotificationAdapter(notifications: List<NotificationItem>, listener: OnNotificationClickListener)
+    +onCreateViewHolder(parent: ViewGroup, viewType: int): NotificationViewHolder
+    +onBindViewHolder(holder: NotificationViewHolder, position: int): void
+    +getItemCount(): int
+  }
+
+  interface OnNotificationClickListener {
+    ~onNotificationClick(notification: NotificationItem): void
+    ~onNotificationLongClick(notification: NotificationItem): void
+  }
+
+  class NotificationViewHolder {
+    ~title: TextView
+    ~message: TextView
+    ~timestamp: TextView
+    +NotificationViewHolder(itemView: View)
+  }
+
 }
 
 MainActivity ..> AuthSessionPreference : checks session
@@ -636,28 +717,65 @@ ProfileRemovedActivity --> AuthMenuActivity
 HomeActivity --> MyThingsActivity
 HomeActivity --> ViewEventActivity
 HomeActivity ..> CaptureActivity : scanner UI
+HomeActivity "1" -[norank]-> "1" EventRepository
+HomeActivity "1" -[norank]-> "1" EventListAdapter
+HomeActivity "1" -[norank]-> "0..*" EventItem
 MyThingsActivity --> SettingsActivity
 MyThingsActivity --> HostedEventsActivity
 MyThingsActivity --> MyWaitlistActivity
 MyThingsActivity --> AdminZoneActivity : admin accounts
+MyThingsActivity "1" -[norank]-> "1" EventRepository
+MyThingsActivity "1" -[norank]-> "1" NotificationRepository
+MyThingsActivity "1" -[norank]-> "1" NotificationAdapter
+MyThingsActivity "1" -[norank]-> "0..*" NotificationItem
+MyThingsActivity ..|> OnNotificationClickListener
 HostedEventsActivity --> CreateEventActivity
 HostedEventsActivity --> ViewEventActivity
+HostedEventsActivity "1" -[norank]-> "1" EventRepository
+HostedEventsActivity "1" -[norank]-> "1" EventListAdapter
+HostedEventsActivity "1" -[norank]-> "0..*" EventItem
 ViewEventActivity --> CreateEventActivity
 ViewEventActivity --> EntrantsActivity
 ViewEventActivity --> QRCode
+ViewEventActivity "1" -[norank]-> "1" EventRepository
+ViewEventActivity "1" -[norank]-> "0..1" EventItem
 MyWaitlistActivity --> ViewEventActivity
+MyWaitlistActivity "1" -[norank]-> "1" EventRepository
+MyWaitlistActivity "1" -[norank]-> "1" WaitlistEntryAdapter
+MyWaitlistActivity "1" -[norank]-> "0..*" WaitlistEntryItem
 EntrantsActivity --> AllEntrantsActivity
+EntrantsActivity "1" -[norank]-> "1" EventRepository
+EntrantsActivity "1" -[norank]-> "1" NotificationRepository
 AllEntrantsActivity --> UserProfileDetailsActivity
+AllEntrantsActivity "1" -[norank]-> "1" EventRepository
+AllEntrantsActivity "1" -[norank]-> "1" EntrantAdapter
+AllEntrantsActivity "1" -[norank]-> "0..*" UserProfile
 AdminZoneActivity --> UserProfilesActivity
 AdminZoneActivity --> AdminBrowseEventsActivity
 UserProfilesActivity --> UserProfileDetailsActivity
 AdminBrowseEventsActivity --> AdminEventDetailsActivity
-EventRepository --> EventItem
-EventRepository --> WaitlistEntryItem
-EventRepository --> UserProfile
+CreateEventActivity "1" -[norank]-> "1" EventRepository
+AdminBrowseEventsActivity "1" -[norank]-> "1" EventRepository
+AdminEventDetailsActivity "1" -[norank]-> "1" EventRepository
+EventRepository "1" -[norank]-> "0..*" EventItem
+EventRepository "1" -[norank]-> "0..*" WaitlistEntryItem
+EventRepository "1" -[norank]-> "0..*" UserProfile
+EventRepository ..> NotificationRepository
+EventListAdapter "1" -[norank]-> "0..*" EventItem
+WaitlistEntryAdapter "1" -[norank]-> "0..*" WaitlistEntryItem
+EntrantAdapter "1" -[norank]-> "0..*" UserProfile
+NotificationRepository "1" -[norank]-> "0..*" NotificationItem
+NotificationAdapter "1" -[norank]-> "0..*" NotificationItem
+NotificationAdapter "1" ..[norank]> "1" OnNotificationClickListener
+NotificationAdapter "1" *-[norank]- "0..*" NotificationViewHolder
 
 ' Hidden links below are for layout control only.
 ' They are not semantic relationships in the design.
+ProfileRemovedActivity -[hidden]right-> MainActivity
+LoginActivity -[hidden]right-> SignupActivity
+AuthSessionPreference -[hidden]right-> EmailResolverCallback
+LoginActivity -[hidden]down-> AuthSessionPreference
+SignupActivity -[hidden]down-> EmailResolverCallback
 ProfileRemovedActivity -[hidden]down-> HomeActivity
 HomeActivity -[hidden]right-> MyThingsActivity
 MyThingsActivity -[hidden]right-> CaptureActivity
@@ -671,5 +789,7 @@ AdminZoneActivity -[hidden]down-> UserProfilesActivity
 UserProfilesActivity -[hidden]right-> AdminBrowseEventsActivity
 UserProfileDetailsActivity -[hidden]right-> AdminEventDetailsActivity
 AdminEventDetailsActivity -[hidden]down-> EventRepository
-
+NotificationRepository -[hidden]right-> NotificationItem
+NotificationItem -[hidden]right-> NotificationAdapter
+NotificationAdapter -[hidden]down-> NotificationViewHolder
 @enduml

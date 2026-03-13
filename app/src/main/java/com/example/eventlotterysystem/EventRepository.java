@@ -209,30 +209,14 @@ public class EventRepository {
     }
 
     /**
-     * Check to see if there is a waitlist entry for a user signed up to an event
+     * Check to see if there is a waitlist entry for a user signed up to an event and what that status is
      * @param eventId
      * Id of the Event
      * @param uid
      * Id of the user
      * @return
-     * Task that tries to obtains a waitlist entry matching the argument id's and returns true if found
+     * Task that tries to obtains a waitlist entry matching the argument id's and returns result if found
      */
-    public Task<Boolean> getWaitlistState(
-            @NonNull String eventId,
-            @NonNull String uid
-    ) {
-        return userWaitlistEntry(uid, eventId)
-                .get()
-                .continueWith(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Failed to load waitlist state");
-                    }
-                    DocumentSnapshot doc = task.getResult();
-                    return doc != null && doc.exists();
-                });
-    }
     public Task<String> getWaitlistStatus(
             @NonNull String eventId,
             @NonNull String uid
@@ -256,6 +240,17 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * updates a waitlist entry object for a user signed up for an event status' into a new one
+     * @param eventId
+     * Id of the Event
+     * @param uid
+     * Id of the user
+     * @param status
+     * new status to update the User to
+     * @return
+     * a Task updates the change in the database
+     */
     public Task<Void> updateWaitlistStatus(
             @NonNull String eventId,
             @NonNull String uid,
@@ -470,6 +465,15 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * returns the amount of entrants for a given status
+     * @param eventId
+     * Id of the event
+     * @param statusFilter
+     * the string name of status (ie chosen)
+     * @return
+     * a task the queries the data base for waitlist entries matching the status and counts them
+     */
     public Task<Integer> getEntrantCount(
             @NonNull String eventId,
             @Nullable String statusFilter
@@ -1102,7 +1106,7 @@ public class EventRepository {
     /**
      * returns whether the (is waitlist open and it is before the deadline)
      * @param waitlistOpen
-     * whether the wailist is allowing sign-ups
+     * whether the waitlist is allowing sign-ups
      * @param registrationDeadline
      * deadline of when sign-ups close
      * @param now
@@ -1144,7 +1148,7 @@ public class EventRepository {
     }
 
     /**
-     * removes extraneous whitespace and ensures that sting is non-null
+     * removes extraneous whitespace and ensures that string is non-null
      * @param value
      * String to be cleaned
      * @return
@@ -1158,7 +1162,7 @@ public class EventRepository {
     /**
      * returns the first non-empty string in the arguments
      * @param candidates
-     * string varable(s) to be testing
+     * string variable(s) to be testing
      * @return
      * first string that is not empty, or empty string if all are empty
      */
