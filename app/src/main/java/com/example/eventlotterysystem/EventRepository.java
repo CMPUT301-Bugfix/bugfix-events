@@ -1148,7 +1148,7 @@ public class EventRepository {
     }
 
     /**
-     * removes extraneous whitespace and ensures that sting is non-null
+     * removes extraneous whitespace and ensures that string is non-null
      * @param value
      * String to be cleaned
      * @return
