@@ -108,7 +108,7 @@ public class HostedEventsActivity extends AppCompatActivity {
     /**
      * switches screen display whether User has created events
      * if yes shows the events created
-     * if no show text staing user has no events
+     * if no show text stating user has no events
      */
     private void updateEmptyState() {
         boolean hasEvents = !hostedEvents.isEmpty();

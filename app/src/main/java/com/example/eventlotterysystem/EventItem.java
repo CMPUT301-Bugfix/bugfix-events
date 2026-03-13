@@ -129,6 +129,8 @@ public class EventItem {
      * String Name of Author for the database
      * @param waitlistOpen
      * whether the waitlist is accepting sign-ups
+     * @param winningMessage
+     * what to be displayed to a Entrant if they get selected
      */
     public EventItem(
             String id,
@@ -290,6 +292,11 @@ public class EventItem {
         return waitlistOpen;
     }
 
+    /**
+     * getter for winningMessage text
+     * @return
+     * String to be displayed to a User if they get selected
+     */
     public String getWinningMessage() {
         return winningMessage;
     }
