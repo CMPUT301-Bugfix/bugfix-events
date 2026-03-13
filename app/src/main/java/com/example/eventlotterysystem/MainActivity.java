@@ -8,8 +8,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
+/**
+ * This is a class that is the controller which screen the user should start on
+ * if the user is found immediately log them in otherwise move them to authentication
+ */
 public class MainActivity extends AppCompatActivity {
 
+    /**
+     * This opens the AuthMenuActivity if the user is not recognized
+     * If the user is recognized opens HomeActivity
+     * @param savedInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

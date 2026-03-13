@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
         android:allowBackup="true"
@@ -13,6 +18,42 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EventLotterySystem">
         <activity
+            android:name=".ProfileRemovedActivity"
+            android:exported="false" />
+        <activity
+            android:name=".UserProfileDetailsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".UserProfilesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminZoneActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".HostedEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AllEntrantsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".EntrantsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MyWaitlistActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CreateEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ViewEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MyThingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".HomeActivity"
             android:exported="false" />
         <activity
@@ -23,6 +64,20 @@
             android:exported="false" />
         <activity
             android:name=".AuthMenuActivity"
+            android:exported="false" />
+        <activity
+            android:name=".QRCode"
+            android:exported="false"/>
+        <activity
+            android:name=".CaptureActivity"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"/>
+        <activity
+            android:name=".AdminBrowseEventsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminEventDetailsActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

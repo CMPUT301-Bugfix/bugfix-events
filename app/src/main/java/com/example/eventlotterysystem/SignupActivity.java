@@ -26,6 +26,10 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * This is a class that is the controller of the activity_signup screen
+ * allows a user to create an account and then navigates them to home activity
+ */
 public class SignupActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
@@ -41,6 +45,13 @@ public class SignupActivity extends AppCompatActivity {
     private Button createAccountButton;
     private TextView backButton;
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable views to their controller
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,6 +74,11 @@ public class SignupActivity extends AppCompatActivity {
         createAccountButton.setOnClickListener(v -> onCreateAccountClicked());
     }
 
+    /**
+     * This is the controller for when createAccountButton is pressed
+     * it has error checking to ensure all mandatory fields are filled
+     * the created user is uploaded to the database in Users collection
+     */
     private void onCreateAccountClicked() {
         clearErrors();
 
@@ -127,6 +143,25 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * signs up the user by storing them to the database
+     * edits the user in users so that it contains the user information
+     * creates the user in usernames collections so that the user can log in
+     * if successful notifies the user that the account was created
+     * if failure notifies the user and removes the user from database (if there was a problem/ username already taken)
+     * @param user
+     * the user account in the database
+     * @param fullName
+     * the name of the user
+     * @param email
+     * the email of the user
+     * @param username
+     * the username of the user
+     * @param usernameKey
+     * the username of the user but all characters are lowercase
+     * @param phone
+     * the phone number of the user
+     */
     private void saveUserProfile(
             @NonNull FirebaseUser user,
             @NonNull String fullName,
@@ -182,6 +217,14 @@ public class SignupActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * undoes the user creation by deleting the user on the database
+     * also signs user out an displays a message pop-up to user
+     * @param user
+     * the user account in the database
+     * @param message
+     * a text message to be displayed
+     */
     private void rollbackUserCreation(@NonNull FirebaseUser user, @NonNull String message) {
         user.delete().addOnCompleteListener(task -> {
             auth.signOut();
@@ -190,6 +233,11 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * This finishes the current activity and open a new activity based on arguments
+     * @param destination
+     * the activity class that should be navigated to
+     */
     private void navigateAndClearTask(@NonNull Class<?> destination) {
         Intent intent = new Intent(this, destination);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -197,10 +245,18 @@ public class SignupActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * display message to user through toast popup
+     * @param message
+     * the message to be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * methods clears all errors without managing them
+     */
     private void clearErrors() {
         createNameInput.setError(null);
         createEmailInput.setError(null);
@@ -209,17 +265,36 @@ public class SignupActivity extends AppCompatActivity {
         createConfirmPasswordInput.setError(null);
     }
 
+    /**
+     * method Disables (stops them from being modified) login text fields when attempting a login
+     * @param loading
+     * whether the app is in the process of read/writing to the database or not
+     */
     private void setLoading(boolean loading) {
         loadingIndicator.setVisibility(loading ? ProgressBar.VISIBLE : ProgressBar.GONE);
         createAccountButton.setEnabled(!loading);
         backButton.setEnabled(!loading);
     }
 
+    /**
+     * converts user text input into string
+     * @param input
+     * EditText user input
+     * @return
+     * string of the user input with extraneous spaces removed
+     */
     @NonNull
     private String readTrimmed(@NonNull EditText input) {
         return input.getText() == null ? "" : input.getText().toString().trim();
     }
 
+    /**
+     * converts a user input EditText into a string
+     * @param input
+     * EditText view get text data
+     * @return
+     * String matching text in view
+     */
     @NonNull
     private String readRaw(@NonNull EditText input) {
         return input.getText() == null ? "" : input.getText().toString();
