@@ -717,37 +717,65 @@ ProfileRemovedActivity --> AuthMenuActivity
 HomeActivity --> MyThingsActivity
 HomeActivity --> ViewEventActivity
 HomeActivity ..> CaptureActivity : scanner UI
+HomeActivity "1" -[norank]-> "1" EventRepository
+HomeActivity "1" -[norank]-> "1" EventListAdapter
+HomeActivity "1" -[norank]-> "0..*" EventItem
 MyThingsActivity --> SettingsActivity
 MyThingsActivity --> HostedEventsActivity
 MyThingsActivity --> MyWaitlistActivity
 MyThingsActivity --> AdminZoneActivity : admin accounts
-MyThingsActivity --> NotificationRepository
-MyThingsActivity --> NotificationAdapter
+MyThingsActivity "1" -[norank]-> "1" EventRepository
+MyThingsActivity "1" -[norank]-> "1" NotificationRepository
+MyThingsActivity "1" -[norank]-> "1" NotificationAdapter
+MyThingsActivity "1" -[norank]-> "0..*" NotificationItem
 MyThingsActivity ..|> OnNotificationClickListener
 HostedEventsActivity --> CreateEventActivity
 HostedEventsActivity --> ViewEventActivity
+HostedEventsActivity "1" -[norank]-> "1" EventRepository
+HostedEventsActivity "1" -[norank]-> "1" EventListAdapter
+HostedEventsActivity "1" -[norank]-> "0..*" EventItem
 ViewEventActivity --> CreateEventActivity
 ViewEventActivity --> EntrantsActivity
 ViewEventActivity --> QRCode
+ViewEventActivity "1" -[norank]-> "1" EventRepository
+ViewEventActivity "1" -[norank]-> "0..1" EventItem
 MyWaitlistActivity --> ViewEventActivity
+MyWaitlistActivity "1" -[norank]-> "1" EventRepository
+MyWaitlistActivity "1" -[norank]-> "1" WaitlistEntryAdapter
+MyWaitlistActivity "1" -[norank]-> "0..*" WaitlistEntryItem
 EntrantsActivity --> AllEntrantsActivity
-EntrantsActivity --> NotificationRepository
+EntrantsActivity "1" -[norank]-> "1" EventRepository
+EntrantsActivity "1" -[norank]-> "1" NotificationRepository
 AllEntrantsActivity --> UserProfileDetailsActivity
+AllEntrantsActivity "1" -[norank]-> "1" EventRepository
+AllEntrantsActivity "1" -[norank]-> "1" EntrantAdapter
+AllEntrantsActivity "1" -[norank]-> "0..*" UserProfile
 AdminZoneActivity --> UserProfilesActivity
 AdminZoneActivity --> AdminBrowseEventsActivity
 UserProfilesActivity --> UserProfileDetailsActivity
 AdminBrowseEventsActivity --> AdminEventDetailsActivity
-EventRepository --> EventItem
-EventRepository --> WaitlistEntryItem
-EventRepository --> UserProfile
+CreateEventActivity "1" -[norank]-> "1" EventRepository
+AdminBrowseEventsActivity "1" -[norank]-> "1" EventRepository
+AdminEventDetailsActivity "1" -[norank]-> "1" EventRepository
+EventRepository "1" -[norank]-> "0..*" EventItem
+EventRepository "1" -[norank]-> "0..*" WaitlistEntryItem
+EventRepository "1" -[norank]-> "0..*" UserProfile
 EventRepository ..> NotificationRepository
-NotificationRepository --> NotificationItem
-NotificationAdapter --> NotificationItem
-NotificationAdapter ..> OnNotificationClickListener
-NotificationAdapter *-- NotificationViewHolder
+EventListAdapter "1" -[norank]-> "0..*" EventItem
+WaitlistEntryAdapter "1" -[norank]-> "0..*" WaitlistEntryItem
+EntrantAdapter "1" -[norank]-> "0..*" UserProfile
+NotificationRepository "1" -[norank]-> "0..*" NotificationItem
+NotificationAdapter "1" -[norank]-> "0..*" NotificationItem
+NotificationAdapter "1" ..[norank]> "1" OnNotificationClickListener
+NotificationAdapter "1" *-[norank]- "0..*" NotificationViewHolder
 
 ' Hidden links below are for layout control only.
 ' They are not semantic relationships in the design.
+ProfileRemovedActivity -[hidden]right-> MainActivity
+LoginActivity -[hidden]right-> SignupActivity
+AuthSessionPreference -[hidden]right-> EmailResolverCallback
+LoginActivity -[hidden]down-> AuthSessionPreference
+SignupActivity -[hidden]down-> EmailResolverCallback
 ProfileRemovedActivity -[hidden]down-> HomeActivity
 HomeActivity -[hidden]right-> MyThingsActivity
 MyThingsActivity -[hidden]right-> CaptureActivity
