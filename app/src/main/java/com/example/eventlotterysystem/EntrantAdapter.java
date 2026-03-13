@@ -23,7 +23,7 @@ public class EntrantAdapter extends ArrayAdapter<UserProfile> {
      * @param context
      * the instance of the application running
      * @param items
-     * List<UserProfile> of every Entrant to be displayed
+     * List of UserProfiles of every Entrant to be displayed
      */
     public EntrantAdapter(@NonNull Context context, @NonNull List<UserProfile> items) {
         super(context, 0, items);

@@ -27,7 +27,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
      * @param context
      * Context the instance of the application running
      * @param items
-     * List<WaitlistEntryItem> of every current event that the user is in a stage of waitlist for
+     * List of WaitlistEntryItem for every current event that the user is in a stage of waitlist for
      */
     public WaitlistEntryAdapter(@NonNull Context context, @NonNull List<WaitlistEntryItem> items) {
         super(context, 0, items);

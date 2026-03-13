@@ -28,7 +28,7 @@ public class EventListAdapter extends ArrayAdapter<EventItem> {
      * @param context
      * Context the instance of the application running
      * @param items
-     * List<EventItem> of every event to be displayed
+     * List of EventItems of every event to be displayed
      */
     public EventListAdapter(@NonNull Context context, @NonNull List<EventItem> items) {
         super(context, 0, items);
