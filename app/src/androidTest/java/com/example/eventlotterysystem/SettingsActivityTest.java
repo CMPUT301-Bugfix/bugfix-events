@@ -7,9 +7,12 @@ import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withHint;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import android.os.SystemClock;
@@ -79,6 +82,41 @@ public class SettingsActivityTest {
     }
 
     /**
+     * test to see if a user can delete their profile if they no longer wish to use the app
+     */
+    @Test
+    public void deleteAccountTest() throws Exception {
+        signOutSession();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String email = "testdelete" + timestamp + "@gmail.com";
+        String username = "testdelete" + timestamp;
+        String password = "test123";
+        String uid = createTemporaryUser(email, password, username, "Delete Test");
+
+        try {
+            try (ActivityScenario<SettingsActivity> ignored = ActivityScenario.launch(SettingsActivity.class)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.deleteAccountButton)).perform(scrollTo(), click());
+                onView(withHint(R.string.current_password)).perform(replaceText(password), closeSoftKeyboard());
+                onView(withText(R.string.delete_account_confirm_action)).perform(click());
+                SystemClock.sleep(5000);
+
+                onView(withId(R.id.menuLoginButton)).check(matches(isDisplayed()));
+            }
+
+            assertNull(FirebaseAuth.getInstance().getCurrentUser());
+            try {
+                Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password), 10, TimeUnit.SECONDS);
+                fail("Deleted account should not be able to sign in.");
+            } catch (Exception expected) {
+            }
+        } finally {
+            cleanupTemporaryUser(email, password, username, uid);
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
@@ -106,5 +144,80 @@ public class SettingsActivityTest {
             payload.put("phoneNumber", phoneNumber);
         }
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(payload, SetOptions.merge()), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * clears the authenticated session and remember-me state before a test run
+     */
+    private void signOutSession() {
+        FirebaseAuth.getInstance().signOut();
+        Context context = ApplicationProvider.getApplicationContext();
+        AuthSessionPreference.setRemember(context, false);
+    }
+
+    /**
+     * creates a temporary signed-in user and the matching profile records for delete-account testing
+     * @param email
+     * email of the temporary account
+     * @param password
+     * password of the temporary account
+     * @param username
+     * username of the temporary account
+     * @param fullName
+     * profile name of the temporary account
+     * @return
+     * uid of the created account
+     */
+    private String createTemporaryUser(String email, String password, String username, String fullName) throws Exception {
+        FirebaseUser user = Tasks.await(FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS).getUser();
+        String uid = user.getUid();
+
+        Map<String, Object> profilePayload = new HashMap<>();
+        profilePayload.put("fullName", fullName);
+        profilePayload.put("email", email);
+        profilePayload.put("username", username);
+        profilePayload.put("usernameKey", username.toLowerCase());
+        profilePayload.put("accountType", "user");
+
+        Map<String, Object> usernamePayload = new HashMap<>();
+        usernamePayload.put("uid", uid);
+        usernamePayload.put("email", email);
+
+        Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(profilePayload), 15, TimeUnit.SECONDS);
+        Tasks.await(FirebaseFirestore.getInstance().collection("usernames").document(username.toLowerCase()).set(usernamePayload), 15, TimeUnit.SECONDS);
+        return uid;
+    }
+
+    /**
+     * removes any temporary account data left behind if the delete flow fails
+     * @param email
+     * email of the temporary account
+     * @param password
+     * password of the temporary account
+     * @param username
+     * username of the temporary account
+     * @param uid
+     * uid of the temporary account
+     */
+    private void cleanupTemporaryUser(String email, String password, String username, String uid) throws Exception {
+        try {
+            FirebaseAuth.getInstance().signOut();
+            Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password), 10, TimeUnit.SECONDS);
+            try {
+                Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).delete(), 10, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+            }
+            try {
+                Tasks.await(FirebaseFirestore.getInstance().collection("usernames").document(username.toLowerCase()).delete(), 10, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+            }
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                Tasks.await(currentUser.delete(), 10, TimeUnit.SECONDS);
+            }
+        } catch (Exception ignored) {
+        } finally {
+            FirebaseAuth.getInstance().signOut();
+        }
     }
 }
