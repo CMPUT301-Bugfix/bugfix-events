@@ -71,6 +71,26 @@ public class ViewEventActivityTest {
     }
 
     /**
+     * Test if the event screen shows the total number of entrants for the waitlist
+     */
+    @Test
+    public void totalEntrantsShownTest() throws Exception {
+        signInTestUser();
+        String eventId = createViewEventTestEvent("UofA Waitlist Count Event " + System.currentTimeMillis(), "Waitlist count test in Edmonton.", "CCIS Edmonton", true, 5, 6, 7, 10, "waitlist-count-host", "");
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+
+        try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+            SystemClock.sleep(4000);
+
+            onView(withId(R.id.viewEventWaitlistCount)).check(matches(withText("Total Entrants: 7")));
+        }
+
+        deleteViewEventTestData(eventId);
+    }
+
+    /**
      * Test if clicking on the sign up button signs up a user to the waitlist
      */
     @Test
