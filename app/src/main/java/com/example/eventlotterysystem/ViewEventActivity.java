@@ -23,6 +23,8 @@ import java.util.Locale;
 
 /**
  * This is a class that is the controller of the activity_view_event screen
+ * this is the activity that shows event Information to Entrants
+ * It has the controllers that let the Entrant signup/leave the waitlist
  */
 public class ViewEventActivity extends AppCompatActivity {
     private static final String TAG = "ViewEventActivity";

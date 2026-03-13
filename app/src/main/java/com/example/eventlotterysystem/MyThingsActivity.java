@@ -20,6 +20,11 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * This is a class that is the controller of the activity_my_things screen
+ * this is the activity that allows navigation to modify profile, events, waitlist
+ * also shows notifications that have been received
+ */
 public class MyThingsActivity extends AppCompatActivity implements NotificationAdapter.OnNotificationClickListener {
 
     private static final String TAG = "MyThingsActivity";
@@ -35,6 +40,14 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     private NotificationAdapter notificationAdapter;
     private List<NotificationItem> notificationList = new ArrayList<>();
 
+    /**
+     * This is the creation of the Activity
+     * This connects to layout for the screen and connects the clickable view to their controller
+     * It also sets up notifications to be received
+     * @param savedInstanceState If the activity is being re-initialized after
+     *     previously being shut down then this Bundle contains the data it most
+     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,6 +79,10 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 startActivity(new Intent(this, AdminZoneActivity.class)));
     }
 
+    /**
+     * This is the startup of the Activity
+     * it runs loads for account type and notifications for the user
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -84,6 +101,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         loadNotifications(currentUser.getUid());
     }
 
+    /**
+     * allows access to the adminZoneButton if the user is an admin
+     * @param uid
+     * Id of the current user
+     */
     private void loadAccountType(String uid) {
         adminZoneButton.setVisibility(View.GONE);
         firestore.collection("users")
@@ -98,6 +120,12 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 .addOnFailureListener(exception -> adminZoneButton.setVisibility(View.GONE));
     }
 
+    /**
+     * loads all the notifications that the user should receive and add it to notificationList to be displayed
+     * on failure updates the display to notify user of the error
+     * @param uid
+     * Id of the current user
+     */
     private void loadNotifications(String uid) {
         notificationRepository.getNotificationsForUser(uid)
                 .addOnSuccessListener(notifications -> {
@@ -110,6 +138,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 });
     }
 
+    /**
+     * This is the controller that is run when a notification is clicked by the User
+     * it runs a method that gives the user a popup of notification content depending on type of notification
+     * @param notification NotificationItem that was clicked.
+     */
     @Override
     public void onNotificationClick(NotificationItem notification) {
         if ("WIN".equals(notification.getType())) {
@@ -119,6 +152,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         }
     }
 
+    /**
+     * This is the controller that is run when a notification click-held by the User
+     * creates a popup that allows the user to delete the notification
+     * @param notification NotificationItem that was long-clicked.
+     */
     @Override
     public void onNotificationLongClick(NotificationItem notification) {
         new AlertDialog.Builder(this)
@@ -129,6 +167,12 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 .show();
     }
 
+    /**
+     * creates a popup that show the notification message and allows the user to mange being chosen for the event the notification is for
+     * should be run on a selection win notification
+     * @param notification
+     * NotificationItem that was clicked
+     */
     private void showWinningDialog(NotificationItem notification) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(notification.getTitle())
@@ -147,6 +191,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         builder.show();
     }
 
+    /**
+     * creates a popup that show the notification message
+     * @param notification
+     * NotificationItem that was clicked
+     */
     private void showGeneralDialog(NotificationItem notification) {
         new AlertDialog.Builder(this)
                 .setTitle(notification.getTitle())
@@ -157,6 +206,15 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 .show();
     }
 
+    /**
+     * method that updates the waitlist status of the user for an event
+     * accepted/rejected if the user accepts/rejects
+     * notifies user if there was a failure in updating the database
+     * @param notification
+     * NotificationItem that was clicked
+     * @param newStatus
+     * what option the user selected for the selection win notification
+     */
     private void handleInvite(NotificationItem notification, String newStatus) {
         String uid = auth.getUid();
         String eventId = notification.getEventId();
@@ -186,6 +244,12 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 });
     }
 
+    /**
+     * deletes a notification for the user and updates it to the database
+     * notifies user if there was a failure in updating the database
+     * @param notification
+     * NotificationItem that was clicked
+     */
     private void deleteNotification(NotificationItem notification) {
         notificationRepository.deleteNotification(auth.getUid(), notification.getId())
                 .addOnSuccessListener(unused -> {
@@ -197,12 +261,19 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 });
     }
 
+    /**
+     * This is a controller for when myThingsLogoutButton is pressed
+     * logs the user out of their user profile and navigates AuthMenuActivity
+     */
     private void onLogOutClicked() {
         auth.signOut();
         AuthSessionPreference.setRemember(this, false);
         navigateToAuthMenu();
     }
 
+    /**
+     * navigates user to AuthMenuActivity and finishes this one
+     */
     private void navigateToAuthMenu() {
         Intent intent = new Intent(this, AuthMenuActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

@@ -18,6 +18,7 @@ import java.util.List;
 
 /**
  * This is a class that is the controller of the activity_my_waitlist screen
+ * It is the activity that allows users to see the list of events they have signed up for
  */
 public class MyWaitlistActivity extends AppCompatActivity {
 

@@ -19,6 +19,8 @@ import java.util.List;
 
 /**
  * This is a class that is the controller of the activity_hosted_events screen
+ * this displays all the event the user has created
+ * allows navigation to create a new event and to events the user has hosted
  */
 public class HostedEventsActivity extends AppCompatActivity {
 
@@ -106,7 +108,7 @@ public class HostedEventsActivity extends AppCompatActivity {
     /**
      * switches screen display whether User has created events
      * if yes shows the events created
-     * if no show text staing user has no events
+     * if no show text stating user has no events
      */
     private void updateEmptyState() {
         boolean hasEvents = !hostedEvents.isEmpty();
