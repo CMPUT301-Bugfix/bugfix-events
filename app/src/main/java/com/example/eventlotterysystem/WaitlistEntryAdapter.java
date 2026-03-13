@@ -42,7 +42,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
      * The initial view of a entry without signed up Event info
      * @param parent
      * ViewGroup the collection of views for all listView items
-     * @return
+     * @return a populated list item view for the current waitlist entry
      * View a listView of all signed up Events
      */
     @NonNull
@@ -78,6 +78,8 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
 
     /**
      * This changes the date to match locality
+     * @param date the event date
+     * @return a formatted date string, or an empty string if the date is null
      */
     private String formatDate(Date date) {
         if (date == null) {
@@ -89,6 +91,7 @@ public class WaitlistEntryAdapter extends ArrayAdapter<WaitlistEntryItem> {
     /**
      * This gets the matching text label for the state that the signup is in
      * @param status
+     * @return the label that should be displayed for the corresponding status
      */
     private String getStatusLabel(String status) {
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {

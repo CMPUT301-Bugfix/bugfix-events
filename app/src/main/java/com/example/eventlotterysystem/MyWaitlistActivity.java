@@ -35,6 +35,7 @@ public class MyWaitlistActivity extends AppCompatActivity {
     /**
      * This connects to all the view on the screen and connects the clickable view to the controller
      * also creates a connection to the database
+     * @param savedInstanceState
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,6 +78,7 @@ public class MyWaitlistActivity extends AppCompatActivity {
      * on success updates display
      * on failure notifies user there was a load failure
      * ID of User to get all Event sign-ups
+     * @param uid
      */
     private void loadMyWaitlists(String uid) {
         repository.getMyWaitlists(uid)
@@ -113,6 +115,7 @@ public class MyWaitlistActivity extends AppCompatActivity {
     /**
      * this navigates user to AuthMenuActivity
      * should be used when a user could not be found
+     * {@link AuthMenuActivity} when no signed-in user is found.
      */
     private void navigateToAuthMenu() {
         Intent intent = new Intent(this, AuthMenuActivity.class);
@@ -123,6 +126,8 @@ public class MyWaitlistActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an event load into a error message to be displayed
+     *  @param exception the exception raised while loading waitlist entries
+     *  @return a message describing the error, or a default load-failure message
      */
     private String buildLoadErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
