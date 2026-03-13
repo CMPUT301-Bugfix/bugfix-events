@@ -9,11 +9,13 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+/**
+ * UI tests for {@link UserProfileDetailsActivity}.
+ */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class UserProfileDetailsActivityTest {
@@ -22,6 +24,10 @@ public class UserProfileDetailsActivityTest {
     public ActivityScenarioRule<UserProfileDetailsActivity> scenario =
             new ActivityScenarioRule<>(UserProfileDetailsActivity.class);
 
+
+    /**
+     * Verifies that the user profile detail views are visible.
+     */
     @Test
     public void testUserProfileDetailsViewsDisplayed() {
         onView(withId(R.id.userProfileDetailsBackButton)).check(matches(isDisplayed()));
@@ -33,6 +39,9 @@ public class UserProfileDetailsActivityTest {
         onView(withId(R.id.userProfileDetailsJoinDateValue)).check(matches(isDisplayed()));
     }
 
+    /**
+     * Verifies that pressing the back button closes the screen.
+     */
     @Test
     public void testBackButtonClosesActivity() {
         onView(withId(R.id.userProfileDetailsBackButton)).perform(click());

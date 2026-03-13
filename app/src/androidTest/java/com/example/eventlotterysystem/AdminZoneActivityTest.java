@@ -9,11 +9,13 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+/**
+ * UI tests for {@link AdminZoneActivity}.
+ */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class AdminZoneActivityTest {
@@ -23,14 +25,19 @@ public class AdminZoneActivityTest {
             new ActivityScenarioRule<>(AdminZoneActivity.class);
 
 
-    // Check if the admin user profiles and events buttons are on the screen
+
+    /**
+     * Verifies that the main admin action buttons are visible.
+     */
     @Test
     public void testAdminZoneButtonsDisplayed() {
         onView(withId(R.id.adminUserProfilesButton)).check(matches(isDisplayed()));
         onView(withId(R.id.adminEventsButton)).check(matches(isDisplayed()));
     }
 
-    //Click on Back button
+    /**
+     * Verifies that the back button can be tapped.
+     */
     @Test
     public void testBackButtonClickable() {
         onView(withId(R.id.adminZoneBackButton)).perform(click());

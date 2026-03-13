@@ -13,12 +13,21 @@ public class EntrantInfo {
         this.id = id;
     }
 
+    /**
+     * Returns the entrant display name.
+     *
+     * @return the entrant name
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Returns the entrant identifier.
+     *
+     * @return the entrant id
+     */
     public String getId() {
         return id;
     }
 }
-

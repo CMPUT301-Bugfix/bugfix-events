@@ -41,8 +41,10 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class MyWaitlistActivityTest {
+
     /**
      * Test to see if all signed-up events are loaded from database and is displayed to the user
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void viewEventsTest() throws Exception {
@@ -64,6 +66,7 @@ public class MyWaitlistActivityTest {
 
     /**
      * Test if navigation to ViewEventActivity is correct event and is in the view version
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void NavigateToEvent() throws Exception {

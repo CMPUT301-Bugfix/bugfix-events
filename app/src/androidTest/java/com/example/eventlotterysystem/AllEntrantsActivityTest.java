@@ -53,8 +53,10 @@ public class AllEntrantsActivityTest {
     private final String confirmedUser = "Username: testU2";
     private final String declinedUser = "Username: testU3";
 
+
     /**
      * Test to see if all entrants are displayed for an event
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void viewAllEntrantsTest() throws Exception {
@@ -78,6 +80,7 @@ public class AllEntrantsActivityTest {
 
     /**
      * Test to see if activity shows entrants when the Activity is navigated to
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void navigatedToAllEntrantsActivityTest() throws Exception {
@@ -97,6 +100,7 @@ public class AllEntrantsActivityTest {
 
     /**
      * Test to see if all entrants in the waiting list are displayed for an event
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void viewWaitingListEntrantsTest() throws Exception {
@@ -122,6 +126,7 @@ public class AllEntrantsActivityTest {
 
     /**
      * Test to see if all entrants in the chosen list are displayed for an event
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void viewChosenEntrantsTest() throws Exception  {
@@ -146,6 +151,7 @@ public class AllEntrantsActivityTest {
 
     /**
      * Test to see if all entrants in the confirmed list are displayed for an event
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void viewConfirmedEntrantsTest() throws Exception  {
@@ -171,6 +177,7 @@ public class AllEntrantsActivityTest {
 
     /**
      * Test to see if all entrants iin the declined list are displayed for an event
+     * @throws Exception if authentication or asynchronous setup fails
      */
     @Test
     public void viewDeclinedEntrantsTest() throws Exception  {
