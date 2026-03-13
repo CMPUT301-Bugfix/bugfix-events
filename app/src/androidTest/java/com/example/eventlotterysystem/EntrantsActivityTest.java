@@ -36,13 +36,20 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.Nullable;
 
 /**
  * Tests the functionality of the EntrantActivity
@@ -52,6 +59,17 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class EntrantsActivityTest {
+
+    @Before
+    public void setUp() {
+        Intents.init();
+    }
+
+    @After
+    public void tearDown() {
+        Intents.release();
+    }
+
     private final String EventId = "Ihxujm0X8KeGpeT39n6E";
 
     /**
@@ -59,9 +77,9 @@ public class EntrantsActivityTest {
      */
     @Test
     public void preformDrawTest() throws Exception {
-        Intents.init();
+
         signInTestUser();
-        CreateWaitlistEntry("waitlist2","IN_WAITLIST","testU6", EventId);
+        CreateWaitlistEntry("waitlist2","IN_WAITLIST","testU6", EventId,null);
 
         Intent intent = new Intent(
                 ApplicationProvider.getApplicationContext(),
@@ -84,24 +102,22 @@ public class EntrantsActivityTest {
             }));
         }
         deleteWaitlistEntry("waitlist2",EventId);
-        Intents.release();
     }
 
     /**
      * Test to see if Clean will remove chosen Entrants who failed to accept in time
+     * not completely implemented so failing is expected
      */
     @Test
     public void cleanExpiredTest() throws Exception {
         signInTestUser();
-        Intents.init();
-        CreateWaitlistEntry("waitlist1","CHOSEN","testU5", EventId);
-
+        CreateWaitlistEntry("waitlist1","CHOSEN","testU5", EventId, new SimpleDateFormat("MMMM d, yyyy", Locale.ENGLISH).parse("March 1, 2026"));
 
         Intent intent = new Intent(
                 ApplicationProvider.getApplicationContext(),
                 EntrantsActivity.class
         );
-
+        intent.putExtra(EVENT_ID, EventId);
         try (ActivityScenario<EntrantsActivity> scenario = ActivityScenario.launch(intent)) {
             onView(withId(R.id.entrantsProcessExpiredButton)).perform(click());
             SystemClock.sleep(10000);
@@ -118,7 +134,6 @@ public class EntrantsActivityTest {
             }));
         }
         deleteWaitlistEntry("waitlist1",EventId);
-        Intents.release();
     }
 
     /**
@@ -126,7 +141,6 @@ public class EntrantsActivityTest {
      */
     @Test
     public void navigateToAllEntrantsTest() throws Exception {
-        Intents.init();
         signInTestUser();
 
         Intent intent = new Intent(
@@ -139,7 +153,6 @@ public class EntrantsActivityTest {
             SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
             intended(hasComponent(AllEntrantsActivity.class.getName()));
         }
-        Intents.release();
     }
 
     /**
@@ -148,7 +161,6 @@ public class EntrantsActivityTest {
      */
     @Test
     public void navigateToChosenEntrantsTest() throws Exception {
-        Intents.init();
         signInTestUser();
 
         Intent intent = new Intent(
@@ -164,7 +176,6 @@ public class EntrantsActivityTest {
                     hasExtra(STATUS_FILTER, "CHOSEN")
             ));
         }
-        Intents.release();
     }
 
     /**
@@ -199,11 +210,14 @@ public class EntrantsActivityTest {
      * @param eventId
      * document id of the event that contains the waitlist entry
      */
-    private void CreateWaitlistEntry(String waitListId, String status, String uid, String eventId) throws Exception {
+    private void CreateWaitlistEntry(String waitListId, String status, String uid, String eventId, Date chosenAt) throws Exception {
         Map<String, Object> hashMap = new HashMap<>();
         hashMap.put("eventId", eventId);
         hashMap.put("status", status);
         hashMap.put("uid", uid);
+        if (chosenAt != null) {
+            hashMap.put("chosenAt", chosenAt);
+        }
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).collection("waitlist").document(waitListId).set(hashMap), 15, TimeUnit.SECONDS);
     }
 }
