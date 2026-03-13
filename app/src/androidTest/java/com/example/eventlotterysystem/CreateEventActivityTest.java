@@ -143,7 +143,7 @@ public class CreateEventActivityTest {
         String timestamp = String.valueOf(System.currentTimeMillis());
         String title = "UofA Poster Event " + timestamp;
         deleteEventsByTitle(title);
-        Uri posterUri = createPosterUri();
+        Uri posterUri = createPosterUri("athabasca_hall.jpg");
 
         try (ActivityScenario<CreateEventActivity> scenario = ActivityScenario.launch(CreateEventActivity.class)) {
             scenario.onActivity(activity -> {
@@ -179,6 +179,55 @@ public class CreateEventActivityTest {
         assertNotNull(posterUrl);
         assertFalse(posterUrl.trim().isEmpty());
         deleteEventsByTitle(title);
+    }
+
+    /**
+     * test to see if an existing event poster can be updated in edit mode
+     */
+    @Test
+    public void PosterUpdatedTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Poster Update Event " + timestamp;
+        deleteEventsByTitle(title);
+        String eventId = createHostedTestEvent(title, "Poster update test for Edmonton campus event.", "CCIS Edmonton", createPosterUri("athabasca_hall.jpg"));
+        String originalPosterUrl = Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).get(), 15, TimeUnit.SECONDS).getString("posterUrl");
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), CreateEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+        Uri updatedPosterUri = createPosterUri("ccis.jpg");
+
+        try (ActivityScenario<CreateEventActivity> scenario = ActivityScenario.launch(intent)) {
+            SystemClock.sleep(4000);
+
+            scenario.onActivity(activity -> {
+                try {
+                    java.lang.reflect.Field field = CreateEventActivity.class.getDeclaredField("selectedPosterUri");
+                    field.setAccessible(true);
+                    field.set(activity, updatedPosterUri);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                activity.findViewById(R.id.createEventPosterPreview).setVisibility(android.view.View.VISIBLE);
+                ((ImageView) activity.findViewById(R.id.createEventPosterPreview)).setImageURI(updatedPosterUri);
+                ((android.widget.TextView) activity.findViewById(R.id.createEventPosterStatus)).setText(R.string.poster_selected);
+            });
+
+            onView(withId(R.id.createEventPosterPreview)).check(matches(isDisplayed()));
+            onView(withId(R.id.createEventPosterPreview)).check(matches(posterPreviewLoaded()));
+            onView(withId(R.id.createEventPosterStatus)).check(matches(withText(R.string.poster_selected)));
+            onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+            SystemClock.sleep(7000);
+        }
+
+        DocumentSnapshot event = Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).get(), 15, TimeUnit.SECONDS);
+        String updatedPosterUrl = event.getString("posterUrl");
+        assertNotNull(originalPosterUrl);
+        assertNotNull(updatedPosterUrl);
+        assertFalse(updatedPosterUrl.trim().isEmpty());
+        assertFalse(updatedPosterUrl.equals(originalPosterUrl));
+        deleteEvent(eventId);
     }
 
     /**
@@ -298,9 +347,26 @@ public class CreateEventActivityTest {
      * the document id of the created event
      */
     private String createHostedTestEvent(String title, String description, String location) throws Exception {
+        return createHostedTestEvent(title, description, location, null);
+    }
+
+    /**
+     * creates a hosted event directly in the database for edit mode tests
+     * @param title
+     * title of the test event
+     * @param description
+     * description of the test event
+     * @param location
+     * location of the test event
+     * @param posterUri
+     * optional local poster uri to upload with the event
+     * @return
+     * the document id of the created event
+     */
+    private String createHostedTestEvent(String title, String description, String location, Uri posterUri) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         EventItem event = new EventItem("", title, description, location, "", 10, 5, 0, new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)), new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(2)), false, currentUser.getUid(), "");
-        return Tasks.await(new EventRepository().createEvent(currentUser, event, null), 15, TimeUnit.SECONDS);
+        return Tasks.await(new EventRepository().createEvent(currentUser, event, posterUri), 15, TimeUnit.SECONDS);
     }
 
     /**
@@ -342,11 +408,11 @@ public class CreateEventActivityTest {
      * @return
      * a uri that can be passed to the poster upload flow
      */
-    private Uri createPosterUri() throws Exception {
+    private Uri createPosterUri(String assetName) throws Exception {
         Context appContext = ApplicationProvider.getApplicationContext();
         Context testContext = InstrumentationRegistry.getInstrumentation().getContext();
-        File file = new File(appContext.getCacheDir(), "athabasca_hall.jpg");
-        try (InputStream inputStream = testContext.getAssets().open("athabasca_hall.jpg");
+        File file = new File(appContext.getCacheDir(), assetName);
+        try (InputStream inputStream = testContext.getAssets().open(assetName);
              FileOutputStream outputStream = new FileOutputStream(file)) {
             byte[] buffer = new byte[8192];
             int read;
