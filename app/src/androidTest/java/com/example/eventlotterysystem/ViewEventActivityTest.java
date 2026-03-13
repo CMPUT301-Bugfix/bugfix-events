@@ -9,6 +9,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -111,6 +112,31 @@ public class ViewEventActivityTest {
 
             onView(withId(R.id.viewEventWaitlistJoinedLabel)).check(matches(isDisplayed()));
             onView(withId(R.id.viewEventLeaveWaitlistButton)).check(matches(isDisplayed()));
+        }
+
+        deleteViewEventTestData(eventId);
+    }
+
+    /**
+     * Test if joining the waitlist shows the lottery information popup
+     */
+    @Test
+    public void joinWaitlistShowsLotteryPopupTest() throws Exception {
+        signInTestUser();
+        String title = "UofA Lottery Popup Event " + System.currentTimeMillis();
+        String eventId = createViewEventTestEvent(title, "Lottery popup test for Edmonton students.", "CAB Edmonton", true, 5, 6, 0, 10, "lottery-popup-host", "");
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+
+        try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+            SystemClock.sleep(4000);
+
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(click());
+
+            onView(withText(R.string.join_waitlist)).check(matches(isDisplayed()));
+            onView(withText(containsString("terms of the lottery"))).check(matches(isDisplayed()));
+            onView(withText(R.string.join)).check(matches(isDisplayed()));
         }
 
         deleteViewEventTestData(eventId);
