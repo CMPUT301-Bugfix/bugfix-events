@@ -677,6 +677,8 @@ public class EventRepository {
      * The ID of the event to process expired winners from
      * @param winningMessage
      * The message to be sent to users selected in the lottery.
+     * @return
+     * task that completes after expired winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
         long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);

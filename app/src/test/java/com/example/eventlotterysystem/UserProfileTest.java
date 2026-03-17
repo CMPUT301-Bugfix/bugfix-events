@@ -4,8 +4,15 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+/**
+ * Unit tests for the {@link UserProfile} model.
+ */
 public class UserProfileTest {
 
+
+    /**
+     * Verifies that the constructor stores the supplied field values.
+     */
     @Test
     public void testCreateUser() {
         UserProfile profile = new UserProfile(
@@ -25,6 +32,9 @@ public class UserProfileTest {
         assertEquals("admin", profile.getAccountType());
     }
 
+    /**
+     * Verifies that the mutable profile fields can be updated through setters.
+     */
     @Test
     public void testSetFields() {
         UserProfile profile = new UserProfile("Hey", "Hey", "Hey", "Hey", "Hey", "user");

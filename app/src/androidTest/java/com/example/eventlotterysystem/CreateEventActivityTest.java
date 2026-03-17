@@ -57,8 +57,10 @@ import org.hamcrest.TypeSafeMatcher;
 @LargeTest
 public class CreateEventActivityTest {
 
+
     /**
      * test to see if an event object is created when a user creates an event
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
      */
     @Test
     public void createEventTest() throws Exception {
@@ -86,6 +88,7 @@ public class CreateEventActivityTest {
 
     /**
      * test to see if event creation is prevented when the input fields are missing information
+     * @throws Exception if authentication or UI setup fails
      */
     @Test
     public void inputFieldsValidTest() throws Exception {
@@ -109,6 +112,7 @@ public class CreateEventActivityTest {
 
     /**
      * test to see if event created is uploaded to the database
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
      */
     @Test
     public void dataBaseUpdatedTest() throws Exception {
@@ -136,6 +140,7 @@ public class CreateEventActivityTest {
 
     /**
      * test to see if an event created with a Image is uploads the link to the image and stores the image on the database
+     * @throws Exception if authentication, image setup, or Firestore operations fail
      */
     @Test
     public void ImageUploadedTest() throws Exception {
@@ -183,6 +188,7 @@ public class CreateEventActivityTest {
 
     /**
      * test to see if an existing event poster can be updated in edit mode
+     * @throws Exception if authentication, image setup, or Firestore operations fail
      */
     @Test
     public void PosterUpdatedTest() throws Exception {

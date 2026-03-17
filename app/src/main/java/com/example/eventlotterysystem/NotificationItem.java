@@ -36,45 +36,101 @@ public class NotificationItem {
         this.timestamp = System.currentTimeMillis();
     }
 
-    /** @return Firestore doc ID */
+    /**
+     * Returns the Firestore document identifier for this notification.
+     *
+     * @return the Firestore document id
+     */
     public String getId() { return id; }
 
-    /** @param id Firestore document ID to set */
+    /**
+     * Sets the Firestore document identifier for this notification.
+     *
+     * @param id the Firestore document id to store
+     */
     public void setId(String id) { this.id = id; }
 
-    /** @return ID of the event this notification is about. */
+    /**
+     * Returns the event identifier associated with this notification.
+     *
+     * @return the related event id
+     */
     public String getEventId() { return eventId; }
 
-    /** @param eventId event ID to set */
+    /**
+     * Sets the event identifier associated with this notification.
+     *
+     * @param eventId the related event id
+     */
     public void setEventId(String eventId) { this.eventId = eventId; }
 
-    /** @return headline or title of the notification. */
+    /**
+     * Returns the title shown for this notification.
+     *
+     * @return the notification title
+     */
     public String getTitle() { return title; }
 
-    /** @param title title to set */
+    /**
+     * Sets the title shown for this notification.
+     *
+     * @param title the notification title
+     */
     public void setTitle(String title) { this.title = title; }
 
-    /** @return actual message */
+    /**
+     * Returns the main message body for this notification.
+     *
+     * @return the notification message
+     */
     public String getMessage() { return message; }
 
-    /** @param message message to set */
+    /**
+     * Sets the main message body for this notification.
+     *
+     * @param message the notification message
+     */
     public void setMessage(String message) { this.message = message; }
 
-    /** @return type of notification ("GENERAL" or "WIN") */
+    /**
+     * Returns the notification type.
+     *
+     * @return the notification type, such as {@code GENERAL} or {@code WIN}
+     */
     public String getType() { return type; }
 
-    /** @param type type to set */
+    /**
+     * Sets the notification type.
+     *
+     * @param type the notification type to store
+     */
     public void setType(String type) { this.type = type; }
 
-    /** @return user's response status (e.g., "PENDING") */
+    /**
+     * Returns the current response status for this notification.
+     *
+     * @return the response status, such as {@code PENDING}
+     */
     public String getStatus() { return status; }
 
-    /** @param status response status to set */
+    /**
+     * Sets the current response status for this notification.
+     *
+     * @param status the response status to store
+     */
     public void setStatus(String status) { this.status = status; }
 
-    /** @return creation time in milliseconds */
+    /**
+     * Returns the creation timestamp for this notification.
+     *
+     * @return the creation time in milliseconds
+     */
     public long getTimestamp() { return timestamp; }
 
-    /** @param timestamp creation time to set*/
+    /**
+     * Sets the creation timestamp for this notification.
+     *
+     * @param timestamp the creation time in milliseconds
+     */
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
 }

@@ -60,6 +60,7 @@ import javax.annotation.Nullable;
 @LargeTest
 public class EntrantsActivityTest {
 
+
     @Before
     public void setUp() {
         Intents.init();
@@ -74,6 +75,7 @@ public class EntrantsActivityTest {
 
     /**
      * Test to see if Preforming a draw will move the correct number of entrants to chosen and update the database
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void preformDrawTest() throws Exception {
@@ -107,6 +109,7 @@ public class EntrantsActivityTest {
     /**
      * Test to see if Clean will remove chosen Entrants who failed to accept in time
      * not completely implemented so failing is expected
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void cleanExpiredTest() throws Exception {
@@ -138,6 +141,7 @@ public class EntrantsActivityTest {
 
     /**
      * Test to see if the navigation to view entrants is correct and displays the correct entrants
+     * @throws Exception if authentication or UI setup fails
      */
     @Test
     public void navigateToAllEntrantsTest() throws Exception {
@@ -158,6 +162,7 @@ public class EntrantsActivityTest {
     /**
      * Test to see if the navigation to view entrants of a specific status (chosen) is correct and displays the correct entrants
      * do not need to test other statuses as they are implemented together
+     * @throws Exception if authentication or UI setup fails
      */
     @Test
     public void navigateToChosenEntrantsTest() throws Exception {

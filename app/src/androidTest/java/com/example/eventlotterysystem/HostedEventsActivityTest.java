@@ -39,8 +39,10 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class HostedEventsActivityTest {
+
     /**
      * Test to see if all hosted events are loaded from database and is displayed to the user
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void viewEventsTest() throws Exception {
@@ -61,6 +63,7 @@ public class HostedEventsActivityTest {
 
     /**
      * Test if navigation to ViewEventActivity is correct event and allows edits
+     * @throws Exception if authentication or database setup fails
      */
     @Test
     public void NavigateToEvent() throws Exception {
@@ -87,6 +90,7 @@ public class HostedEventsActivityTest {
 
     /**
      * Test if navigation to CreateEventActivity is correct
+     * @throws Exception if authentication or activity launch fails
      */
     @Test
     public void NavigateToCreateEvent() throws Exception {
