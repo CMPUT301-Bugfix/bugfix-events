@@ -43,6 +43,14 @@
     <string name="event_title_hint">event title</string>
     <string name="event_description_hint">event description</string>
     <string name="event_location_hint">event location</string>
+    <string name="event_keywords_label">keywords</string>
+    <string name="event_keywords_hint">add a keyword</string>
+    <string name="event_keywords_add">add keyword</string>
+    <string name="event_keyword_duplicate">That keyword was already added.</string>
+    <string name="event_visibility_label">event visibility</string>
+    <string name="event_visibility_public_toggle">make event public</string>
+    <string name="event_visibility_public_state">Public: shown on all events.</string>
+    <string name="event_visibility_private_state">Private: hidden from all events.</string>
     <string name="event_poster">event poster</string>
     <string name="choose_poster">choose poster</string>
     <string name="poster_selected">Poster selected</string>
@@ -60,6 +68,7 @@
     <string name="failed_to_update_event">Failed to update event.</string>
     <string name="failed_to_load_events">Failed to load events.</string>
     <string name="failed_to_load_event">Failed to load event.</string>
+    <string name="private_event_access_denied">This event is private.</string>
     <string name="failed_to_render_event">Failed to display event details.</string>
     <string name="event_details_load_failed_message">The event details could not be loaded. Check the error message and your Firestore permissions.</string>
     <string name="missing_event_id">Missing event ID.</string>

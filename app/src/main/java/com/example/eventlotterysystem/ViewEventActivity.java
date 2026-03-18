@@ -13,12 +13,15 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -33,6 +36,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private ImageView posterImageView;
     private TextView screenTitleTextView;
     private TextView titleTextView;
+    private ChipGroup keywordsChipGroup;
     private TextView hostTextView;
     private TextView locationTextView;
     private TextView dateTextView;
@@ -77,6 +81,7 @@ public class ViewEventActivity extends AppCompatActivity {
         posterImageView = findViewById(R.id.viewEventPoster);
         screenTitleTextView = findViewById(R.id.viewEventScreenTitle);
         titleTextView = findViewById(R.id.viewEventTitle);
+        keywordsChipGroup = findViewById(R.id.viewEventKeywords);
         hostTextView = findViewById(R.id.viewEventHost);
         locationTextView = findViewById(R.id.viewEventLocation);
         dateTextView = findViewById(R.id.viewEventDate);
@@ -141,24 +146,33 @@ public class ViewEventActivity extends AppCompatActivity {
     private void loadEvent() {
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    try {
-                        currentEvent = event;
-                        titleTextView.setText(event.getTitle());
-                        showPoster(event.getPosterUrl());
-                        showMetadata(event);
-                        descriptionTextView.setText(hasText(event.getDescription())
-                                ? event.getDescription()
-                                : getString(R.string.event_card_missing_description));
-                        loadWaitlistState(event);
-                    } catch (Exception exception) {
-                        Log.e(TAG, "Failed to render event details", exception);
-                        Toast.makeText(
-                                ViewEventActivity.this,
-                                getString(R.string.failed_to_render_event),
-                                Toast.LENGTH_LONG
-                        ).show();
-                        renderLoadFailureState();
-                    }
+                    FirebaseUser currentUser = auth.getCurrentUser();
+                    repository.canUserAccessEvent(
+                                    event,
+                                    eventId,
+                                    currentUser == null ? null : currentUser.getUid()
+                            )
+                            .addOnSuccessListener(canAccess -> {
+                                if (!canAccess) {
+                                    Toast.makeText(
+                                            ViewEventActivity.this,
+                                            R.string.private_event_access_denied,
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                    return;
+                                }
+                                renderEvent(event);
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify event access", exception);
+                                Toast.makeText(
+                                        ViewEventActivity.this,
+                                        buildLoadErrorMessage(exception),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                                renderLoadFailureState();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to load event details", e);
@@ -169,6 +183,28 @@ public class ViewEventActivity extends AppCompatActivity {
                     ).show();
                     renderLoadFailureState();
                 });
+    }
+
+    private void renderEvent(EventItem event) {
+        try {
+            currentEvent = event;
+            titleTextView.setText(event.getTitle());
+            renderKeywordChips(event.getKeywords());
+            showPoster(event.getPosterUrl());
+            showMetadata(event);
+            descriptionTextView.setText(hasText(event.getDescription())
+                    ? event.getDescription()
+                    : getString(R.string.event_card_missing_description));
+            loadWaitlistState(event);
+        } catch (Exception exception) {
+            Log.e(TAG, "Failed to render event details", exception);
+            Toast.makeText(
+                    ViewEventActivity.this,
+                    getString(R.string.failed_to_render_event),
+                    Toast.LENGTH_LONG
+            ).show();
+            renderLoadFailureState();
+        }
     }
 
     /**
@@ -608,6 +644,23 @@ public class ViewEventActivity extends AppCompatActivity {
                 : R.string.event_geolocation_disabled);
     }
 
+    private void renderKeywordChips(List<String> keywords) {
+        keywordsChipGroup.removeAllViews();
+        if (keywords == null || keywords.isEmpty()) {
+            keywordsChipGroup.setVisibility(View.GONE);
+            return;
+        }
+
+        keywordsChipGroup.setVisibility(View.VISIBLE);
+        for (String keyword : keywords) {
+            Chip chip = new Chip(this);
+            chip.setText(keyword);
+            chip.setClickable(false);
+            chip.setCheckable(false);
+            keywordsChipGroup.addView(chip);
+        }
+    }
+
     /**
      * hides all the views on the screen shows error message of what cause the failure
      * is used when there is a problem in loading the data of the current event
@@ -616,6 +669,8 @@ public class ViewEventActivity extends AppCompatActivity {
         posterImageView.setVisibility(View.GONE);
         posterImageView.setImageDrawable(null);
         titleTextView.setText(R.string.failed_to_load_event);
+        keywordsChipGroup.removeAllViews();
+        keywordsChipGroup.setVisibility(View.GONE);
         hostTextView.setText("");
         locationTextView.setText("");
         dateTextView.setText("");
