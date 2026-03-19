@@ -46,11 +46,11 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView geolocationTextView;
     private TextView descriptionTextView;
     private TextView waitlistJoinedTextView;
+    private TextView qrCodeButton;
     private Button entrantsButton;
     private Button editEventButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
-
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
     private String currentWaitlistStatus = "";
@@ -95,6 +95,7 @@ public class ViewEventActivity extends AppCompatActivity {
         editEventButton = findViewById(R.id.viewEventEditButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
+        qrCodeButton = findViewById(R.id.createQRCode);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
 
@@ -118,8 +119,9 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        qrCodeButton.setVisibility(View.GONE);
 
-        findViewById(R.id.createQRCode).setOnClickListener(v -> {
+        qrCodeButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, QRCode.class);
             intent.putExtra("Event_ID", eventId);
             startActivity(intent);
@@ -188,6 +190,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private void renderEvent(EventItem event) {
         try {
             currentEvent = event;
+            qrCodeButton.setVisibility(event.isPublic() ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -681,6 +684,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
+        qrCodeButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
     }
