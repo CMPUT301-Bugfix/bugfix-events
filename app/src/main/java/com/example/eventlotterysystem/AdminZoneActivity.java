@@ -23,6 +23,7 @@ public class AdminZoneActivity extends AppCompatActivity {
     private ProgressBar adminRoleLoading;
     private Button adminUserProfilesButton;
     private Button adminEventsButton;
+    private Button adminPhotosButton;
 
     /**
      * This method sets up the UI and button navigations
@@ -44,12 +45,16 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminUserProfilesButton.setEnabled(false);
         adminEventsButton = findViewById(R.id.adminEventsButton);
         adminEventsButton.setEnabled(false);
+        adminPhotosButton = findViewById(R.id.adminPhotosButton);
+        adminPhotosButton.setEnabled(false);
 
         findViewById(R.id.adminZoneBackButton).setOnClickListener(v -> finish());
         adminUserProfilesButton.setOnClickListener(v ->
                 startActivity(new Intent(this, UserProfilesActivity.class)));
         adminEventsButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminBrowseEventsActivity.class)));
+        adminPhotosButton.setOnClickListener(v ->
+                startActivity(new Intent(this, AdminPhotosActivity.class)));
     }
 
     /**
@@ -69,6 +74,7 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminRoleLoading.setVisibility(View.VISIBLE);
         adminUserProfilesButton.setEnabled(false);
         adminEventsButton.setEnabled(false);
+        adminPhotosButton.setEnabled(false);
         firestore.collection("users")
                 .document(currentUser.getUid())
                 .get()
@@ -81,6 +87,7 @@ public class AdminZoneActivity extends AppCompatActivity {
                     }
                     adminUserProfilesButton.setEnabled(true);
                     adminEventsButton.setEnabled(true);
+                    adminPhotosButton.setEnabled(true);
                 })
                 .addOnFailureListener(exception -> {
                     adminRoleLoading.setVisibility(View.GONE);
