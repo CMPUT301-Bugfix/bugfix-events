@@ -241,6 +241,47 @@ public class EventRepository {
     }
 
     /**
+     * determines whether a user can access an event detail screen
+     * for private events, access is granted to the host and to anyone
+     * who already has a waitlist record for the event
+     * @param event
+     * event being accessed
+     * @param eventId
+     * id of the event
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user can view the event
+     */
+    public Task<Boolean> canUserAccessEvent(
+            @NonNull EventItem event,
+            @NonNull String eventId,
+            @Nullable String uid
+    ) {
+        if (!hasText(uid)) {
+            return Tasks.forResult(canUserAccessEvent(event.isPublic(), false, false));
+        }
+
+        boolean isHost = uid.equals(event.getHostUid());
+        if (canUserAccessEvent(event.isPublic(), isHost, false)) {
+            return Tasks.forResult(true);
+        }
+
+        return eventWaitlistEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to verify event access");
+                    }
+                    DocumentSnapshot doc = task.getResult();
+                    boolean hasWaitlistEntry = doc != null && doc.exists();
+                    return canUserAccessEvent(event.isPublic(), isHost, hasWaitlistEntry);
+                });
+    }
+
+    /**
      * updates a waitlist entry object for a user signed up for an event status' into a new one
      * @param eventId
      * Id of the Event
@@ -828,27 +869,16 @@ public class EventRepository {
      * whether an event is able to have sign-ups
      */
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
-        Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
-        Boolean deleted = doc.getBoolean("deleted");
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
-
-        if (Boolean.TRUE.equals(deleted)) {
-            return false;
-        }
-
-        boolean upcomingByEventDate = false;
-        if (eventDateTimestamp != null) {
-            upcomingByEventDate = eventDateTimestamp.toDate().after(now);
-        }
-
-        boolean beforeDeadline = isWaitlistJoinOpen(
-                Boolean.TRUE.equals(waitlistOpen),
+        return isCurrentEventVisible(
+                Boolean.TRUE.equals(doc.getBoolean("waitlistOpen")),
+                Boolean.TRUE.equals(doc.getBoolean("deleted")),
+                normalizeIsPublic(doc.getBoolean("isPublic")),
+                eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
                 registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
                 now
         );
-
-        return Boolean.TRUE.equals(waitlistOpen) && (upcomingByEventDate || beforeDeadline);
     }
 
     /**
@@ -873,6 +903,8 @@ public class EventRepository {
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
         Boolean waitlistOpenValue = doc.getBoolean("waitlistOpen");
         String winningMessage = doc.getString("winningMessage");
+        List<String> keywords = normalizeKeywords(doc.get("keywords"));
+        boolean isPublic = normalizeIsPublic(doc.getBoolean("isPublic"));
 
         if (!hasText(title)) {
             title = "Untitled Event";
@@ -908,7 +940,9 @@ public class EventRepository {
                 hostUid,
                 hostDisplayName,
                 Boolean.TRUE.equals(waitlistOpenValue),
-                winningMessage != null ? winningMessage : ""
+                winningMessage != null ? winningMessage : "",
+                keywords,
+                isPublic
         );
     }
 
@@ -946,6 +980,8 @@ public class EventRepository {
         payload.put("hostUid", hostUid);
         payload.put("hostDisplayName", hostDisplayName);
         payload.put("waitlistOpen", true);
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         payload.put("deleted", false);
         payload.put("createdAt", Timestamp.now());
         payload.put("winningMessage", event.getWinningMessage());
@@ -976,6 +1012,8 @@ public class EventRepository {
         payload.put("eventDate", event.getEventDate());
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
         payload.put("winningMessage", event.getWinningMessage());
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         if (posterUrl != null) {
             payload.put("posterUrl", posterUrl);
         }
@@ -1128,13 +1166,66 @@ public class EventRepository {
     }
 
     /**
+     * returns whether an event should be visible on the current events screen
+     * @param waitlistOpen
+     * whether the waitlist is allowing sign-ups
+     * @param deleted
+     * whether the event is deleted
+     * @param isPublic
+     * whether the event is public
+     * @param eventDate
+     * when the event occurs
+     * @param registrationDeadline
+     * when sign-ups close
+     * @param now
+     * current time
+     * @return
+     * whether the event belongs on the current public events list
+     */
+    public static boolean isCurrentEventVisible(
+            boolean waitlistOpen,
+            boolean deleted,
+            boolean isPublic,
+            @Nullable Date eventDate,
+            @Nullable Date registrationDeadline,
+            @NonNull Date now
+    ) {
+        if (deleted || !isPublic || !waitlistOpen) {
+            return false;
+        }
+
+        boolean upcomingByEventDate = eventDate != null && eventDate.after(now);
+        boolean beforeDeadline = isWaitlistJoinOpen(waitlistOpen, registrationDeadline, now);
+        return upcomingByEventDate || beforeDeadline;
+    }
+
+    /**
+     * determines event access for the current user
+     * @param isPublic
+     * whether the event is public
+     * @param isHost
+     * whether the current user hosts the event
+     * @param hasWaitlistEntry
+     * whether the current user already has an event waitlist record
+     * @return
+     * whether the user can view the event
+     */
+    public static boolean canUserAccessEvent(
+            boolean isPublic,
+            boolean isHost,
+            boolean hasWaitlistEntry
+    ) {
+        return isPublic || isHost || hasWaitlistEntry;
+    }
+
+    /**
      * return a number 1 more than the argument
      * @param currentCount
      * int to be incremented
      * @return
      * int currentCount incremented by 1
      */
-    static int incrementWaitlistCount(int currentCount) {
+    public static int incrementWaitlistCount(int currentCount) {
         return currentCount + 1;
     }
 
@@ -1145,8 +1236,55 @@ public class EventRepository {
      * @return
      * int currentCount after decrementing by 1
      */
-    static int decrementWaitlistCount(int currentCount) {
+    public static int decrementWaitlistCount(int currentCount) {
         return Math.max(0, currentCount - 1);
+    }
+
+    /**
+     * normalizes keywords read from user input or firestore
+     * @param rawKeywords
+     * raw keyword list
+     * @return
+     * trimmed keyword list without duplicates or blanks
+     */
+    @NonNull
+    public static List<String> normalizeKeywords(@Nullable Object rawKeywords) {
+        if (!(rawKeywords instanceof List<?>)) {
+            return new ArrayList<>();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (Object rawKeyword : (List<?>) rawKeywords) {
+            if (!(rawKeyword instanceof String)) {
+                continue;
+            }
+            String keyword = ((String) rawKeyword).trim();
+            if (keyword.isEmpty() || containsKeywordIgnoreCase(normalized, keyword)) {
+                continue;
+            }
+            normalized.add(keyword);
+        }
+        return normalized;
+    }
+
+    /**
+     * normalizes the stored public flag for legacy events without the field
+     * @param isPublicValue
+     * stored public flag
+     * @return
+     * true when the field is missing, otherwise the stored value
+     */
+    public static boolean normalizeIsPublic(@Nullable Boolean isPublicValue) {
+        return isPublicValue == null || Boolean.TRUE.equals(isPublicValue);
+    }
+
+    private static boolean containsKeywordIgnoreCase(@NonNull List<String> keywords, @NonNull String candidate) {
+        for (String keyword : keywords) {
+            if (keyword.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

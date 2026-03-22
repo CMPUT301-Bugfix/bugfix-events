@@ -83,6 +83,16 @@
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/viewEventKeywords"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:visibility="gone"
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="8dp"
+                tools:visibility="visible" />
+
             <TextView
                 android:id="@+id/viewEventHost"
                 android:layout_width="match_parent"

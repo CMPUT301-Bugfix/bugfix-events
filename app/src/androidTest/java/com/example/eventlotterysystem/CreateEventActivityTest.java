@@ -371,7 +371,25 @@ public class CreateEventActivityTest {
      */
     private String createHostedTestEvent(String title, String description, String location, Uri posterUri) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        EventItem event = new EventItem("", title, description, location, "", 10, 5, 0, new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)), new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(2)), false, currentUser.getUid(), "");
+        EventItem event = new EventItem(
+                "",
+                title,
+                description,
+                location,
+                "",
+                10,
+                5,
+                0,
+                new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)),
+                new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(2)),
+                false,
+                currentUser.getUid(),
+                "",
+                true,
+                "",
+                java.util.Collections.emptyList(),
+                true
+        );
         return Tasks.await(new EventRepository().createEvent(currentUser, event, posterUri), 15, TimeUnit.SECONDS);
     }
 
