@@ -10,6 +10,9 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 /**
  * This is a class that is the controller of the activity_entrants screen
  * it allows organiser to navigate to view lists of entrants
@@ -88,17 +91,37 @@ public class EntrantsActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
+                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
+                        Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
                     eventTitle = event.getTitle();
                     totalEntrants = event.getTotalEntrants();
                     maxEntrants = event.getMaxEntrants();
                     updateButtons();
+                    loadEntrantCounts();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to refresh entrant totals", e);
+                    Toast.makeText(
+                            EntrantsActivity.this,
+                            getString(R.string.failed_to_load_entrants),
+                            Toast.LENGTH_LONG
+                    ).show();
                 });
+    }
 
+    private void loadEntrantCounts() {
         repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CHOSEN)
                 .addOnSuccessListener(count -> {
                     chosenEntrants = count;

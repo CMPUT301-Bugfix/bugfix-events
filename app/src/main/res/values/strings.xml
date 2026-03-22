@@ -84,6 +84,7 @@
     <string name="failed_to_update_event">Failed to update event.</string>
     <string name="failed_to_load_events">Failed to load events.</string>
     <string name="failed_to_load_event">Failed to load event.</string>
+    <string name="event_manage_permission_denied">You do not have permission to manage this event.</string>
     <string name="private_event_access_denied">This event is private.</string>
     <string name="failed_to_render_event">Failed to display event details.</string>
     <string name="event_details_load_failed_message">The event details could not be loaded. Check the error message and your Firestore permissions.</string>
@@ -178,6 +179,11 @@
     <string name="view_user_profiles">user profiles</string>
     <string name="user_profiles">user profiles</string>
     <string name="user_profile_details">profile details</string>
+    <string name="assign_coorganizer_title">assign co-organizer</string>
+    <string name="assign_coorganizer_action">Assign to co-organizer</string>
+    <string name="assign_coorganizer_confirm_message">Assign %1$s as a co-organizer for this event? They will be removed from the entrant pool.</string>
+    <string name="assign_coorganizer_success">Co-organizer assigned.</string>
+    <string name="assign_coorganizer_failed">Could not assign co-organizer. Try again.</string>
     <string name="filter_users">all users</string>
     <string name="filter_organizers">organizers</string>
     <string name="profile_name_label">Name: %1$s</string>

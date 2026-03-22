@@ -190,6 +190,10 @@ public class ViewEventActivity extends AppCompatActivity {
     private void renderEvent(EventItem event) {
         try {
             currentEvent = event;
+            FirebaseUser currentUser = auth.getCurrentUser();
+            canEditEvent = currentUser != null && EventRepository.canManageEvent(event, currentUser.getUid());
+            screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+            editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             qrCodeButton.setVisibility(event.isPublic() ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
@@ -215,13 +219,16 @@ public class ViewEventActivity extends AppCompatActivity {
      * it starts the CreateEventActivity Activity with the EVENT_ID as an argument
      */
     private void openEventEditor() {
+        if (!canEditEvent) {
+            return;
+        }
         Intent intent = new Intent(this, CreateEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
         startActivity(intent);
     }
 
     private void openEntrantsScreen() {
-        if (currentEvent == null) {
+        if (currentEvent == null || !canEditEvent) {
             return;
         }
         Intent intent = new Intent(this, EntrantsActivity.class);
@@ -515,7 +522,7 @@ public class ViewEventActivity extends AppCompatActivity {
      */
 
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
-        boolean organizer = currentUserUid != null && currentUserUid.equals(event.getHostUid());
+        boolean organizer = EventRepository.canManageEvent(event, currentUserUid);
         if (organizer) {
             updateWaitlistFlags(false, false, false, false);
             return;
@@ -726,7 +733,7 @@ public class ViewEventActivity extends AppCompatActivity {
         FirebaseUser currentUser = auth.getCurrentUser();
         return currentEvent != null
                 && currentUser != null
-                && currentUser.getUid().equals(currentEvent.getHostUid());
+                && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
     }
 
     /**

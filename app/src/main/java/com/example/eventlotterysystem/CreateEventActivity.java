@@ -76,6 +76,7 @@ public class CreateEventActivity extends AppCompatActivity {
     private SwitchCompat geolocationSwitch;
     private SwitchCompat publicSwitch;
     private final List<String> keywords = new ArrayList<>();
+    private final List<String> currentCoorganizers = new ArrayList<>();
 
     private Uri selectedPosterUri;
     private LocalDate selectedDeadlineDate;
@@ -296,6 +297,7 @@ public class CreateEventActivity extends AppCompatActivity {
                 geolocationSwitch.isChecked(),
                 currentUser.getUid(),
                 "",
+                currentCoorganizers,
                 true,
                 winningMessage,
                 keywords,
@@ -391,8 +393,25 @@ public class CreateEventActivity extends AppCompatActivity {
      */
     private void loadEventForEditing(String eventId) {
         setLoading(true);
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            setLoading(false);
+            Toast.makeText(this, R.string.unexpected_error, Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
+                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.event_manage_permission_denied,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        finish();
+                        return;
+                    }
                     setLoading(false);
                     populateForm(event);
                 })
@@ -419,6 +438,8 @@ public class CreateEventActivity extends AppCompatActivity {
         locationInput.setText(event.getLocation());
         keywords.clear();
         keywords.addAll(event.getKeywords());
+        currentCoorganizers.clear();
+        currentCoorganizers.addAll(event.getCoorganizers());
         renderKeywordChips();
         maxEntrantsInput.setText(event.getMaxEntrants() > 0 ? String.valueOf(event.getMaxEntrants()) : "");
         maxParticipantsInput.setText(event.getMaxParticipants() > 0 ? String.valueOf(event.getMaxParticipants()) : "");
