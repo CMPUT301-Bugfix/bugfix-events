@@ -241,4 +241,6 @@
     <string name="unknown_organizer">Unknown organizer</string>
     <string name="admin_event_entrants_placeholder">entrants 0/0</string>
     <string name="admin_event_entrants_format">entrants %1$d/%2$d</string>
+    <string name="no_notifications">No notifications found.</string>
+    <string name="notification_log_button">Notification Log</string>
 </resources>

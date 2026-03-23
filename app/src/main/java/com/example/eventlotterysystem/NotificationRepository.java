@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -174,4 +175,51 @@ public class NotificationRepository {
                 .document(notificationId)
                 .delete();
     }
+
+    /**
+     * reads in a Notification document in the database into an Notification object
+     * @param doc
+     * a reference to Notification document in the database
+     * @return
+     * a created Notification object with the data from the document
+     */
+    @NonNull
+    public NotificationItem readNotificationItem(@NonNull DocumentSnapshot doc) {
+        String eventId = doc.getString("eventId");
+        String title = doc.getString("title");
+        String message = doc.getString("message");
+        String type = doc.getString("type");
+
+        return new NotificationItem(
+                eventId,
+                title,
+                message,
+                type
+        );
+    }
+
+    /**
+     * Retrieves all notifications from the notificactions collection, ordered by timestamp (newest first)
+     * @return A Task containing a list of NotificationItem objects
+     */
+    public Task<List<NotificationItem>> getNotificationLog() {
+        return firestore.collection("notifications")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null ? task.getException() : new Exception("Failed to fetch notifications");
+                    }
+                    List<NotificationItem> notifications = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult()) {
+                        NotificationItem item = doc.toObject(NotificationItem.class);
+                        if (item != null) {
+                            item.setId(doc.getId());
+                            notifications.add(item);
+                        }
+                    }
+                    return notifications;
+                });
+    }
+
 }
