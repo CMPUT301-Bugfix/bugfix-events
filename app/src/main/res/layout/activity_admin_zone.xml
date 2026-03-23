@@ -72,6 +72,13 @@
             android:layout_marginTop="12dp"
             android:text="@string/view_events" />
 
+        <Button
+            android:id="@+id/adminPhotosButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/admin_photos" />
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

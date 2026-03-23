@@ -10,6 +10,9 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,7 +73,31 @@ public class AllEntrantsActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        loadEntrants();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
+        repository.getEventById(eventId)
+                .addOnSuccessListener(event -> {
+                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
+                        Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+                        finish();
+                        return;
+                    }
+                    loadEntrants();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to verify entrant access", e);
+                    Toast.makeText(
+                            AllEntrantsActivity.this,
+                            buildLoadErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                });
     }
 
     /**
@@ -123,6 +150,7 @@ public class AllEntrantsActivity extends AppCompatActivity {
         long createdAtMillis = entrant.getCreatedAt() == null ? -1L : entrant.getCreatedAt().toDate().getTime();
         intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, createdAtMillis);
         intent.putExtra(UserProfileDetailsActivity.ALLOW_DELETE, false);
+        intent.putExtra(UserProfileDetailsActivity.EVENT_ID, eventId);
         startActivity(intent);
     }
 

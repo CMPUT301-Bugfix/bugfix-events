@@ -14,6 +14,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -87,9 +89,16 @@ public class EventRepository {
      * task that gets all the events that the user created as a list of event objects raises an exception of failure
      */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
-        return firestore.collection("events")
-                .whereEqualTo("hostUid", hostUid)
-                .get()
+        Task<List<EventItem>> hostedTask = loadManagedEvents(
+                firestore.collection("events").whereEqualTo("hostUid", hostUid),
+                "Failed to load hosted events"
+        );
+        Task<List<EventItem>> coorganizersTask = loadManagedEvents(
+                firestore.collection("events").whereArrayContains("coOrganizerUids", hostUid),
+                "Failed to load co-organized events"
+        );
+
+        return Tasks.whenAllSuccess(hostedTask, coorganizersTask)
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
                         throw task.getException() != null
@@ -97,15 +106,11 @@ public class EventRepository {
                                 : new IllegalStateException("Failed to load hosted events");
                     }
 
-                    List<EventItem> results = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
-                            continue;
-                        }
-                        results.add(readEventItem(doc));
-                    }
-                    sortByEventDate(results);
-                    return results;
+                    @SuppressWarnings("unchecked")
+                    List<EventItem> hostedEvents = (List<EventItem>) task.getResult().get(0);
+                    @SuppressWarnings("unchecked")
+                    List<EventItem> coorganizedEvents = (List<EventItem>) task.getResult().get(1);
+                    return mergeManagedEvents(hostedEvents, coorganizedEvents);
                 });
     }
 
@@ -241,7 +246,99 @@ public class EventRepository {
     }
 
     /**
-     * updates a waitlist entry object for a user signed up for an event status' into a new one
+     * determines whether a user can access an event detail screen
+     * for private events, access is granted to the host and to anyone
+     * who already has a waitlist record for the event
+     * @param event
+     * event being accessed
+     * @param eventId
+     * id of the event
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user can view the event
+     */
+    public Task<Boolean> canUserAccessEvent(
+            @NonNull EventItem event,
+            @NonNull String eventId,
+            @Nullable String uid
+    ) {
+        if (!hasText(uid)) {
+            return Tasks.forResult(canUserAccessEvent(event.isPublic(), false, false));
+        }
+
+        boolean canManage = canManageEvent(event, uid);
+        if (canUserAccessEvent(event.isPublic(), canManage, false)) {
+            return Tasks.forResult(true);
+        }
+
+        return eventWaitlistEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to verify event access");
+                    }
+                    DocumentSnapshot doc = task.getResult();
+                    boolean hasWaitlistEntry = doc != null && doc.exists();
+                    return canUserAccessEvent(event.isPublic(), canManage, hasWaitlistEntry);
+                });
+    }
+
+    public Task<Void> assignCoorganizer(
+            @NonNull String eventId,
+            @NonNull String targetUid,
+            @NonNull String actingUid
+    ) {
+        if (!hasText(eventId) || !hasText(targetUid) || !hasText(actingUid)) {
+            return Tasks.forException(new IllegalArgumentException("Missing co-organizer assignment details"));
+        }
+
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, targetUid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(targetUid, eventId);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot eventDoc = transaction.get(eventRef);
+            if (!eventDoc.exists() || Boolean.TRUE.equals(eventDoc.getBoolean("deleted"))) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            EventItem event = readEventItem(eventDoc);
+            if (!isHost(event, actingUid)) {
+                throw new IllegalStateException("Only the host can assign co-organizers");
+            }
+            if (isHost(event, targetUid)) {
+                return null;
+            }
+
+            List<String> coorganizers = new ArrayList<>(event.getCoorganizers());
+            if (!coorganizers.contains(targetUid)) {
+                coorganizers.add(targetUid);
+            }
+
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (eventMembershipDoc.exists()) {
+                transaction.delete(eventWaitlistRef);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.delete(userWaitlistRef);
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("coOrganizerUids", normalizeCoorganizers(coorganizers));
+            if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
+                updates.put("totalEntrants", decrementWaitlistCount(event.getTotalEntrants()));
+            }
+            transaction.update(eventRef, updates);
+            return null;
+        });
+    }
+
+    /**
+     * updates a waitlist entry object for a user signed up for an event status' into a new one.
      * @param eventId
      * Id of the Event
      * @param uid
@@ -313,7 +410,8 @@ public class EventRepository {
             }
 
             String hostUid = normalize(eventDoc.getString("hostUid"));
-            if (hostUid.equals(currentUser.getUid())) {
+            List<String> coorganizers = normalizeCoorganizers(eventDoc.get("coOrganizerUids"));
+            if (hostUid.equals(currentUser.getUid()) || coorganizers.contains(currentUser.getUid())) {
                 throw new IllegalStateException("Organizers cannot join their own waitlist");
             }
 
@@ -626,17 +724,23 @@ public class EventRepository {
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
                                     List<String> chosenUids = new ArrayList<>();
+                                    List<String> notChosenUids = new ArrayList<>();
                                     WriteBatch batch = firestore.batch();
-                                    for (int i = 0; i < drawCount; i++) {
+                                    
+                                    for (int i = 0; i < candidates.size(); i++) {
                                         String uid = candidates.get(i).getId();
-                                        chosenUids.add(uid);
-                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
-                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
-                                        
-                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
-                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        if (i < drawCount) {
+                                            chosenUids.add(uid);
+                                            DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                            DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                            
+                                            batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                            batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        } else {
+                                            notChosenUids.add(uid);
+                                        }
                                     }
 
                                     // set waitlistOpen to false in the event doc when a draw is performed
@@ -644,8 +748,22 @@ public class EventRepository {
 
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
-                                        // Pass the chosenUids directly to avoid re-querying!
-                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
+                                        List<Task<Void>> tasks = new ArrayList<>();
+                                        
+                                        // Send Winning Notifications
+                                        if (!chosenUids.isEmpty()) {
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids));
+                                        }
+                                        
+                                        // Send Loser/Waiting Notifications to the rest
+                                        if (!notChosenUids.isEmpty()) {
+                                            String loseMessage = "The draw for " + event.getTitle() + " has been performed. " +
+                                                    "You were not selected this time, but keep an eye on your inbox! " +
+                                                    "If someone declines their spot, it will be automatically redrawn.";
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), loseMessage, "GENERAL", notChosenUids));
+                                        }
+                                        
+                                        return Tasks.whenAll(tasks);
                                     });
                                 });
                     });
@@ -670,9 +788,8 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them. Keeps track of timing
-     * and calls perform lottery draw
-     * NOT QUITE WORKING
+     * Finds users who haven't responded within 3 days and replaces them.
+     * Triggers a redraw to fill vacated spots.
      * @param eventId
      * The ID of the event to process expired winners from
      * @param winningMessage
@@ -681,19 +798,41 @@ public class EventRepository {
      * task that completes after expired winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
-        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
+        return processExpiredWinners(eventId, winningMessage, System.currentTimeMillis());
+    }
+
+    /**
+     * Helper method for processExpiredWinners that allows for a custom current time for testing purposes.
+     * @param eventId
+     * The ID of the event to process expired winners from
+     * @param winningMessage
+     * The message to be sent to users selected in the lottery.
+     * @param currentTimeMillis
+     * The current time in milliseconds.
+     * @return
+     * task that completes after expired winners are processed and any replacement draws finish
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage, long currentTimeMillis) {
+        long threeDaysAgo = currentTimeMillis - (3L * 24 * 60 * 60 * 1000);
         Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
 
         return firestore.collection("events").document(eventId).collection("waitlist")
                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
-                .whereLessThan("chosenAt", threshold)
                 .get().continueWithTask(task -> {
-                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
-                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+                    List<DocumentSnapshot> allPending = task.getResult().getDocuments();
+                    List<String> toRemove = new ArrayList<>();
+                    
+                    for (DocumentSnapshot doc : allPending) {
+                        Timestamp chosenAt = doc.getTimestamp("chosenAt");
+                        if (chosenAt != null && chosenAt.compareTo(threshold) < 0) {
+                            toRemove.add(doc.getId());
+                        }
+                    }
+                    
+                    if (toRemove.isEmpty()) return performLotteryDraw(eventId, winningMessage);
 
                     WriteBatch batch = firestore.batch();
-                    for (DocumentSnapshot doc : expired) {
-                        String uid = doc.getId();
+                    for (String uid : toRemove) {
                         batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
                         batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
                     }
@@ -723,46 +862,63 @@ public class EventRepository {
             @Nullable Uri posterUri
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        if (posterUri == null) {
-            return eventRef.update(buildUpdatedEventPayload(event, null))
-                    .continueWith(task -> {
-                        if (!task.isSuccessful()) {
-                            throw task.getException() != null
-                                    ? task.getException()
-                                    : new IllegalStateException("Failed to update event");
+        return eventRef.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
+            DocumentSnapshot eventDoc = task.getResult();
+            if (eventDoc == null || !eventDoc.exists()) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            if (!canManageEvent(readEventItem(eventDoc), currentUser.getUid())) {
+                throw new IllegalStateException("You do not have permission to edit this event");
+            }
+
+            if (posterUri == null) {
+                return eventRef.update(buildUpdatedEventPayload(event, null))
+                        .continueWith(updateTask -> {
+                            if (!updateTask.isSuccessful()) {
+                                throw updateTask.getException() != null
+                                        ? updateTask.getException()
+                                        : new IllegalStateException("Failed to update event");
+                            }
+                            return eventId;
+                        });
+            }
+
+            StorageReference posterRef = storage.getReference()
+                    .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
+
+            return posterRef.putFile(posterUri)
+                    .continueWithTask(uploadTask -> {
+                        if (!uploadTask.isSuccessful()) {
+                            throw uploadTask.getException() != null
+                                    ? uploadTask.getException()
+                                    : new IllegalStateException("Poster upload failed");
                         }
-                        return eventId;
+                        return posterRef.getDownloadUrl();
+                    })
+                    .continueWithTask(downloadTask -> {
+                        if (!downloadTask.isSuccessful()) {
+                            throw downloadTask.getException() != null
+                                    ? downloadTask.getException()
+                                    : new IllegalStateException("Poster upload failed");
+                        }
+                        return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
+                                .continueWith(updateTask -> {
+                                    if (!updateTask.isSuccessful()) {
+                                        throw updateTask.getException() != null
+                                                ? updateTask.getException()
+                                                : new IllegalStateException("Failed to update event");
+                                    }
+                                    return eventId;
+                                });
                     });
-        }
-
-        StorageReference posterRef = storage.getReference()
-                .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
-
-        return posterRef.putFile(posterUri)
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Poster upload failed");
-                    }
-                    return posterRef.getDownloadUrl();
-                })
-                .continueWithTask(downloadTask -> {
-                    if (!downloadTask.isSuccessful()) {
-                        throw downloadTask.getException() != null
-                                ? downloadTask.getException()
-                                : new IllegalStateException("Poster upload failed");
-                    }
-                    return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
-                            .continueWith(updateTask -> {
-                                if (!updateTask.isSuccessful()) {
-                                    throw updateTask.getException() != null
-                                            ? updateTask.getException()
-                                            : new IllegalStateException("Failed to update event");
-                                }
-                                return eventId;
-                            });
-                });
+        });
     }
 
     /**
@@ -828,27 +984,16 @@ public class EventRepository {
      * whether an event is able to have sign-ups
      */
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
-        Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
-        Boolean deleted = doc.getBoolean("deleted");
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
-
-        if (Boolean.TRUE.equals(deleted)) {
-            return false;
-        }
-
-        boolean upcomingByEventDate = false;
-        if (eventDateTimestamp != null) {
-            upcomingByEventDate = eventDateTimestamp.toDate().after(now);
-        }
-
-        boolean beforeDeadline = isWaitlistJoinOpen(
-                Boolean.TRUE.equals(waitlistOpen),
+        return isCurrentEventVisible(
+                Boolean.TRUE.equals(doc.getBoolean("waitlistOpen")),
+                Boolean.TRUE.equals(doc.getBoolean("deleted")),
+                normalizeIsPublic(doc.getBoolean("isPublic")),
+                eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
                 registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
                 now
         );
-
-        return Boolean.TRUE.equals(waitlistOpen) && (upcomingByEventDate || beforeDeadline);
     }
 
     /**
@@ -873,6 +1018,9 @@ public class EventRepository {
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
         Boolean waitlistOpenValue = doc.getBoolean("waitlistOpen");
         String winningMessage = doc.getString("winningMessage");
+        List<String> coorganizers = normalizeCoorganizers(doc.get("coOrganizerUids"));
+        List<String> keywords = normalizeKeywords(doc.get("keywords"));
+        boolean isPublic = normalizeIsPublic(doc.getBoolean("isPublic"));
 
         if (!hasText(title)) {
             title = "Untitled Event";
@@ -907,8 +1055,11 @@ public class EventRepository {
                 Boolean.TRUE.equals(doc.getBoolean("requiresGeolocation")),
                 hostUid,
                 hostDisplayName,
+                coorganizers,
                 Boolean.TRUE.equals(waitlistOpenValue),
-                winningMessage != null ? winningMessage : ""
+                winningMessage != null ? winningMessage : "",
+                keywords,
+                isPublic
         );
     }
 
@@ -945,7 +1096,10 @@ public class EventRepository {
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
         payload.put("hostUid", hostUid);
         payload.put("hostDisplayName", hostDisplayName);
+        payload.put("coOrganizerUids", normalizeCoorganizers(event.getCoorganizers()));
         payload.put("waitlistOpen", true);
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         payload.put("deleted", false);
         payload.put("createdAt", Timestamp.now());
         payload.put("winningMessage", event.getWinningMessage());
@@ -976,6 +1130,9 @@ public class EventRepository {
         payload.put("eventDate", event.getEventDate());
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
         payload.put("winningMessage", event.getWinningMessage());
+        payload.put("coOrganizerUids", normalizeCoorganizers(event.getCoorganizers()));
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         if (posterUrl != null) {
             payload.put("posterUrl", posterUrl);
         }
@@ -1035,6 +1192,28 @@ public class EventRepository {
             userProfile.setCreatedAt(createdAt);
         }
         return userProfile;
+    }
+
+    private Task<List<EventItem>> loadManagedEvents(
+            @NonNull Query query,
+            @NonNull String failureMessage
+    ) {
+        return query.get().continueWith(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException(failureMessage);
+            }
+
+            List<EventItem> results = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
+                    continue;
+                }
+                results.add(readEventItem(doc));
+            }
+            return results;
+        });
     }
 
     /**
@@ -1128,13 +1307,101 @@ public class EventRepository {
     }
 
     /**
+     * returns whether an event should be visible on the current events screen
+     * @param waitlistOpen
+     * whether the waitlist is allowing sign-ups
+     * @param deleted
+     * whether the event is deleted
+     * @param isPublic
+     * whether the event is public
+     * @param eventDate
+     * when the event occurs
+     * @param registrationDeadline
+     * when sign-ups close
+     * @param now
+     * current time
+     * @return
+     * whether the event belongs on the current public events list
+     */
+    public static boolean isCurrentEventVisible(
+            boolean waitlistOpen,
+            boolean deleted,
+            boolean isPublic,
+            @Nullable Date eventDate,
+            @Nullable Date registrationDeadline,
+            @NonNull Date now
+    ) {
+        if (deleted || !isPublic || !waitlistOpen) {
+            return false;
+        }
+
+        boolean upcomingByEventDate = eventDate != null && eventDate.after(now);
+        boolean beforeDeadline = isWaitlistJoinOpen(waitlistOpen, registrationDeadline, now);
+        return upcomingByEventDate || beforeDeadline;
+    }
+
+    /**
+     * determines event access for the current user
+     * @param isPublic
+     * whether the event is public
+     * @param isHost
+     * whether the current user hosts the event
+     * @param hasWaitlistEntry
+     * whether the current user already has an event waitlist record
+     * @return
+     * whether the user can view the event
+     */
+    public static boolean canUserAccessEvent(
+            boolean isPublic,
+            boolean canManage,
+            boolean hasWaitlistEntry
+    ) {
+        return isPublic || canManage || hasWaitlistEntry;
+    }
+
+    public static boolean isHost(@NonNull EventItem event, @Nullable String uid) {
+        return hasText(uid) && uid.equals(event.getHostUid());
+    }
+
+    public static boolean canManageEvent(@NonNull EventItem event, @Nullable String uid) {
+        if (isHost(event, uid)) {
+            return true;
+        }
+        if (!hasText(uid)) {
+            return false;
+        }
+        return event.getCoorganizers().contains(uid);
+    }
+
+    @NonNull
+    public static List<EventItem> mergeManagedEvents(
+            @NonNull List<EventItem> hostedEvents,
+            @NonNull List<EventItem> coorganizedEvents
+    ) {
+        Map<String, EventItem> merged = new LinkedHashMap<>();
+        for (EventItem event : hostedEvents) {
+            merged.put(event.getId(), event);
+        }
+        for (EventItem event : coorganizedEvents) {
+            merged.put(event.getId(), event);
+        }
+
+        List<EventItem> results = new ArrayList<>(merged.values());
+        Collections.sort(results, Comparator.comparing(
+                EventItem::getEventDate,
+                Comparator.nullsLast(Date::compareTo)
+        ));
+        return results;
+    }
+
+    /**
      * return a number 1 more than the argument
      * @param currentCount
      * int to be incremented
      * @return
      * int currentCount incremented by 1
      */
-    static int incrementWaitlistCount(int currentCount) {
+    public static int incrementWaitlistCount(int currentCount) {
         return currentCount + 1;
     }
 
@@ -1145,8 +1412,75 @@ public class EventRepository {
      * @return
      * int currentCount after decrementing by 1
      */
-    static int decrementWaitlistCount(int currentCount) {
+    public static int decrementWaitlistCount(int currentCount) {
         return Math.max(0, currentCount - 1);
+    }
+
+    /**
+     * normalizes keywords read from user input or firestore
+     * @param rawKeywords
+     * raw keyword list
+     * @return
+     * trimmed keyword list without duplicates or blanks
+     */
+    @NonNull
+    public static List<String> normalizeKeywords(@Nullable Object rawKeywords) {
+        if (!(rawKeywords instanceof List<?>)) {
+            return new ArrayList<>();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (Object rawKeyword : (List<?>) rawKeywords) {
+            if (!(rawKeyword instanceof String)) {
+                continue;
+            }
+            String keyword = ((String) rawKeyword).trim();
+            if (keyword.isEmpty() || containsKeywordIgnoreCase(normalized, keyword)) {
+                continue;
+            }
+            normalized.add(keyword);
+        }
+        return normalized;
+    }
+
+    @NonNull
+    public static List<String> normalizeCoorganizers(@Nullable Object rawCoorganizers) {
+        if (!(rawCoorganizers instanceof List<?>)) {
+            return new ArrayList<>();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (Object rawUid : (List<?>) rawCoorganizers) {
+            if (!(rawUid instanceof String)) {
+                continue;
+            }
+            String uid = normalize((String) rawUid);
+            if (uid.isEmpty() || normalized.contains(uid)) {
+                continue;
+            }
+            normalized.add(uid);
+        }
+        return normalized;
+    }
+
+    /**
+     * normalizes the stored public flag for legacy events without the field
+     * @param isPublicValue
+     * stored public flag
+     * @return
+     * true when the field is missing, otherwise the stored value
+     */
+    public static boolean normalizeIsPublic(@Nullable Boolean isPublicValue) {
+        return isPublicValue == null || Boolean.TRUE.equals(isPublicValue);
+    }
+
+    private static boolean containsKeywordIgnoreCase(@NonNull List<String> keywords, @NonNull String candidate) {
+        for (String keyword : keywords) {
+            if (keyword.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1157,7 +1491,7 @@ public class EventRepository {
      * cleaned String
      */
     @NonNull
-    private String normalize(String value) {
+    private static String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
@@ -1185,7 +1519,7 @@ public class EventRepository {
      * @return
      * true if there was actual text in the string
      */
-    private boolean hasText(String value) {
+    private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
 }

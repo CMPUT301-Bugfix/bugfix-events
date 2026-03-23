@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -18,6 +19,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
@@ -27,8 +32,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -50,18 +57,26 @@ public class CreateEventActivity extends AppCompatActivity {
     private EditText titleInput;
     private EditText descriptionInput;
     private EditText locationInput;
+    private TextInputLayout keywordInputLayout;
+    private TextInputEditText keywordInput;
     private EditText maxEntrantsInput;
     private EditText maxParticipantsInput;
     private EditText winningMessageInput;
+    private ChipGroup keywordsChipGroup;
     private ImageView posterPreview;
     private TextView posterStatus;
     private TextView deadlineValue;
     private TextView eventDateValue;
+    private TextView visibilityStatus;
+    private Button addKeywordButton;
     private Button posterButton;
     private Button deadlineButton;
     private Button eventDateButton;
     private Button submitButton;
     private SwitchCompat geolocationSwitch;
+    private SwitchCompat publicSwitch;
+    private final List<String> keywords = new ArrayList<>();
+    private final List<String> currentCoorganizers = new ArrayList<>();
 
     private Uri selectedPosterUri;
     private LocalDate selectedDeadlineDate;
@@ -101,29 +116,49 @@ public class CreateEventActivity extends AppCompatActivity {
         titleInput = findViewById(R.id.createEventTitleInput);
         descriptionInput = findViewById(R.id.createEventDescriptionInput);
         locationInput = findViewById(R.id.createEventLocationInput);
+        keywordInputLayout = findViewById(R.id.createEventKeywordInputLayout);
+        keywordInput = findViewById(R.id.createEventKeywordInput);
         maxEntrantsInput = findViewById(R.id.createEventMaxEntrantsInput);
         maxParticipantsInput = findViewById(R.id.createEventMaxParticipantsInput);
         winningMessageInput = findViewById(R.id.createEventWinningMessageInput);
+        keywordsChipGroup = findViewById(R.id.createEventKeywordsChipGroup);
         posterPreview = findViewById(R.id.createEventPosterPreview);
         posterStatus = findViewById(R.id.createEventPosterStatus);
         deadlineValue = findViewById(R.id.createEventDeadlineValue);
         eventDateValue = findViewById(R.id.createEventDateValue);
+        visibilityStatus = findViewById(R.id.createEventVisibilityStatus);
+        addKeywordButton = findViewById(R.id.createEventAddKeywordButton);
         posterButton = findViewById(R.id.createEventPosterButton);
         deadlineButton = findViewById(R.id.createEventDeadlineButton);
         eventDateButton = findViewById(R.id.createEventDateButton);
         submitButton = findViewById(R.id.createEventSubmitButton);
         geolocationSwitch = findViewById(R.id.createEventGeolocationSwitch);
+        publicSwitch = findViewById(R.id.createEventPublicSwitch);
 
         findViewById(R.id.createEventBackButton).setOnClickListener(v -> finish());
+        addKeywordButton.setOnClickListener(v -> addKeywordFromInput());
         posterButton.setOnClickListener(v -> posterPickerLauncher.launch("image/*"));
         deadlineButton.setOnClickListener(v -> showDatePicker(true));
         eventDateButton.setOnClickListener(v -> showDatePicker(false));
         submitButton.setOnClickListener(v -> submitEvent());
+        keywordInput.setOnEditorActionListener((v, actionId, event) -> {
+            boolean enterPressed = event != null
+                    && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    && event.getAction() == KeyEvent.ACTION_DOWN;
+            if (!enterPressed && actionId == android.view.inputmethod.EditorInfo.IME_NULL) {
+                return false;
+            }
+            addKeywordFromInput();
+            return true;
+        });
+        publicSwitch.setChecked(true);
+        publicSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> updateVisibilityStatus(isChecked));
 
         editingEventId = getIntent().getStringExtra("EVENT_ID");
         editMode = hasText(editingEventId);
 
         showPosterOptionalState();
+        updateVisibilityStatus(publicSwitch.isChecked());
         if (editMode) {
             screenTitle.setText(R.string.edit_event_title);
             screenSubtitle.setText(R.string.edit_event_subtitle);
@@ -181,6 +216,7 @@ public class CreateEventActivity extends AppCompatActivity {
         String description = readTrimmed(descriptionInput);
         String location = readTrimmed(locationInput);
         String winningMessage = readTrimmed(winningMessageInput);
+        addKeywordFromInput();
 
         boolean hasErrors = false;
         if (!hasText(title)) {
@@ -261,8 +297,11 @@ public class CreateEventActivity extends AppCompatActivity {
                 geolocationSwitch.isChecked(),
                 currentUser.getUid(),
                 "",
+                currentCoorganizers,
                 true,
-                winningMessage
+                winningMessage,
+                keywords,
+                publicSwitch.isChecked()
         );
 
         if (editMode) {
@@ -313,6 +352,7 @@ public class CreateEventActivity extends AppCompatActivity {
         titleInput.setError(null);
         descriptionInput.setError(null);
         locationInput.setError(null);
+        keywordInputLayout.setError(null);
         maxEntrantsInput.setError(null);
         maxParticipantsInput.setError(null);
         posterStatus.setError(null);
@@ -333,10 +373,14 @@ public class CreateEventActivity extends AppCompatActivity {
         titleInput.setEnabled(!loading);
         descriptionInput.setEnabled(!loading);
         locationInput.setEnabled(!loading);
+        keywordInputLayout.setEnabled(!loading);
+        keywordInput.setEnabled(!loading);
+        addKeywordButton.setEnabled(!loading);
         maxEntrantsInput.setEnabled(!loading);
         maxParticipantsInput.setEnabled(!loading);
         winningMessageInput.setEnabled(!loading);
         geolocationSwitch.setEnabled(!loading);
+        publicSwitch.setEnabled(!loading);
         findViewById(R.id.createEventBackButton).setEnabled(!loading);
     }
 
@@ -349,8 +393,25 @@ public class CreateEventActivity extends AppCompatActivity {
      */
     private void loadEventForEditing(String eventId) {
         setLoading(true);
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            setLoading(false);
+            Toast.makeText(this, R.string.unexpected_error, Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
+                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
+                        setLoading(false);
+                        Toast.makeText(
+                                CreateEventActivity.this,
+                                R.string.event_manage_permission_denied,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        finish();
+                        return;
+                    }
                     setLoading(false);
                     populateForm(event);
                 })
@@ -375,6 +436,11 @@ public class CreateEventActivity extends AppCompatActivity {
         titleInput.setText(event.getTitle());
         descriptionInput.setText(event.getDescription());
         locationInput.setText(event.getLocation());
+        keywords.clear();
+        keywords.addAll(event.getKeywords());
+        currentCoorganizers.clear();
+        currentCoorganizers.addAll(event.getCoorganizers());
+        renderKeywordChips();
         maxEntrantsInput.setText(event.getMaxEntrants() > 0 ? String.valueOf(event.getMaxEntrants()) : "");
         maxParticipantsInput.setText(event.getMaxParticipants() > 0 ? String.valueOf(event.getMaxParticipants()) : "");
         winningMessageInput.setText(event.getWinningMessage());
@@ -389,8 +455,62 @@ public class CreateEventActivity extends AppCompatActivity {
         }
 
         geolocationSwitch.setChecked(event.isRequiresGeolocation());
+        publicSwitch.setChecked(event.isPublic());
+        updateVisibilityStatus(event.isPublic());
         currentPosterUrl = event.getPosterUrl();
         showExistingPoster(currentPosterUrl);
+    }
+
+    private void addKeywordFromInput() {
+        if (keywordInput == null) {
+            return;
+        }
+
+        String keyword = keywordInput.getText() == null ? "" : keywordInput.getText().toString().trim();
+        keywordInputLayout.setError(null);
+        if (!hasText(keyword)) {
+            keywordInput.setText("");
+            return;
+        }
+        if (containsKeywordIgnoreCase(keyword)) {
+            keywordInputLayout.setError(getString(R.string.event_keyword_duplicate));
+            return;
+        }
+
+        keywords.add(keyword);
+        keywordInput.setText("");
+        renderKeywordChips();
+    }
+
+    private boolean containsKeywordIgnoreCase(String candidate) {
+        for (String keyword : keywords) {
+            if (keyword.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void renderKeywordChips() {
+        keywordsChipGroup.removeAllViews();
+        for (String keyword : keywords) {
+            Chip chip = new Chip(this);
+            chip.setText(keyword);
+            chip.setCloseIconVisible(true);
+            chip.setClickable(false);
+            chip.setCheckable(false);
+            chip.setOnCloseIconClickListener(v -> {
+                keywords.remove(keyword);
+                renderKeywordChips();
+            });
+            keywordsChipGroup.addView(chip);
+        }
+    }
+
+    private void updateVisibilityStatus(boolean isPublic) {
+        visibilityStatus.setText(isPublic
+                ? R.string.event_visibility_public_state
+                : R.string.event_visibility_private_state);
     }
 
     /**
