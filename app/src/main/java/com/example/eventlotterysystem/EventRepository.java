@@ -338,7 +338,7 @@ public class EventRepository {
     }
 
     /**
-     * updates a waitlist entry object for a user signed up for an event status' into a new one
+     * updates a waitlist entry object for a user signed up for an event status' into a new one.
      * @param eventId
      * Id of the Event
      * @param uid
@@ -724,17 +724,23 @@ public class EventRepository {
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
                                     List<String> chosenUids = new ArrayList<>();
+                                    List<String> notChosenUids = new ArrayList<>();
                                     WriteBatch batch = firestore.batch();
-                                    for (int i = 0; i < drawCount; i++) {
+                                    
+                                    for (int i = 0; i < candidates.size(); i++) {
                                         String uid = candidates.get(i).getId();
-                                        chosenUids.add(uid);
-                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
-                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
-                                        
-                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
-                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        if (i < drawCount) {
+                                            chosenUids.add(uid);
+                                            DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                            DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                            
+                                            batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                            batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        } else {
+                                            notChosenUids.add(uid);
+                                        }
                                     }
 
                                     // set waitlistOpen to false in the event doc when a draw is performed
@@ -742,8 +748,22 @@ public class EventRepository {
 
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
-                                        // Pass the chosenUids directly to avoid re-querying!
-                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
+                                        List<Task<Void>> tasks = new ArrayList<>();
+                                        
+                                        // Send Winning Notifications
+                                        if (!chosenUids.isEmpty()) {
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids));
+                                        }
+                                        
+                                        // Send Loser/Waiting Notifications to the rest
+                                        if (!notChosenUids.isEmpty()) {
+                                            String loseMessage = "The draw for " + event.getTitle() + " has been performed. " +
+                                                    "You were not selected this time, but keep an eye on your inbox! " +
+                                                    "If someone declines their spot, it will be automatically redrawn.";
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), loseMessage, "GENERAL", notChosenUids));
+                                        }
+                                        
+                                        return Tasks.whenAll(tasks);
                                     });
                                 });
                     });
@@ -768,9 +788,8 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them. Keeps track of timing
-     * and calls perform lottery draw
-     * NOT QUITE WORKING
+     * Finds users who haven't responded within 3 days and replaces them.
+     * Triggers a redraw to fill vacated spots.
      * @param eventId
      * The ID of the event to process expired winners from
      * @param winningMessage
@@ -779,19 +798,41 @@ public class EventRepository {
      * task that completes after expired winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
-        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
+        return processExpiredWinners(eventId, winningMessage, System.currentTimeMillis());
+    }
+
+    /**
+     * Helper method for processExpiredWinners that allows for a custom current time for testing purposes.
+     * @param eventId
+     * The ID of the event to process expired winners from
+     * @param winningMessage
+     * The message to be sent to users selected in the lottery.
+     * @param currentTimeMillis
+     * The current time in milliseconds.
+     * @return
+     * task that completes after expired winners are processed and any replacement draws finish
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage, long currentTimeMillis) {
+        long threeDaysAgo = currentTimeMillis - (3L * 24 * 60 * 60 * 1000);
         Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
 
         return firestore.collection("events").document(eventId).collection("waitlist")
                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
-                .whereLessThan("chosenAt", threshold)
                 .get().continueWithTask(task -> {
-                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
-                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+                    List<DocumentSnapshot> allPending = task.getResult().getDocuments();
+                    List<String> toRemove = new ArrayList<>();
+                    
+                    for (DocumentSnapshot doc : allPending) {
+                        Timestamp chosenAt = doc.getTimestamp("chosenAt");
+                        if (chosenAt != null && chosenAt.compareTo(threshold) < 0) {
+                            toRemove.add(doc.getId());
+                        }
+                    }
+                    
+                    if (toRemove.isEmpty()) return performLotteryDraw(eventId, winningMessage);
 
                     WriteBatch batch = firestore.batch();
-                    for (DocumentSnapshot doc : expired) {
-                        String uid = doc.getId();
+                    for (String uid : toRemove) {
                         batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
                         batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
                     }
