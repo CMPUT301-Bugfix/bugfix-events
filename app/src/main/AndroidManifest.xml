@@ -30,6 +30,9 @@
             android:name=".AdminZoneActivity"
             android:exported="false" />
         <activity
+            android:name=".AdminPhotosActivity"
+            android:exported="false" />
+        <activity
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity

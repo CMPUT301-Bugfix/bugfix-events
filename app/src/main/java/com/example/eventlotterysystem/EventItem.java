@@ -21,6 +21,7 @@ public class EventItem {
     private final boolean requiresGeolocation;
     private final String hostUid;
     private final String hostDisplayName;
+    private final List<String> coorganizers;
     private final boolean waitlistOpen;
     private final String winningMessage;
     private final List<String> keywords;
@@ -37,7 +38,7 @@ public class EventItem {
      * This describes what the Event is about
      */
     public EventItem(String id, String title, String description) {
-        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", true, "", Collections.emptyList(), true);
+        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", Collections.emptyList(), true, "", Collections.emptyList(), true);
     }
 
     /**
@@ -98,6 +99,7 @@ public class EventItem {
                 requiresGeolocation,
                 hostUid,
                 hostDisplayName,
+                Collections.emptyList(),
                 true,
                 "",
                 Collections.emptyList(),
@@ -169,6 +171,7 @@ public class EventItem {
                 requiresGeolocation,
                 hostUid,
                 hostDisplayName,
+                Collections.emptyList(),
                 waitlistOpen,
                 winningMessage,
                 Collections.emptyList(),
@@ -204,6 +207,8 @@ public class EventItem {
      * String identification of Author for the database
      * @param hostDisplayName
      * String Name of Author for the database
+     * @param coorganizers
+     * users who can manage the event in addition to the host
      * @param waitlistOpen
      * whether the waitlist is accepting sign-ups
      * @param winningMessage
@@ -227,6 +232,7 @@ public class EventItem {
             boolean requiresGeolocation,
             String hostUid,
             String hostDisplayName,
+            List<String> coorganizers,
             boolean waitlistOpen,
             String winningMessage,
             List<String> keywords,
@@ -245,17 +251,59 @@ public class EventItem {
         this.requiresGeolocation = requiresGeolocation;
         this.hostUid = hostUid;
         this.hostDisplayName = hostDisplayName;
+        this.coorganizers = copyStrings(coorganizers);
         this.waitlistOpen = waitlistOpen;
         this.winningMessage = winningMessage;
-        this.keywords = copyKeywords(keywords);
+        this.keywords = copyStrings(keywords);
         this.isPublic = isPublic;
     }
 
-    private static List<String> copyKeywords(List<String> keywords) {
-        if (keywords == null || keywords.isEmpty()) {
+    public EventItem(
+            String id,
+            String title,
+            String description,
+            String location,
+            String posterUrl,
+            int maxEntrants,
+            int maxParticipants,
+            int totalEntrants,
+            Date registrationDeadline,
+            Date eventDate,
+            boolean requiresGeolocation,
+            String hostUid,
+            String hostDisplayName,
+            boolean waitlistOpen,
+            String winningMessage,
+            List<String> keywords,
+            boolean isPublic
+    ) {
+        this(
+                id,
+                title,
+                description,
+                location,
+                posterUrl,
+                maxEntrants,
+                maxParticipants,
+                totalEntrants,
+                registrationDeadline,
+                eventDate,
+                requiresGeolocation,
+                hostUid,
+                hostDisplayName,
+                Collections.emptyList(),
+                waitlistOpen,
+                winningMessage,
+                keywords,
+                isPublic
+        );
+    }
+
+    private static List<String> copyStrings(List<String> values) {
+        if (values == null || values.isEmpty()) {
             return Collections.emptyList();
         }
-        return List.copyOf(keywords);
+        return List.copyOf(values);
     }
 
     /**
@@ -373,6 +421,15 @@ public class EventItem {
      */
     public String getHostDisplayName() {
         return hostDisplayName;
+    }
+
+    /**
+     * getter for co-organizer user ids
+     * @return
+     * immutable list of users who can manage the event
+     */
+    public List<String> getCoorganizers() {
+        return coorganizers;
     }
 
     /**
