@@ -67,7 +67,7 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
 
         backButton = findViewById(R.id.NotificationLogBackButton);
         notificationsLoading = findViewById(R.id.adminNotificationsLoading);
-        //notificationsEmptyState = findViewById(R.id.adminNotificationsEmptyState);
+        notificationsEmptyState = findViewById(R.id.adminNotificationsEmptyState);
         notificationsRecyclerView = findViewById(R.id.adminNotificationsRecyclerView);
 
         notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -161,8 +161,11 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
                     notificationList.clear();
                     notificationList.addAll(notifications);
                     notificationAdapter.notifyDataSetChanged();
+                    Toast.makeText(AdminNotificationsLogActivity.this, "Succeeded to load notifications", Toast.LENGTH_SHORT).show();
+
                 })
                 .addOnFailureListener(e -> {
+                    notificationsEmptyState.setVisibility(View.VISIBLE);
                     setLoading(false);
                     Toast.makeText(AdminNotificationsLogActivity.this, "Failed to load notifications", Toast.LENGTH_SHORT).show();
                 });
