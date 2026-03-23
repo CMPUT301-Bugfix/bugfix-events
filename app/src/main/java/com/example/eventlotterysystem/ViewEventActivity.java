@@ -7,7 +7,9 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,6 +22,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -56,7 +59,6 @@ public class ViewEventActivity extends AppCompatActivity {
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
-
     private String eventId;
     private boolean canEditEvent;
     private EventItem currentEvent;
@@ -65,6 +67,11 @@ public class ViewEventActivity extends AppCompatActivity {
     private boolean showJoinedLabel;
     private boolean showLeaveButton;
     private boolean waitlistActionLoading;
+    private EditText commentInput;
+    private Button postCommentButton;
+    private ListView commentsListView;
+    private CommentAdapter commentAdapter;
+    private final List<CommentItem> comments = new ArrayList<>();
 
     /**
      * This is the creation of the Activity
@@ -98,6 +105,11 @@ public class ViewEventActivity extends AppCompatActivity {
         qrCodeButton = findViewById(R.id.createQRCode);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
+        commentInput = findViewById(R.id.viewEventCommentInput);
+        postCommentButton = findViewById(R.id.viewEventPostCommentButton);
+        commentsListView = findViewById(R.id.viewEventCommentsList);
+        commentAdapter = new CommentAdapter(this, comments);
+        commentsListView.setAdapter(commentAdapter);
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -109,6 +121,16 @@ public class ViewEventActivity extends AppCompatActivity {
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
+        postCommentButton.setOnClickListener(v -> postComment());
+        commentsListView = findViewById(R.id.viewEventCommentsList);
+        commentsListView.setOnItemClickListener((parent, view, position, id) -> {
+            if (!shouldShowEntrantsButton()) {
+                return;
+            }
+
+            CommentItem selectedComment = comments.get(position);
+            showDeleteCommentDialog(selectedComment);
+        });
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -203,6 +225,7 @@ public class ViewEventActivity extends AppCompatActivity {
                     ? event.getDescription()
                     : getString(R.string.event_card_missing_description));
             loadWaitlistState(event);
+            loadComments();
         } catch (Exception exception) {
             Log.e(TAG, "Failed to render event details", exception);
             Toast.makeText(
@@ -328,12 +351,67 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    private void postComment() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "You must be signed in to comment", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String commentText = commentInput.getText().toString().trim();
+        if (commentText.isEmpty()) {
+            Toast.makeText(this, "Comment cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        repository.addComment(eventId, currentUser, commentText)
+                .addOnSuccessListener(unused -> {
+                    commentInput.setText("");
+                    loadComments();
+                    Toast.makeText(this, "Comment posted", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to post comment", Toast.LENGTH_SHORT).show());
+    }
+
+    /**
+     * Loads all comments for the current event and updates the comments list UI.
+     */
+    private void loadComments() {
+        repository.getComments(eventId)
+                .addOnSuccessListener(commentItems -> {
+                    comments.clear();
+                    comments.addAll(commentItems);
+                    commentAdapter.notifyDataSetChanged();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to load comments", Toast.LENGTH_SHORT).show());
+    }
+
+    /**
+     * Deletes the selected comment and refreshes the comments list.
+     *
+     * @param comment the comment to delete
+     */
+    private void deleteComment(CommentItem comment) {
+        repository.deleteComment(eventId, comment.getCommentId())
+                .addOnSuccessListener(unused -> {
+                    loadComments();
+                    Toast.makeText(this, "Comment deleted", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Failed to delete comment", Toast.LENGTH_SHORT).show());
+    }
+
     /**
      * Accepts an invitation for the current user by updating the waitlist status
      * to {@code CONFIRMED}.
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
+
+
+
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -366,6 +444,20 @@ public class ViewEventActivity extends AppCompatActivity {
                     setWaitlistActionLoading(false);
                     applyWaitlistViewState();
                 });
+    }
+
+    /**
+     * Shows a confirmation dialog before deleting a comment.
+     *
+     * @param comment the selected comment
+     */
+    private void showDeleteCommentDialog(CommentItem comment) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete comment")
+                .setMessage("Are you sure you want to delete this comment?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", (dialog, which) -> deleteComment(comment))
+                .show();
     }
 
     private void showRejectInvitationDialog() {
