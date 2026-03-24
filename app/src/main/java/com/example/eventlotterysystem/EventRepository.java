@@ -1522,4 +1522,130 @@ public class EventRepository {
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
+
+    /**
+     * Adds a new comment to the specified event.
+     *
+     * @param eventId the ID of the event receiving the comment
+     * @param currentUser the signed-in user posting the comment
+     * @param text the comment text to post
+     * @return a task representing the result of the comment write operation
+     */
+
+    public Task<Void> addComment(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String text
+    ) {
+        String trimmedText = text.trim();
+        if (trimmedText.isEmpty()) {
+            return Tasks.forException(new IllegalArgumentException("Comment cannot be empty"));
+        }
+
+        DocumentReference commentRef = firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document();
+
+        return getCommentDisplayName(currentUser)
+                .continueWithTask(task -> {
+                    String displayName = task.isSuccessful() ? normalize(task.getResult()) : "";
+
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("uid", currentUser.getUid());
+                    payload.put("text", trimmedText);
+                    payload.put("username", displayName);
+                    payload.put("createdAt", FieldValue.serverTimestamp());
+                    return commentRef.set(payload);
+                });
+    }
+
+    /**
+     * Resolves the name shown for a comment author.
+     *
+     * @param currentUser the signed-in user posting the comment
+     * @return a task resolving to the preferred display name for comments
+     */
+    private Task<String> getCommentDisplayName(@NonNull FirebaseUser currentUser) {
+        return firestore.collection("users")
+                .document(currentUser.getUid())
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        return "";
+                    }
+
+                    DocumentSnapshot userDoc = task.getResult();
+                    if (userDoc == null || !userDoc.exists()) {
+                        return "";
+                    }
+
+                    return normalize(userDoc.getString("fullName"));
+                });
+    }
+
+    /**
+     * Deletes a comment from an event.
+     *
+     * @param eventId the ID of the event containing the comment
+     * @param commentId the ID of the comment to delete
+     * @return a task representing the delete operation
+     */
+    public Task<Void> deleteComment(
+            @NonNull String eventId,
+            @NonNull String commentId
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document(commentId)
+                .delete();
+    }
+
+    /**
+     * Loads all comments for the specified event.
+     *
+     * Comments are read from the event's comments subcollection and returned as
+     * {@link CommentItem} objects sorted by creation time.
+     *
+     * @param eventId the ID of the event whose comments should be loaded
+     * @return a task containing the list of comments for the event
+     */
+
+    public Task<List<CommentItem>> getComments(@NonNull String eventId) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load comments");
+                    }
+
+                    List<CommentItem> comments = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        String uid = normalize(doc.getString("uid"));
+                        String username = normalize(doc.getString("username"));
+                        String text = normalize(doc.getString("text"));
+                        Timestamp createdAtTimestamp = doc.getTimestamp("createdAt");
+
+                        comments.add(new CommentItem(
+                                doc.getId(),
+                                uid,
+                                username,
+                                text,
+                                createdAtTimestamp == null ? null : createdAtTimestamp.toDate()
+                        ));
+                    }
+
+                    comments.sort(Comparator.comparing(
+                            CommentItem::getCreatedAt,
+                            Comparator.nullsLast(Date::compareTo)
+                    ));
+
+                    return comments;
+                });
+    }
 }

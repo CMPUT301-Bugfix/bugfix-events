@@ -49,6 +49,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView qrCodeButton;
     private Button entrantsButton;
     private Button editEventButton;
+    private Button commentsButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
     private Button acceptInvitationButton;
@@ -56,7 +57,6 @@ public class ViewEventActivity extends AppCompatActivity {
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
-
     private String eventId;
     private boolean canEditEvent;
     private EventItem currentEvent;
@@ -93,6 +93,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView = findViewById(R.id.viewEventWaitlistJoinedLabel);
         entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
+        commentsButton = findViewById(R.id.viewEventCommentsButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
         qrCodeButton = findViewById(R.id.createQRCode);
@@ -105,6 +106,7 @@ public class ViewEventActivity extends AppCompatActivity {
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
+        commentsButton.setOnClickListener(v -> openCommentsScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
@@ -239,6 +241,15 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
+     * Opens the dedicated comments screen for the current event.
+     */
+    private void openCommentsScreen() {
+        Intent intent = new Intent(this, CommentsActivity.class);
+        intent.putExtra(CommentsActivity.EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
+    /**
      * This is a controller for when joinWaitlistButton is pressed
      * it opens a popup to confirm the signup of to the Event
      * if join is press runs joinWaitlist()
@@ -334,6 +345,9 @@ public class ViewEventActivity extends AppCompatActivity {
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
+
+
+
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -722,12 +736,6 @@ public class ViewEventActivity extends AppCompatActivity {
         }
         return getString(R.string.waitlist_action_failed);
     }
-
-    /**
-     * Determines whether the entrants button should be shown for the current user.
-     *
-     * @return true if the signed-in user is the host of the current event, otherwise false
-     */
 
     private boolean shouldShowEntrantsButton() {
         FirebaseUser currentUser = auth.getCurrentUser();

@@ -51,6 +51,10 @@
             android:name=".CreateEventActivity"
             android:exported="false" />
         <activity
+            android:name=".CommentsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".ViewEventActivity"
             android:exported="false" />
         <activity
