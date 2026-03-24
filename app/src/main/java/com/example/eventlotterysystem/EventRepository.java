@@ -1547,17 +1547,41 @@ public class EventRepository {
                 .collection("comments")
                 .document();
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("uid", currentUser.getUid());
-        payload.put("text", trimmedText);
-        payload.put("username", firstNonEmpty(
-                currentUser.getDisplayName(),
-                currentUser.getEmail(),
-                currentUser.getUid()
-        ));
-        payload.put("createdAt", FieldValue.serverTimestamp());
+        return getCommentDisplayName(currentUser)
+                .continueWithTask(task -> {
+                    String displayName = task.isSuccessful() ? normalize(task.getResult()) : "";
 
-        return commentRef.set(payload);
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("uid", currentUser.getUid());
+                    payload.put("text", trimmedText);
+                    payload.put("username", displayName);
+                    payload.put("createdAt", FieldValue.serverTimestamp());
+                    return commentRef.set(payload);
+                });
+    }
+
+    /**
+     * Resolves the name shown for a comment author.
+     *
+     * @param currentUser the signed-in user posting the comment
+     * @return a task resolving to the preferred display name for comments
+     */
+    private Task<String> getCommentDisplayName(@NonNull FirebaseUser currentUser) {
+        return firestore.collection("users")
+                .document(currentUser.getUid())
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        return "";
+                    }
+
+                    DocumentSnapshot userDoc = task.getResult();
+                    if (userDoc == null || !userDoc.exists()) {
+                        return "";
+                    }
+
+                    return normalize(userDoc.getString("fullName"));
+                });
     }
 
     /**
