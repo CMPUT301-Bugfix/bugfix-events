@@ -683,6 +683,10 @@ public class EventRepository {
         });
     }
 
+    public Task<List<UserProfile>> getConfirmedEntrantsForEvent(@NonNull String eventId) {
+        return getEntrantsForEvent(eventId, WAITLIST_STATUS_CONFIRMED);
+    }
+
     /**
      * Performs lottery draw by moving random users from IN_WAITLIST to CHOSEN.
      * Selects up to maxParticipants winners from the pool of users who are IN_WAITLIST.
