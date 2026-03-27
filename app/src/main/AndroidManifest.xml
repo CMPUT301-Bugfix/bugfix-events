@@ -30,6 +30,9 @@
             android:name=".AdminZoneActivity"
             android:exported="false" />
         <activity
+            android:name=".AdminPhotosActivity"
+            android:exported="false" />
+        <activity
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity
@@ -47,6 +50,10 @@
         <activity
             android:name=".CreateEventActivity"
             android:exported="false" />
+        <activity
+            android:name=".CommentsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".ViewEventActivity"
             android:exported="false" />
@@ -78,6 +85,9 @@
             android:exported="false" />
         <activity
             android:name=".AdminEventDetailsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminNotificationsLogActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

@@ -26,6 +26,7 @@ import java.util.Map;
 
 /**
  * This is a class that is the controller of the activity_login screen
+ * it allows the user to put in credentials to login their account
  */
 public class LoginActivity extends AppCompatActivity {
 

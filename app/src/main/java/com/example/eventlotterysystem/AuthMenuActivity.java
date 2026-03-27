@@ -10,6 +10,8 @@ import com.google.firebase.auth.FirebaseUser;
 
 /**
  * This is a class that is the controller of the activity_auth_menu screen
+ * it is the stating activity of the app if user was not automatically signed
+ * it lets the user navigate to the signup and login activities
  */
 public class AuthMenuActivity extends AppCompatActivity {
 

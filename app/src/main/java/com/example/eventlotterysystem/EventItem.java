@@ -1,6 +1,8 @@
 package com.example.eventlotterysystem;
 
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Event class that is a container for all information related to an event
@@ -19,8 +21,11 @@ public class EventItem {
     private final boolean requiresGeolocation;
     private final String hostUid;
     private final String hostDisplayName;
+    private final List<String> coorganizers;
     private final boolean waitlistOpen;
     private final String winningMessage;
+    private final List<String> keywords;
+    private final boolean isPublic;
 
 
     /**
@@ -33,7 +38,7 @@ public class EventItem {
      * This describes what the Event is about
      */
     public EventItem(String id, String title, String description) {
-        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", true, "");
+        this(id, title, description, "", "", 0, 0, 0, null, null, false, "", "", Collections.emptyList(), true, "", Collections.emptyList(), true);
     }
 
     /**
@@ -94,8 +99,11 @@ public class EventItem {
                 requiresGeolocation,
                 hostUid,
                 hostDisplayName,
+                Collections.emptyList(),
                 true,
-                ""
+                "",
+                Collections.emptyList(),
+                true
         );
     }
 
@@ -129,6 +137,8 @@ public class EventItem {
      * String Name of Author for the database
      * @param waitlistOpen
      * whether the waitlist is accepting sign-ups
+     * @param winningMessage
+     * what to be displayed to a Entrant if they get selected
      */
     public EventItem(
             String id,
@@ -147,6 +157,87 @@ public class EventItem {
             boolean waitlistOpen,
             String winningMessage
     ) {
+        this(
+                id,
+                title,
+                description,
+                location,
+                posterUrl,
+                maxEntrants,
+                maxParticipants,
+                totalEntrants,
+                registrationDeadline,
+                eventDate,
+                requiresGeolocation,
+                hostUid,
+                hostDisplayName,
+                Collections.emptyList(),
+                waitlistOpen,
+                winningMessage,
+                Collections.emptyList(),
+                true
+        );
+    }
+
+    /**
+     * This creates the Event Object
+     * @param id
+     * String identification for the database
+     * @param title
+     * Name of the event
+     * @param description
+     * This describes what the Event is about
+     * @param location
+     * the place that the event takes place
+     * @param posterUrl
+     * link to the event image
+     * @param maxEntrants
+     * limit to the number of signups
+     * @param maxParticipants
+     * limit to the number of people going to the event
+     * @param totalEntrants
+     * current number of Entrants signed up (should always be 0)
+     * @param registrationDeadline
+     * when entrants will no longer be able to sign up of an event
+     * @param eventDate
+     * when the event takes place
+     * @param requiresGeolocation
+     * boolean of if entrant need to be close to the event location to sign up
+     * @param hostUid
+     * String identification of Author for the database
+     * @param hostDisplayName
+     * String Name of Author for the database
+     * @param coorganizers
+     * users who can manage the event in addition to the host
+     * @param waitlistOpen
+     * whether the waitlist is accepting sign-ups
+     * @param winningMessage
+     * what to be displayed to a Entrant if they get selected
+     * @param keywords
+     * labels attached to the event
+     * @param isPublic
+     * whether the event should be visible to all users
+     */
+    public EventItem(
+            String id,
+            String title,
+            String description,
+            String location,
+            String posterUrl,
+            int maxEntrants,
+            int maxParticipants,
+            int totalEntrants,
+            Date registrationDeadline,
+            Date eventDate,
+            boolean requiresGeolocation,
+            String hostUid,
+            String hostDisplayName,
+            List<String> coorganizers,
+            boolean waitlistOpen,
+            String winningMessage,
+            List<String> keywords,
+            boolean isPublic
+    ) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -160,8 +251,59 @@ public class EventItem {
         this.requiresGeolocation = requiresGeolocation;
         this.hostUid = hostUid;
         this.hostDisplayName = hostDisplayName;
+        this.coorganizers = copyStrings(coorganizers);
         this.waitlistOpen = waitlistOpen;
         this.winningMessage = winningMessage;
+        this.keywords = copyStrings(keywords);
+        this.isPublic = isPublic;
+    }
+
+    public EventItem(
+            String id,
+            String title,
+            String description,
+            String location,
+            String posterUrl,
+            int maxEntrants,
+            int maxParticipants,
+            int totalEntrants,
+            Date registrationDeadline,
+            Date eventDate,
+            boolean requiresGeolocation,
+            String hostUid,
+            String hostDisplayName,
+            boolean waitlistOpen,
+            String winningMessage,
+            List<String> keywords,
+            boolean isPublic
+    ) {
+        this(
+                id,
+                title,
+                description,
+                location,
+                posterUrl,
+                maxEntrants,
+                maxParticipants,
+                totalEntrants,
+                registrationDeadline,
+                eventDate,
+                requiresGeolocation,
+                hostUid,
+                hostDisplayName,
+                Collections.emptyList(),
+                waitlistOpen,
+                winningMessage,
+                keywords,
+                isPublic
+        );
+    }
+
+    private static List<String> copyStrings(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return List.copyOf(values);
     }
 
     /**
@@ -282,6 +424,15 @@ public class EventItem {
     }
 
     /**
+     * getter for co-organizer user ids
+     * @return
+     * immutable list of users who can manage the event
+     */
+    public List<String> getCoorganizers() {
+        return coorganizers;
+    }
+
+    /**
      * getter for waitlistOpen boolean
      * @return
      * whether the any entrant is allowed to sign-up
@@ -290,7 +441,30 @@ public class EventItem {
         return waitlistOpen;
     }
 
+    /**
+     * getter for winningMessage text
+     * @return
+     * String to be displayed to a User if they get selected
+     */
     public String getWinningMessage() {
         return winningMessage;
+    }
+
+    /**
+     * getter for keywords
+     * @return
+     * immutable list of event keywords
+     */
+    public List<String> getKeywords() {
+        return keywords;
+    }
+
+    /**
+     * getter for public/private visibility
+     * @return
+     * whether the event is visible to all users
+     */
+    public boolean isPublic() {
+        return isPublic;
     }
 }

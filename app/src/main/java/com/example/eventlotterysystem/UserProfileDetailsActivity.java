@@ -40,13 +40,18 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     public static final String UID = "uid";
     public static final String TIME_MILLIS = "timeMillis";
     public static final String ALLOW_DELETE = "allowDelete";
+    public static final String EVENT_ID = "eventId";
 
     private FirebaseFirestore firestore;
     private Button deleteProfileButton;
+    private Button assignCoorganizerButton;
+    private EventRepository repository;
     private boolean isDeleting;
+    private boolean isAssigningCoorganizer;
     private String viewedUid;
     private String viewedAccountType;
     private String viewedName;
+    private String sourceEventId;
 
     /**
      * This method deals with the creation of the user profile details screen and its component views
@@ -62,6 +67,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_profile_details);
         firestore = FirebaseFirestore.getInstance();
+        repository = new EventRepository();
 
         TextView detailsBackButton = findViewById(R.id.userProfileDetailsBackButton);
         TextView detailsNameValue = findViewById(R.id.userProfileDetailsNameValue);
@@ -71,6 +77,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         TextView detailsPhoneValue = findViewById(R.id.userProfileDetailsPhoneValue);
         TextView detailsJoinDateValue = findViewById(R.id.userProfileDetailsJoinDateValue);
         deleteProfileButton = findViewById(R.id.userProfileDeleteButton);
+        assignCoorganizerButton = findViewById(R.id.userProfileAssignCoorganizerButton);
 
         detailsBackButton.setOnClickListener(v -> finish());
 
@@ -83,6 +90,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         String phone = normalize(getIntent().getStringExtra(PHONE));
         long timeMillis = getIntent().getLongExtra(TIME_MILLIS, -1L);
         boolean allowDelete = getIntent().getBooleanExtra(ALLOW_DELETE, true);
+        sourceEventId = normalize(getIntent().getStringExtra(EVENT_ID));
 
         detailsNameValue.setText(getString(R.string.profile_name_label, safeValue(viewedName, R.string.unknown_name)));
         detailsTypeValue.setText(getString(R.string.profile_type_label, safeValue(viewedAccountType, R.string.unknown_account_type)));
@@ -96,9 +104,14 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 && !"admin".equalsIgnoreCase(viewedAccountType);
         if (!canDeleteViewedProfile) {
             deleteProfileButton.setVisibility(View.GONE);
-            return;
+        } else {
+            deleteProfileButton.setOnClickListener(v -> onDeleteProfileClicked());
         }
-        deleteProfileButton.setOnClickListener(v -> onDeleteProfileClicked());
+
+        assignCoorganizerButton.setVisibility(View.GONE);
+        if (!TextUtils.isEmpty(sourceEventId) && !TextUtils.isEmpty(viewedUid)) {
+            configureAssignCoorganizerButton();
+        }
     }
 
     /**
@@ -172,6 +185,67 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     private void setDeleting(boolean deleting) {
         isDeleting = deleting;
         deleteProfileButton.setEnabled(!deleting);
+    }
+
+    private void configureAssignCoorganizerButton() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            assignCoorganizerButton.setVisibility(View.GONE);
+            return;
+        }
+
+        repository.getEventById(sourceEventId)
+                .addOnSuccessListener(event -> {
+                    boolean canAssign = EventRepository.isHost(event, currentUser.getUid())
+                            && !EventRepository.isHost(event, viewedUid)
+                            && !event.getCoorganizers().contains(viewedUid);
+                    if (!canAssign) {
+                        assignCoorganizerButton.setVisibility(View.GONE);
+                        return;
+                    }
+                    assignCoorganizerButton.setVisibility(View.VISIBLE);
+                    assignCoorganizerButton.setOnClickListener(v -> showAssignCoorganizerDialog());
+                })
+                .addOnFailureListener(exception -> assignCoorganizerButton.setVisibility(View.GONE));
+    }
+
+    private void showAssignCoorganizerDialog() {
+        if (isAssigningCoorganizer) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.assign_coorganizer_title)
+                .setMessage(getString(
+                        R.string.assign_coorganizer_confirm_message,
+                        safeValue(viewedName, R.string.unknown_name)
+                ))
+                .setNegativeButton(R.string.back, (dialog, which) -> dialog.dismiss())
+                .setPositiveButton(R.string.assign_coorganizer_action, (dialog, which) -> assignCoorganizer())
+                .show();
+    }
+
+    private void assignCoorganizer() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null || TextUtils.isEmpty(sourceEventId) || TextUtils.isEmpty(viewedUid)) {
+            showMessage(getString(R.string.assign_coorganizer_failed));
+            return;
+        }
+
+        isAssigningCoorganizer = true;
+        assignCoorganizerButton.setEnabled(false);
+        repository.assignCoorganizer(sourceEventId, viewedUid, currentUser.getUid())
+                .addOnSuccessListener(unused -> {
+                    isAssigningCoorganizer = false;
+                    assignCoorganizerButton.setEnabled(true);
+                    showMessage(getString(R.string.assign_coorganizer_success));
+                    finish();
+                })
+                .addOnFailureListener(exception -> {
+                    isAssigningCoorganizer = false;
+                    assignCoorganizerButton.setEnabled(true);
+                    showMessage(getString(R.string.assign_coorganizer_failed));
+                });
     }
 
     private void showMessage(@NonNull String message) {

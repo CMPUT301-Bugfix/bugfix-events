@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseUser;
 
 /**
  * This is a class that is the controller which screen the user should start on
+ * if the user is found immediately log them in otherwise move them to authentication
  */
 public class MainActivity extends AppCompatActivity {
 
