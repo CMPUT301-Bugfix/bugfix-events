@@ -25,23 +25,18 @@ public class AdminBrowseEventsActivityTest {
 
     @Test
     public void testBrowseEventsViewsDisplayed() {
-        // Check core UI elements exist
         onView(withId(R.id.adminEventsBackButton)).check(matches(isDisplayed()));
         onView(withId(R.id.adminEventsScrollView)).check(matches(isDisplayed()));    }
 
     @Test
     public void testBackButtonClosesActivity() {
-        // Click the back button. If it crashes, the test fails.
         onView(withId(R.id.adminEventsBackButton)).perform(click());
     }
 
     @Test
     public void testClickEventOpensDetails() {
-        // Click the event row by clicking its title text.
         onView(withText("bean party")).perform(click());
 
-        // Now we should be on the details screen and see the title view.
-        // We check by view id (same Espresso pattern as the lab).
         onView(withId(R.id.adminEventDetailsTitleValue)).check(matches(isDisplayed()));
     }
 }
