@@ -82,11 +82,12 @@ public class EventRepository {
     }
 
     /**
-     * Load the a list event from the database for all events creator matching user ID and creates a respective event object list
+     * Load the a list event from the database for all events creator matching user ID
+     * and all events that the user coorganizes and creates a respective event object list
      * @param hostUid
-     * ID of the user that created the event
+     * ID of the user that manages the event
      * @return
-     * task that gets all the events that the user created as a list of event objects raises an exception of failure
+     * task that gets all the events that the user manages as a list of event objects raises an exception of failure
      */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
         Task<List<EventItem>> hostedTask = loadManagedEvents(
@@ -286,6 +287,17 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * assigns a user as a coorganizer for an Event and removes any waitlist entry they had for it
+     * @param eventId
+     * the String id of the Event
+     * @param targetUid
+     * the String uid of the user being assigned
+     * @param actingUid
+     * the String uid of the host assigning the coorganizer
+     * @return
+     * a Task that updates the Event and removes matching waitlist entries
+     */
     public Task<Void> assignCoorganizer(
             @NonNull String eventId,
             @NonNull String targetUid,
@@ -1205,6 +1217,15 @@ public class EventRepository {
         return userProfile;
     }
 
+    /**
+     * loads a list of Events from the database for a query used in managed Event screens
+     * @param query
+     * the firestore query used to load the Events
+     * @param failureMessage
+     * the error message used if loading fails
+     * @return
+     * a Task containing the list of loaded Event objects
+     */
     private Task<List<EventItem>> loadManagedEvents(
             @NonNull Query query,
             @NonNull String failureMessage
@@ -1355,8 +1376,8 @@ public class EventRepository {
      * determines event access for the current user
      * @param isPublic
      * whether the event is public
-     * @param isHost
-     * whether the current user hosts the event
+     * @param canManage
+     * whether the current user can manage the event
      * @param hasWaitlistEntry
      * whether the current user already has an event waitlist record
      * @return
@@ -1370,10 +1391,28 @@ public class EventRepository {
         return isPublic || canManage || hasWaitlistEntry;
     }
 
+    /**
+     * checks if the given user is the host of a Event
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user is the host of the Event
+     */
     public static boolean isHost(@NonNull EventItem event, @Nullable String uid) {
         return hasText(uid) && uid.equals(event.getHostUid());
     }
 
+    /**
+     * checks if the given user can manage a Event as the host or a coorganizer
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user can manage the Event
+     */
     public static boolean canManageEvent(@NonNull EventItem event, @Nullable String uid) {
         if (isHost(event, uid)) {
             return true;
@@ -1384,6 +1423,15 @@ public class EventRepository {
         return event.getCoorganizers().contains(uid);
     }
 
+    /**
+     * merges hosted Events and coorganized Events into one list without duplicates
+     * @param hostedEvents
+     * the list of Events hosted by the user
+     * @param coorganizedEvents
+     * the list of Events coorganized by the user
+     * @return
+     * a sorted list of managed Events without duplicates
+     */
     @NonNull
     public static List<EventItem> mergeManagedEvents(
             @NonNull List<EventItem> hostedEvents,
@@ -1454,6 +1502,13 @@ public class EventRepository {
         return normalized;
     }
 
+    /**
+     * normalizes coorganizer user ids read from user input or firestore
+     * @param rawCoorganizers
+     * raw coorganizer user id list
+     * @return
+     * trimmed coorganizer user ids without duplicates or blanks
+     */
     @NonNull
     public static List<String> normalizeCoorganizers(@Nullable Object rawCoorganizers) {
         if (!(rawCoorganizers instanceof List<?>)) {
