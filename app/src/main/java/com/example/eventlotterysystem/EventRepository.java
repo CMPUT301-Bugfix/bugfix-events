@@ -683,6 +683,13 @@ public class EventRepository {
         });
     }
 
+    /**
+     * gets all confirmed Entrants for a given Event
+     * @param eventId
+     * the String id of the Event
+     * @return
+     * a Task containing the list of confirmed UserProfiles for the Event
+     */
     public Task<List<UserProfile>> getConfirmedEntrantsForEvent(@NonNull String eventId) {
         return getEntrantsForEvent(eventId, WAITLIST_STATUS_CONFIRMED);
     }

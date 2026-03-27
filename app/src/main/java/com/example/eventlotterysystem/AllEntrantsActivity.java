@@ -151,6 +151,10 @@ public class AllEntrantsActivity extends AppCompatActivity {
         emptyState.setVisibility(hasEntrants ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * loads all confirmed Entrants for the current Event and creates the CSV export file content
+     * then opens the picker for where the csv file should be saved
+     */
     private void exportConfirmedEntrants() {
         if (!ConfirmedEntrantCsvExporter.shouldShowExportArea(statusFilter) || exportInProgress) {
             return;
@@ -192,6 +196,12 @@ public class AllEntrantsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * handles the document selected from the picker and writes the pending confirmed Entrants CSV
+     * into that file
+     * @param uri
+     * the Uri of the selected document, null if the picker was cancelled
+     */
     private void onCsvDocumentChosen(Uri uri) {
         if (uri == null) {
             pendingCsvContent = null;
@@ -301,6 +311,11 @@ public class AllEntrantsActivity extends AppCompatActivity {
         emptyState.setText(R.string.no_entrants);
     }
 
+    /**
+     * sets whether the confirmed Entrants export is in progress and updates the export button state
+     * @param loading
+     * true when the export is loading, false when it is not
+     */
     private void setExportInProgress(boolean loading) {
         exportInProgress = loading;
         exportButton.setEnabled(!loading);
