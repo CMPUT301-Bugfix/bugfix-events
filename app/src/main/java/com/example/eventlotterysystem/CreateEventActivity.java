@@ -205,6 +205,7 @@ public class CreateEventActivity extends AppCompatActivity {
      * This method creates the Event object from the user inputs
      * it has error checking to ensure all mandatory fields are filled
      * non-mandatory fields that are not filled are set to their defaults
+     * also adds the keywords and visibility settings chosen for the Event
      * the created event is uploaded to the database in Events collection
      * notifies user if creation was successful or not
      * if in edit mode modifies the event in database instead of creating a new document
@@ -461,6 +462,11 @@ public class CreateEventActivity extends AppCompatActivity {
         showExistingPoster(currentPosterUrl);
     }
 
+    /**
+     * adds the text in the keyword input into the Event keyword list
+     * if the keyword is blank it is ignored
+     * if the keyword already exists it shows an error
+     */
     private void addKeywordFromInput() {
         if (keywordInput == null) {
             return;
@@ -482,6 +488,13 @@ public class CreateEventActivity extends AppCompatActivity {
         renderKeywordChips();
     }
 
+    /**
+     * checks if a keyword already exists in the Event keyword list
+     * @param candidate
+     * the keyword being checked
+     * @return
+     * true if the keyword is already in the list ignoring case
+     */
     private boolean containsKeywordIgnoreCase(String candidate) {
         for (String keyword : keywords) {
             if (keyword.equalsIgnoreCase(candidate)) {
@@ -491,6 +504,9 @@ public class CreateEventActivity extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * updates the keyword chips shown on the screen for the current Event keyword list
+     */
     private void renderKeywordChips() {
         keywordsChipGroup.removeAllViews();
         for (String keyword : keywords) {
@@ -507,6 +523,11 @@ public class CreateEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * updates the text showing if the Event is public or private
+     * @param isPublic
+     * whether the Event is public
+     */
     private void updateVisibilityStatus(boolean isPublic) {
         visibilityStatus.setText(isPublic
                 ? R.string.event_visibility_public_state

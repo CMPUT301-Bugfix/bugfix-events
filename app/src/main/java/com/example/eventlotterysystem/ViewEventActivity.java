@@ -143,6 +143,7 @@ public class ViewEventActivity extends AppCompatActivity {
     /**
      * This loads the information of the selected event into this activity
      * This gets the event from the repository
+     * for private Events it checks if the current user is allowed to access the Event
      * if the event is unable to be loaded renderLoadFailureState() is run
      * if the event info was loaded but unable to be displayed renderLoadFailureState() is run
      * otherwise it  edits the text of the view to display event information
@@ -189,6 +190,12 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * displays the loaded Event information on the screen
+     * if the Event has keywords they are shown as chips on the screen
+     * @param event
+     * the Event being displayed
+     */
     private void renderEvent(EventItem event) {
         try {
             currentEvent = event;
@@ -341,7 +348,7 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * Accepts an invitation for the current user by updating the waitlist status
-     * to {@code CONFIRMED}.
+     * to CONFIRMED.
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
@@ -393,7 +400,7 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * Rejects an invitation for the current user by updating the waitlist status
-     * to {@code DECLINED}.
+     * to DECLINED.
      *
      * On success, the event is reloaded so the declined state is reflected in the UI.
      */
@@ -668,6 +675,11 @@ public class ViewEventActivity extends AppCompatActivity {
                 : R.string.event_geolocation_disabled);
     }
 
+    /**
+     * shows the Event keywords as chips on the screen
+     * @param keywords
+     * the list of keywords for the Event
+     */
     private void renderKeywordChips(List<String> keywords) {
         keywordsChipGroup.removeAllViews();
         if (keywords == null || keywords.isEmpty()) {

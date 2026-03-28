@@ -125,6 +125,9 @@ public class EntrantsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * loads the number of Entrants in each status and updates the matching status buttons
+     */
     private void loadEntrantCounts() {
         repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CHOSEN)
                 .addOnSuccessListener(count -> {

@@ -258,6 +258,43 @@ public class EventItem {
         this.isPublic = isPublic;
     }
 
+    /**
+     * This creates the Event Object
+     * @param id
+     * String identification for the database
+     * @param title
+     * Name of the event
+     * @param description
+     * This describes what the Event is about
+     * @param location
+     * the place that the event takes place
+     * @param posterUrl
+     * link to the event image
+     * @param maxEntrants
+     * limit to the number of signups
+     * @param maxParticipants
+     * limit to the number of people going to the event
+     * @param totalEntrants
+     * current number of Entrants signed up
+     * @param registrationDeadline
+     * when entrants will no longer be able to sign up of an event
+     * @param eventDate
+     * when the event takes place
+     * @param requiresGeolocation
+     * boolean of if entrant need to be close to the event location to sign up
+     * @param hostUid
+     * String identification of Author for the database
+     * @param hostDisplayName
+     * String Name of Author for the database
+     * @param waitlistOpen
+     * whether the waitlist is accepting sign-ups
+     * @param winningMessage
+     * what to be displayed to a Entrant if they get selected
+     * @param keywords
+     * labels attached to the event
+     * @param isPublic
+     * whether the event should be visible to all users
+     */
     public EventItem(
             String id,
             String title,
@@ -299,6 +336,13 @@ public class EventItem {
         );
     }
 
+    /**
+     * creates a copied immutable list for String values used by Event fields
+     * @param values
+     * the list of String values to copy
+     * @return
+     * an immutable list of Strings, or an empty list if the values are null or empty
+     */
     private static List<String> copyStrings(List<String> values) {
         if (values == null || values.isEmpty()) {
             return Collections.emptyList();

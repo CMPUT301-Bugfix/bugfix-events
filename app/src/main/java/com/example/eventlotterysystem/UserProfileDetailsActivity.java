@@ -56,10 +56,8 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     /**
      * This method deals with the creation of the user profile details screen and its component views
      * as well as initializing and getting all the necessary information for that screen,
-     * @param savedInstanceState If the activity is being re-initialized after
-     *     previously being shut down then this Bundle contains the data it most
-     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
-     *
+     * @param savedInstanceState
+     * the Bundle data from a previous state of the activity
      */
 
     @Override
@@ -187,6 +185,10 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         deleteProfileButton.setEnabled(!deleting);
     }
 
+    /**
+     * checks if the viewed user can be promoted to a coorganizer for the source Event
+     * and shows the assign button if they can be assigned
+     */
     private void configureAssignCoorganizerButton() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {
@@ -209,6 +211,9 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> assignCoorganizerButton.setVisibility(View.GONE));
     }
 
+    /**
+     * shows a popup asking the host to confirm assigning the viewed user as a coorganizer
+     */
     private void showAssignCoorganizerDialog() {
         if (isAssigningCoorganizer) {
             return;
@@ -225,6 +230,9 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * assigns the viewed user as a coorganizer for the source Event
+     */
     private void assignCoorganizer() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null || TextUtils.isEmpty(sourceEventId) || TextUtils.isEmpty(viewedUid)) {
