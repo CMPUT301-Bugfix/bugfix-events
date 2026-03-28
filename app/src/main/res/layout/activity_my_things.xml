@@ -1,28 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
+    android:background="#ECEAEA"
     tools:context=".MyThingsActivity">
 
-    <LinearLayout
-        android:id="@+id/myThingsHeader"
-        android:layout_width="0dp"
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/myThingsHeaderGuide"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="20dp"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.28" />
+
+    <LinearLayout
+        android:id="@+id/myThingsTopSection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#3E86AD"
         android:orientation="vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@id/myThingsHeaderGuide"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:minHeight="48dp">
+            android:layout_height="wrap_content">
 
             <TextView
                 android:id="@+id/myThingsBackButton"
@@ -30,23 +43,25 @@
                 android:layout_height="wrap_content"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="8dp"
+                android:fontFamily="serif"
+                android:padding="4dp"
                 android:text="@string/back"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
-                android:layout_width="0dp"
+                android:id="@+id/myThingsTopTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:fontFamily="serif"
                 android:gravity="center"
                 android:text="@string/my_things"
-                android:textColor="?android:textColorPrimary"
-                android:textSize="22sp"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -56,67 +71,157 @@
             android:id="@+id/myThingsSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="16sp" />
+            android:layout_marginTop="54dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="Hello, NAME"
+            android:textColor="#F4F1F1"
+            android:textSize="30sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/settingsButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            android:text="@string/settings" />
-
-        <Button
-            android:id="@+id/hostEventButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            android:text="@string/host_an_event" />
-
-        <Button
-            android:id="@+id/myWaitlistButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            android:text="@string/my_waitlist" />
-
-        <Button
-            android:id="@+id/adminZoneButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            android:text="@string/admin_zone"
-            android:visibility="gone" />
-
-        <Button
-            android:id="@+id/myThingsLogoutButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sign_out" />
+        <View
+            android:layout_width="155dp"
+            android:layout_height="3dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="6dp"
+            android:background="#4DA3FF" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/notificationsTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="20dp"
-        android:text="@string/notifications_title"
-        android:textColor="?android:textColorPrimary"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/myThingsHeader" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/notificationsRecyclerView"
+    <LinearLayout
+        android:id="@+id/myThingsBottomSection"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="10dp"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/notificationsTitle" />
+        app:layout_constraintTop_toBottomOf="@id/myThingsHeaderGuide">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/inboxHeader"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#9B89C8">
+
+            <TextView
+                android:id="@+id/notificationsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="22dp"
+                android:fontFamily="serif"
+                android:text="my inbox"
+                android:textColor="#F4F1F1"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/inboxArrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="20dp"
+                android:text="▼"
+                android:textColor="#F4F1F1"
+                android:textSize="24sp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/notificationsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#C8D1D1" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/adminZoneButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_red"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/admin_zone"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/myWaitlistButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_orange"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/my_waitlist"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/hostEventButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_teal"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/host_an_event"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/settingsButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_blue"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/settings"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/myThingsLogoutButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_navy"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/sign_out"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
