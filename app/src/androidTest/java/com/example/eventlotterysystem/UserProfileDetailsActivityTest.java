@@ -125,6 +125,48 @@ public class UserProfileDetailsActivityTest {
     }
 
     /**
+     * Test if the admin can remove a user profile
+     */
+    @Test
+    public void deleteProfileTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String password = "test123";
+        String fullName = "Admin Delete Test " + timestamp;
+        String username = "delete" + timestamp;
+        String email = "test" + timestamp + "@gmail.com";
+        String uid = createTemporaryCoorganizerUser(email, password, username, fullName);
+        signInTestUser();
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), UserProfileDetailsActivity.class);
+        intent.putExtra(UserProfileDetailsActivity.NAME, fullName);
+        intent.putExtra(UserProfileDetailsActivity.ACCOUNT_TYPE, "entrant");
+        intent.putExtra(UserProfileDetailsActivity.USERNAME, username);
+        intent.putExtra(UserProfileDetailsActivity.EMAIL, email);
+        intent.putExtra(UserProfileDetailsActivity.PHONE, "888 888 8888");
+        intent.putExtra(UserProfileDetailsActivity.UID, uid);
+        intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, System.currentTimeMillis());
+        intent.putExtra(UserProfileDetailsActivity.ALLOW_DELETE, true);
+
+        try {
+            try (ActivityScenario<UserProfileDetailsActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(3000);
+
+                onView(withId(R.id.userProfileDeleteButton)).check(matches(isDisplayed()));
+                onView(withId(R.id.userProfileDeleteButton)).perform(click());
+                onView(withText(R.string.admin_delete_profile_confirm_action)).perform(click());
+
+                SystemClock.sleep(3000);
+            }
+
+            DocumentSnapshot snapshot = Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).get(), 15, TimeUnit.SECONDS);
+            assertFalse(snapshot.exists());
+        } finally {
+            deleteTemporaryProfileUser(uid, email, password);
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
@@ -201,6 +243,51 @@ public class UserProfileDetailsActivityTest {
 
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).set(userPayload), 15, TimeUnit.SECONDS);
         return currentUser.getUid();
+    }
+
+    /**
+     * creates a temporary user profile document for an admin profile test
+     * @param uid
+     * uid of the profile document
+     * @param fullName
+     * name stored on the profile
+     * @param username
+     * username stored on the profile
+     * @param email
+     * email stored on the profile
+     * @param accountType
+     * account type stored on the profile
+     */
+    private void createProfileTestUser(String uid, String fullName, String username, String email, String accountType) throws Exception {
+        Map<String, Object> userPayload = new HashMap<>();
+        userPayload.put("fullName", fullName);
+        userPayload.put("username", username);
+        userPayload.put("email", email);
+        userPayload.put("phoneNumber", "888 888 8888");
+        userPayload.put("accountType", accountType);
+        userPayload.put("createdAt", Timestamp.now());
+        userPayload.put("deleted", false);
+
+        Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(userPayload), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * removes the temporary auth account created for an admin profile deletion test
+     * @param uid
+     * uid of the temporary viewed user
+     * @param email
+     * email of the temporary viewed user
+     * @param password
+     * password of the temporary viewed user
+     */
+    private void deleteTemporaryProfileUser(String uid, String email, String password) throws Exception {
+        FirebaseAuth.getInstance().signOut();
+        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);
+        try {
+            Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
+        Tasks.await(FirebaseAuth.getInstance().getCurrentUser().delete(), 15, TimeUnit.SECONDS);
     }
 
     /**
