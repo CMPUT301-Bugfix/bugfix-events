@@ -38,10 +38,12 @@ import com.google.firebase.Timestamp;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.Assert;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -266,6 +268,51 @@ public class AllEntrantsActivityTest {
         } finally {
             deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
+    }
+
+    /**
+     * Test if the export to CSV button is shown for the final list of confirmed entrants
+     */
+    @Test
+    public void exportConfirmedEntrantsStoryTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Export Entrants Event " + timestamp);
+        String email = "testexport" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "export" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Export Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_CONFIRMED), 15, TimeUnit.SECONDS);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        intent.putExtra(AllEntrantsActivity.STATUS_FILTER, EventRepository.WAITLIST_STATUS_CONFIRMED);
+
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withId(R.id.allEntrantsExportButton)).check(matches(isDisplayed()));
+                onView(withText(R.string.export_to_csv)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
+        }
+    }
+
+    /**
+     * Test if the confirmed entrants export builds CSV content in the expected format
+     */
+    @Test
+    public void confirmedEntrantsCsvFormatTest() throws Exception {
+        List<UserProfile> entrants = new ArrayList<>();
+        entrants.add(new UserProfile("CSV Test", "csvtest@gmail.com", "csvuser", "", "888 888 8888", "entrant"));
+
+        String csv = ConfirmedEntrantCsvExporter.buildCsv(entrants);
+
+        Assert.assertTrue(csv.contains("full_name,username,email,phone_number,account_type"));
+        Assert.assertTrue(csv.contains("CSV Test,csvuser,csvtest@gmail.com,888 888 8888,entrant"));
     }
 
     /**
