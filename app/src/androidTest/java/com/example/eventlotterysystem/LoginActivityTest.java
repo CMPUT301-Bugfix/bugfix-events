@@ -117,4 +117,65 @@ public class LoginActivityTest {
             assertNull(FirebaseAuth.getInstance().getCurrentUser());
         }
     }
+
+    /**
+     * Test to see if remember me keeps the user signed in when the app is opened again
+     */
+    @Test
+    public void rememberMeTest() {
+        FirebaseAuth.getInstance().signOut();
+        Context context = ApplicationProvider.getApplicationContext();
+        AuthSessionPreference.setRemember(context, false);
+
+        try (ActivityScenario<LoginActivity> ignored = ActivityScenario.launch(LoginActivity.class)) {
+            onView(withId(R.id.loginIdentifierInput))
+                    .perform(replaceText("test"), closeSoftKeyboard());
+            onView(withId(R.id.loginPasswordInput))
+                    .perform(replaceText("test123"), closeSoftKeyboard());
+            onView(withId(R.id.rememberMeCheckBox)).perform(click());
+            onView(withId(R.id.loginButton)).perform(click());
+
+            SystemClock.sleep(4000);
+
+            onView(withId(R.id.myThingsButton)).check(matches(isDisplayed()));
+        }
+
+        try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
+            SystemClock.sleep(2000);
+            onView(withId(R.id.myThingsButton)).check(matches(isDisplayed()));
+        }
+
+        FirebaseAuth.getInstance().signOut();
+        AuthSessionPreference.setRemember(context, false);
+    }
+
+    /**
+     * Test to see if leaving remember me unchecked returns the user to authentication when the app is opened again
+     */
+    @Test
+    public void rememberMeUncheckedTest() {
+        FirebaseAuth.getInstance().signOut();
+        Context context = ApplicationProvider.getApplicationContext();
+        AuthSessionPreference.setRemember(context, false);
+
+        try (ActivityScenario<LoginActivity> ignored = ActivityScenario.launch(LoginActivity.class)) {
+            onView(withId(R.id.loginIdentifierInput))
+                    .perform(replaceText("test"), closeSoftKeyboard());
+            onView(withId(R.id.loginPasswordInput))
+                    .perform(replaceText("test123"), closeSoftKeyboard());
+            onView(withId(R.id.loginButton)).perform(click());
+
+            SystemClock.sleep(4000);
+
+            onView(withId(R.id.myThingsButton)).check(matches(isDisplayed()));
+        }
+
+        try (ActivityScenario<MainActivity> ignored = ActivityScenario.launch(MainActivity.class)) {
+            SystemClock.sleep(2000);
+            onView(withId(R.id.menuLoginButton)).check(matches(isDisplayed()));
+        }
+
+        FirebaseAuth.getInstance().signOut();
+        AuthSessionPreference.setRemember(context, false);
+    }
 }
