@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <TextView
+        android:id="@+id/InviteEntrantBackButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="20dp"
+        android:text="@string/back"
+        android:textColor="?attr/colorPrimary"
+        android:textStyle="bold"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+    <TextView
+        android:id="@+id/InviteEntrantDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/invite_type"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/InviteEntrantBackButton"
+        app:layout_constraintVertical_bias="0.2" />
+
+    <RadioGroup
+        android:id="@+id/InviteEntrantRadioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/InviteEntrantDescription">
+
+        <RadioButton
+            android:id="@+id/InviteEntrantByName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/invite_by_Name" />
+
+        <RadioButton
+            android:id="@+id/InviteEntrantByEmail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/invite_by_Email" />
+
+        <RadioButton
+            android:id="@+id/InviteEntrantByPhone"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/invite_by_PhoneNumer" />
+
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/InviteEntrantInputField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/invite_input_field"
+        android:inputType="textCapSentences"
+        android:maxLines="1"
+        app:layout_constraintTop_toBottomOf="@+id/InviteEntrantRadioGroup"/>
+
+    <Button
+        android:id="@+id/InviteEntrantConfirmationButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/InviteEntrantConfirmation"
+        app:layout_constraintTop_toBottomOf="@+id/InviteEntrantInputField"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

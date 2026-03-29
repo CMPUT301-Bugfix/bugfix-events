@@ -54,6 +54,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button leaveWaitlistButton;
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
+    private Button inviteEntrant;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
@@ -99,6 +100,8 @@ public class ViewEventActivity extends AppCompatActivity {
         qrCodeButton = findViewById(R.id.createQRCode);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
+        inviteEntrant = findViewById(R.id.viewEventInviteEntrant);
+
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -111,6 +114,8 @@ public class ViewEventActivity extends AppCompatActivity {
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
+        inviteEntrant.setOnClickListener(v -> openInviteEntrant());
+
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -204,6 +209,7 @@ public class ViewEventActivity extends AppCompatActivity {
             screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             qrCodeButton.setVisibility(event.isPublic() ? View.VISIBLE : View.GONE);
+            inviteEntrant.setVisibility((canEditEvent && !event.isPublic())? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -352,9 +358,6 @@ public class ViewEventActivity extends AppCompatActivity {
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
-
-
-
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -437,6 +440,19 @@ public class ViewEventActivity extends AppCompatActivity {
                     setWaitlistActionLoading(false);
                     applyWaitlistViewState();
                 });
+    }
+
+    /**
+     * This is a controller for when inviteEntrant is pressed
+     * it starts the InviteEntrantActivity and should only be visible to an organizer for a private event
+     */
+    private void openInviteEntrant() {
+        if (currentEvent == null || !canEditEvent) {
+            return;
+        }
+        Intent intent = new Intent(this, InviteEntrantActivity.class);
+        intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
+        startActivity(intent);
     }
 
     /**
@@ -717,6 +733,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
+        inviteEntrant.setVisibility(View.GONE);
         qrCodeButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);

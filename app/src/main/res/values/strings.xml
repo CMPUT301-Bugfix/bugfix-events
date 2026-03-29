@@ -265,4 +265,11 @@
     <string name="admin_event_entrants_format">entrants %1$d/%2$d</string>
     <string name="no_notifications">No notifications found.</string>
     <string name="notification_log_button">Notification Log</string>
+    <string name="invite_entrant">Invite Entrant</string>
+    <string name="invite_by_Name">Name</string>
+    <string name="invite_by_Email">Email</string>
+    <string name="invite_by_PhoneNumer">Phone Number</string>
+    <string name="invite_type">Select Method to add Entrant by</string>
+    <string name="invite_input_field">Entrant\'s Information</string>
+    <string name="InviteEntrantConfirmation">Invite Entrant</string>
 </resources>

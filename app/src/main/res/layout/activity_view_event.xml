@@ -232,6 +232,15 @@
                 android:text="@string/join_waitlist"
                 android:visibility="gone"
                 tools:visibility="visible" />
+
+            <Button
+                android:id="@+id/viewEventInviteEntrant"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/invite_entrant"
+                android:visibility="gone"
+                tools:visibility="visible" />
         </LinearLayout>
     </ScrollView>
 
