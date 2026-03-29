@@ -1,7 +1,6 @@
 package com.example.eventlotterysystem;
 import android.app.AlertDialog;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -15,14 +14,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import android.content.Intent;
 
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
-import android.widget.ScrollView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.Query;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +48,6 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
      * @param savedInstanceState If the activity is being re-initialized after
      *     previously being shut down then this Bundle contains the data it most
      *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
-     *
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,10 +71,9 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
     }
 
     /**
-     * Essentially checks whether there is a signed in user, and to navigate
-     * to the AuthMenu if not, and check if the current user is an admin.
+     * The startup for the activity
+     * Ensures that the user is logged in and is an admin
      */
-
     @Override
     protected void onStart() {
         super.onStart();
@@ -97,7 +89,7 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
 
     /**
      * This is the controller that is run when a notification is long clicked by the User (no different from regular click
-     * it runs a method that gives the user a popup of notification content depending on type of notification
+     * it runs a method that gives the user a popup of the notification
      * @param notification NotificationItem that was clicked.
      */
     @Override
@@ -110,7 +102,7 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
 
     /**
      * This is the controller that is run when a notification is clicked by the User
-     * it runs a method that gives the user a popup of notification content depending on type of notification
+     * it runs a method that gives the user a popup of notification and its contents
      * @param notification NotificationItem that was clicked.
      */
     @Override
@@ -126,7 +118,6 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
      * then run the loadNotifications method, but if not, close the screen.
      * @param uid the id of a user to be verified
      */
-
     private void verifyAdminAndLoad(@NonNull String uid) {
         setLoading(true);
         firestore.collection("users")
@@ -148,9 +139,8 @@ public class AdminNotificationsLogActivity extends AppCompatActivity implements 
     /**
      * This method is the heart of this class, it collects the notifications from the
      * Firestore notifications collection by using a snapshot listener for live updates,
-     * and creates a list by looping through the notifications collection and calling the
-     * renderNotifications method to render the notifications into rows in the UI. Also deals with
-     * error handling and notificationListener cleanup.
+     * and creates a list for all notifications to be displayed.
+     * Also deals with error handling and notificationListener cleanup.
      */
     private void loadNotifications() {
         setLoading(true);
