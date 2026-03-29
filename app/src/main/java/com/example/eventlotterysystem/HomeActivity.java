@@ -131,7 +131,7 @@ public class HomeActivity extends AppCompatActivity {
      * <p>
      * this method sets the scanner options, including prompt text, beep sound,
      * and camera uses (back and front camera).
-     * it use a custom {@link CaptureActivity} to manage the scanning UI
+     * it uses a custom CaptureActivity to manage the scanning UI
      */
     private void scanCode(){
         ScanOptions options = new ScanOptions();
@@ -196,6 +196,7 @@ public class HomeActivity extends AppCompatActivity {
     /**
      * method that loads all events from the database and updates the adapter to display them
      * on failure runs updateEmptyState and creates an error message through buildLoadErrorMessage()
+     * if the load is successful it applies the active filters to the loaded events
      */
     private void loadJoinableEvents() {
         repository.getCurrentEvents()
@@ -218,6 +219,9 @@ public class HomeActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * shows the popup for filtering Events by keyword, date range, and entrant range
+     */
     private void showFilterDialog() {
         View filterDialog = LayoutInflater.from(this).inflate(R.layout.dialog_event_filters, homeEventsListView, false);
         TextInputLayout keywordField = filterDialog.findViewById(R.id.filterKeywordInputLayout);
@@ -364,6 +368,9 @@ public class HomeActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * applies the active filters to all loaded Events and updates the list on screen
+     */
     private void applyFilters() {
         events.clear();
         for (EventItem event : allEvents) {
@@ -419,6 +426,13 @@ public class HomeActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * opens a date picker popup for selecting a filter date
+     * @param currentValue
+     * the current selected date value
+     * @param listener
+     * runs when the user chooses a date
+     */
     private void showDatePicker(Date currentValue, Consumer<Date> listener) {
         Calendar calendar = Calendar.getInstance();
         if (currentValue != null) {
@@ -441,14 +455,35 @@ public class HomeActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * updates the text shown for a filter date field
+     * @param textView
+     * the TextView that displays the date
+     * @param date
+     * the selected date to show
+     */
     private void updateDateText(TextView textView, Date date) {
         textView.setText(date == null ? getString(R.string.filter_any_date) : formatDate(date));
     }
 
+    /**
+     * gets the trimmed text from a input field
+     * @param input
+     * the EditText to read from
+     * @return
+     * the trimmed String from the input field
+     */
     private String readTrimmed(EditText input) {
         return input.getText() == null ? "" : input.getText().toString().trim();
     }
 
+    /**
+     * reads a positive integer filter bound from a input field
+     * @param input
+     * the EditText containing the number
+     * @return
+     * the Integer bound, or null if the field is empty
+     */
     private Integer parseBound(EditText input) {
         String value = readTrimmed(input);
         if (value.isEmpty()) {
@@ -465,10 +500,22 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * formats a Date into the text used on the filter screen
+     * @param date
+     * the Date being formatted
+     * @return
+     * the formatted date String
+     */
     private String formatDate(Date date) {
         return new SimpleDateFormat(DATE_PATTERN, Locale.getDefault()).format(date);
     }
 
+    /**
+     * builds the keyword suggestions shown in the filter popup from the loaded Events
+     * @return
+     * a sorted list of keyword suggestions
+     */
     private List<String> buildKeywordSuggestions() {
         Set<String> keywords = new LinkedHashSet<>();
         for (EventItem event : allEvents) {
@@ -483,6 +530,17 @@ public class HomeActivity extends AppCompatActivity {
         return suggestions;
     }
 
+    /**
+     * checks if a Event is in the selected event date range
+     * @param event
+     * the Event being checked
+     * @param fromDate
+     * the earliest allowed Event date
+     * @param toDate
+     * the latest allowed Event date
+     * @return
+     * true if the Event date is inside the selected range
+     */
     private static boolean matchesEventDateRange(EventItem event, Date fromDate, Date toDate) {
         if (fromDate == null && toDate == null) {
             return true;
@@ -499,6 +557,17 @@ public class HomeActivity extends AppCompatActivity {
         return toDate == null || !eventLocalDate.isAfter(toLocalDate(toDate));
     }
 
+    /**
+     * checks if the Event max entrants value is in the selected entrant range
+     * @param event
+     * the Event being checked
+     * @param minEntrants
+     * the minimum allowed max entrants value
+     * @param maxEntrants
+     * the maximum allowed max entrants value
+     * @return
+     * true if the Event max entrants value is inside the selected range
+     */
     private static boolean matchesMaxEntrantsRange(EventItem event, Integer minEntrants, Integer maxEntrants) {
         int maxEntrantsValue = event.getMaxEntrants();
         if (minEntrants != null && maxEntrantsValue < minEntrants) {
@@ -507,6 +576,13 @@ public class HomeActivity extends AppCompatActivity {
         return maxEntrants == null || maxEntrantsValue <= maxEntrants;
     }
 
+    /**
+     * checks if a Event matches all active filters on the Home screen
+     * @param event
+     * the Event being checked
+     * @return
+     * true if the Event matches the active filters
+     */
     private boolean matchesFilters(EventItem event) {
         if (!activeKeywordQueries.isEmpty()) {
             boolean keywordMatch = false;
@@ -531,6 +607,15 @@ public class HomeActivity extends AppCompatActivity {
                 && matchesMaxEntrantsRange(event, activeMinEntrants, activeMaxEntrants);
     }
 
+    /**
+     * adds a keyword from the filter input into the draft keyword filter list
+     * @param keywordInput
+     * the text field containing the keyword
+     * @param draftKeywords
+     * the current draft list of selected keywords
+     * @param keywordChipGroup
+     * the chip group used to display the selected keywords
+     */
     private void addKeywordSelection(
             AutoCompleteTextView keywordInput,
             List<String> draftKeywords,
@@ -555,6 +640,13 @@ public class HomeActivity extends AppCompatActivity {
         renderSelectedKeywordChips(keywordChipGroup, draftKeywords);
     }
 
+    /**
+     * shows the selected keyword filters as chips in the filter popup
+     * @param keywordChipGroup
+     * the chip group used to display the selected keywords
+     * @param draftKeywords
+     * the current draft list of selected keywords
+     */
     private void renderSelectedKeywordChips(ChipGroup keywordChipGroup, List<String> draftKeywords) {
         keywordChipGroup.removeAllViews();
         for (String keyword : draftKeywords) {
@@ -571,6 +663,13 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * converts a Date into a LocalDate for the filter date comparisons
+     * @param date
+     * the Date being converted
+     * @return
+     * the LocalDate version of the Date
+     */
     private static LocalDate toLocalDate(Date date) {
         return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     }

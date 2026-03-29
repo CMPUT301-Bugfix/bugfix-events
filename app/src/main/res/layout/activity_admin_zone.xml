@@ -161,6 +161,24 @@
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 app:backgroundTint="@null" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/adminNotificationLogButton"
+                android:layout_width="match_parent"
+                android:layout_height="84dp"
+                android:background="@drawable/square_button_light"
+                android:fontFamily="serif"
+                android:gravity="start|center_vertical"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="38dp"
+                android:paddingEnd="24dp"
+                android:text="@string/notification_log_button"
+                android:textAllCaps="false"
+                android:textColor="#111111"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
         </LinearLayout>
 
         <ProgressBar

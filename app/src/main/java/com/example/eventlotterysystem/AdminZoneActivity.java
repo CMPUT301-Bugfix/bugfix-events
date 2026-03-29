@@ -24,6 +24,7 @@ public class AdminZoneActivity extends AppCompatActivity {
     private Button adminUserProfilesButton;
     private Button adminEventsButton;
     private Button adminPhotosButton;
+    private Button adminNotificationLogButton;
 
     /**
      * This method sets up the UI and button navigations
@@ -47,6 +48,8 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminEventsButton.setEnabled(false);
         adminPhotosButton = findViewById(R.id.adminPhotosButton);
         adminPhotosButton.setEnabled(false);
+        adminNotificationLogButton = findViewById(R.id.adminNotificationLogButton);
+        adminNotificationLogButton.setEnabled(false);
 
         findViewById(R.id.adminZoneBackButton).setOnClickListener(v -> finish());
         adminUserProfilesButton.setOnClickListener(v ->
@@ -55,6 +58,8 @@ public class AdminZoneActivity extends AppCompatActivity {
                 startActivity(new Intent(this, AdminBrowseEventsActivity.class)));
         adminPhotosButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminPhotosActivity.class)));
+        adminNotificationLogButton.setOnClickListener(v ->
+                startActivity(new Intent(this, AdminNotificationsLogActivity.class)));
     }
 
     /**
@@ -75,6 +80,7 @@ public class AdminZoneActivity extends AppCompatActivity {
         adminUserProfilesButton.setEnabled(false);
         adminEventsButton.setEnabled(false);
         adminPhotosButton.setEnabled(false);
+        adminNotificationLogButton.setEnabled(false);
         firestore.collection("users")
                 .document(currentUser.getUid())
                 .get()
@@ -88,6 +94,7 @@ public class AdminZoneActivity extends AppCompatActivity {
                     adminUserProfilesButton.setEnabled(true);
                     adminEventsButton.setEnabled(true);
                     adminPhotosButton.setEnabled(true);
+                    adminNotificationLogButton.setEnabled(true);
                 })
                 .addOnFailureListener(exception -> {
                     adminRoleLoading.setVisibility(View.GONE);

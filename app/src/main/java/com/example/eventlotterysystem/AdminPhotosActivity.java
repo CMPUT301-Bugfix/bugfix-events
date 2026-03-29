@@ -31,7 +31,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This class lets admins browse and remove event posters.
+ * This class deals with the admin page for browsing Event posters
+ * and removing posters from Events
  */
 public class AdminPhotosActivity extends AppCompatActivity {
 
@@ -51,6 +52,11 @@ public class AdminPhotosActivity extends AppCompatActivity {
     private ListenerRegistration photosListener;
     private final Set<String> pendingPosterRemovals = new HashSet<>();
 
+    /**
+     * This method sets up the admin photos screen and all the views on it
+     * @param savedInstanceState
+     * the Bundle data from a previous state of the activity
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,6 +75,10 @@ public class AdminPhotosActivity extends AppCompatActivity {
         backButton.setOnClickListener(v -> finish());
     }
 
+    /**
+     * This screen checks if the current user is an admin and
+     * loads the Event posters if they are allowed to access this page
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -82,6 +92,9 @@ public class AdminPhotosActivity extends AppCompatActivity {
         verifyAdminAndLoad(currentUser.getUid());
     }
 
+    /**
+     * removes the firestore listener when leaving the screen
+     */
     @Override
     protected void onStop() {
         super.onStop();
@@ -91,6 +104,11 @@ public class AdminPhotosActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * checks if the given user is an admin before loading the poster list
+     * @param uid
+     * the String uid of the current user
+     */
     private void verifyAdminAndLoad(@NonNull String uid) {
         setLoading(true);
         firestore.collection("users")
@@ -107,6 +125,9 @@ public class AdminPhotosActivity extends AppCompatActivity {
                 .addOnFailureListener(exception -> finish());
     }
 
+    /**
+     * loads all Events with posters from the database and listens for changes
+     */
     private void loadPhotos() {
         setLoading(true);
 
@@ -147,6 +168,11 @@ public class AdminPhotosActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * shows the Event posters on the screen in cards for the admin
+     * @param eventsWithPhotos
+     * the list of Events that have posters
+     */
     private void renderPhotos(@NonNull List<EventItem> eventsWithPhotos) {
         photosContainer.removeAllViews();
 
@@ -182,6 +208,13 @@ public class AdminPhotosActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * loads the poster image into the ImageView for a given poster url
+     * @param posterView
+     * the ImageView that will display the poster
+     * @param posterUrl
+     * the String url of the poster in Firebase Storage
+     */
     private void bindPoster(@NonNull ImageView posterView, String posterUrl) {
         posterView.setImageResource(android.R.drawable.ic_menu_gallery);
 
@@ -208,6 +241,13 @@ public class AdminPhotosActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * shows the confirmation popup before the admin removes a Event poster
+     * @param event
+     * the EventItem whose poster is being removed
+     * @param removeButton
+     * the ImageButton that triggered the remove action
+     */
     private void confirmRemovePoster(@NonNull EventItem event, @NonNull ImageButton removeButton) {
         if (pendingPosterRemovals.contains(event.getId())) {
             return;
@@ -223,6 +263,13 @@ public class AdminPhotosActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * removes the poster url from the Event document and starts deleting the poster file
+     * @param event
+     * the EventItem whose poster is being removed
+     * @param removeButton
+     * the ImageButton used to remove the poster
+     */
     private void removePoster(@NonNull EventItem event, @NonNull ImageButton removeButton) {
         String eventId = normalize(event.getId());
         String posterUrl = normalize(event.getPosterUrl());
@@ -250,6 +297,13 @@ public class AdminPhotosActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * deletes the poster file from Firebase Storage after it has been removed from the Event
+     * @param eventId
+     * the String id of the Event
+     * @param posterUrl
+     * the String url of the poster in Firebase Storage
+     */
     private void deletePosterFromStorage(@NonNull String eventId, @NonNull String posterUrl) {
         try {
             FirebaseStorage.getInstance()
@@ -268,6 +322,11 @@ public class AdminPhotosActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * updates the loading state of the admin photos screen
+     * @param loading
+     * true if the screen is loading, false otherwise
+     */
     private void setLoading(boolean loading) {
         photosLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
         backButton.setEnabled(!loading);
@@ -277,6 +336,9 @@ public class AdminPhotosActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * signs the user out and sends them back to the Auth Menu
+     */
     private void navigateToAuthMenu() {
         auth.signOut();
         startActivity(new Intent(this, AuthMenuActivity.class)
@@ -285,10 +347,24 @@ public class AdminPhotosActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * checks if a String has text in it
+     * @param value
+     * the String being checked
+     * @return
+     * true if the String is not null or blank, false otherwise
+     */
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
 
+    /**
+     * removes surrounding spaces from a String and returns an empty String if it is null
+     * @param value
+     * the String being normalized
+     * @return
+     * the trimmed String, or an empty String if the value is null
+     */
     @NonNull
     private String normalize(String value) {
         return value == null ? "" : value.trim();

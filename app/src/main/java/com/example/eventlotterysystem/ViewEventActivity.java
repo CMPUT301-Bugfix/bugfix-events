@@ -49,6 +49,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView qrCodeButton;
     private Button entrantsButton;
     private Button editEventButton;
+    private Button commentsButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
     private Button acceptInvitationButton;
@@ -56,7 +57,6 @@ public class ViewEventActivity extends AppCompatActivity {
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
-
     private String eventId;
     private boolean canEditEvent;
     private EventItem currentEvent;
@@ -93,6 +93,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView = findViewById(R.id.viewEventWaitlistJoinedLabel);
         entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
+        commentsButton = findViewById(R.id.viewEventCommentsButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
         qrCodeButton = findViewById(R.id.createQRCode);
@@ -105,6 +106,7 @@ public class ViewEventActivity extends AppCompatActivity {
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
+        commentsButton.setOnClickListener(v -> openCommentsScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
@@ -141,6 +143,7 @@ public class ViewEventActivity extends AppCompatActivity {
     /**
      * This loads the information of the selected event into this activity
      * This gets the event from the repository
+     * for private Events it checks if the current user is allowed to access the Event
      * if the event is unable to be loaded renderLoadFailureState() is run
      * if the event info was loaded but unable to be displayed renderLoadFailureState() is run
      * otherwise it  edits the text of the view to display event information
@@ -187,6 +190,12 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * displays the loaded Event information on the screen
+     * if the Event has keywords they are shown as chips on the screen
+     * @param event
+     * the Event being displayed
+     */
     private void renderEvent(EventItem event) {
         try {
             currentEvent = event;
@@ -235,6 +244,15 @@ public class ViewEventActivity extends AppCompatActivity {
         intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
         intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
         intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
+        startActivity(intent);
+    }
+
+    /**
+     * Opens the dedicated comments screen for the current event.
+     */
+    private void openCommentsScreen() {
+        Intent intent = new Intent(this, CommentsActivity.class);
+        intent.putExtra(CommentsActivity.EVENT_ID, eventId);
         startActivity(intent);
     }
 
@@ -330,10 +348,13 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * Accepts an invitation for the current user by updating the waitlist status
-     * to {@code CONFIRMED}.
+     * to CONFIRMED.
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
+
+
+
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -379,7 +400,7 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * Rejects an invitation for the current user by updating the waitlist status
-     * to {@code DECLINED}.
+     * to DECLINED.
      *
      * On success, the event is reloaded so the declined state is reflected in the UI.
      */
@@ -654,6 +675,11 @@ public class ViewEventActivity extends AppCompatActivity {
                 : R.string.event_geolocation_disabled);
     }
 
+    /**
+     * shows the Event keywords as chips on the screen
+     * @param keywords
+     * the list of keywords for the Event
+     */
     private void renderKeywordChips(List<String> keywords) {
         keywordsChipGroup.removeAllViews();
         if (keywords == null || keywords.isEmpty()) {
@@ -722,12 +748,6 @@ public class ViewEventActivity extends AppCompatActivity {
         }
         return getString(R.string.waitlist_action_failed);
     }
-
-    /**
-     * Determines whether the entrants button should be shown for the current user.
-     *
-     * @return true if the signed-in user is the host of the current event, otherwise false
-     */
 
     private boolean shouldShowEntrantsButton() {
         FirebaseUser currentUser = auth.getCurrentUser();

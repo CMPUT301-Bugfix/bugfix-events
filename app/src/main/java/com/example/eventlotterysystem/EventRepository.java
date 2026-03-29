@@ -82,11 +82,12 @@ public class EventRepository {
     }
 
     /**
-     * Load the a list event from the database for all events creator matching user ID and creates a respective event object list
+     * Load the a list event from the database for all events creator matching user ID
+     * and all events that the user coorganizes and creates a respective event object list
      * @param hostUid
-     * ID of the user that created the event
+     * ID of the user that manages the event
      * @return
-     * task that gets all the events that the user created as a list of event objects raises an exception of failure
+     * task that gets all the events that the user manages as a list of event objects raises an exception of failure
      */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
         Task<List<EventItem>> hostedTask = loadManagedEvents(
@@ -286,6 +287,17 @@ public class EventRepository {
                 });
     }
 
+    /**
+     * assigns a user as a coorganizer for an Event and removes any waitlist entry they had for it
+     * @param eventId
+     * the String id of the Event
+     * @param targetUid
+     * the String uid of the user being assigned
+     * @param actingUid
+     * the String uid of the host assigning the coorganizer
+     * @return
+     * a Task that updates the Event and removes matching waitlist entries
+     */
     public Task<Void> assignCoorganizer(
             @NonNull String eventId,
             @NonNull String targetUid,
@@ -338,7 +350,7 @@ public class EventRepository {
     }
 
     /**
-     * updates a waitlist entry object for a user signed up for an event status' into a new one
+     * updates a waitlist entry object for a user signed up for an event status' into a new one.
      * @param eventId
      * Id of the Event
      * @param uid
@@ -684,6 +696,17 @@ public class EventRepository {
     }
 
     /**
+     * gets all confirmed Entrants for a given Event
+     * @param eventId
+     * the String id of the Event
+     * @return
+     * a Task containing the list of confirmed UserProfiles for the Event
+     */
+    public Task<List<UserProfile>> getConfirmedEntrantsForEvent(@NonNull String eventId) {
+        return getEntrantsForEvent(eventId, WAITLIST_STATUS_CONFIRMED);
+    }
+
+    /**
      * Performs lottery draw by moving random users from IN_WAITLIST to CHOSEN.
      * Selects up to maxParticipants winners from the pool of users who are IN_WAITLIST.
      * Updates status in both event and user records and notifies the selected users
@@ -724,17 +747,23 @@ public class EventRepository {
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
                                     List<String> chosenUids = new ArrayList<>();
+                                    List<String> notChosenUids = new ArrayList<>();
                                     WriteBatch batch = firestore.batch();
-                                    for (int i = 0; i < drawCount; i++) {
+                                    
+                                    for (int i = 0; i < candidates.size(); i++) {
                                         String uid = candidates.get(i).getId();
-                                        chosenUids.add(uid);
-                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
-                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
-                                        
-                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
-                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        if (i < drawCount) {
+                                            chosenUids.add(uid);
+                                            DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                            DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                            
+                                            batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                            batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        } else {
+                                            notChosenUids.add(uid);
+                                        }
                                     }
 
                                     // set waitlistOpen to false in the event doc when a draw is performed
@@ -742,8 +771,22 @@ public class EventRepository {
 
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
-                                        // Pass the chosenUids directly to avoid re-querying!
-                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
+                                        List<Task<Void>> tasks = new ArrayList<>();
+                                        
+                                        // Send Winning Notifications
+                                        if (!chosenUids.isEmpty()) {
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids));
+                                        }
+                                        
+                                        // Send Loser/Waiting Notifications to the rest
+                                        if (!notChosenUids.isEmpty()) {
+                                            String loseMessage = "The draw for " + event.getTitle() + " has been performed. " +
+                                                    "You were not selected this time, but keep an eye on your inbox! " +
+                                                    "If someone declines their spot, it will be automatically redrawn.";
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), loseMessage, "GENERAL", notChosenUids));
+                                        }
+                                        
+                                        return Tasks.whenAll(tasks);
                                     });
                                 });
                     });
@@ -768,9 +811,8 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them. Keeps track of timing
-     * and calls perform lottery draw
-     * NOT QUITE WORKING
+     * Finds users who haven't responded within 3 days and replaces them.
+     * Triggers a redraw to fill vacated spots.
      * @param eventId
      * The ID of the event to process expired winners from
      * @param winningMessage
@@ -779,19 +821,41 @@ public class EventRepository {
      * task that completes after expired winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
-        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
+        return processExpiredWinners(eventId, winningMessage, System.currentTimeMillis());
+    }
+
+    /**
+     * Helper method for processExpiredWinners that allows for a custom current time for testing purposes.
+     * @param eventId
+     * The ID of the event to process expired winners from
+     * @param winningMessage
+     * The message to be sent to users selected in the lottery.
+     * @param currentTimeMillis
+     * The current time in milliseconds.
+     * @return
+     * task that completes after expired winners are processed and any replacement draws finish
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage, long currentTimeMillis) {
+        long threeDaysAgo = currentTimeMillis - (3L * 24 * 60 * 60 * 1000);
         Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
 
         return firestore.collection("events").document(eventId).collection("waitlist")
                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
-                .whereLessThan("chosenAt", threshold)
                 .get().continueWithTask(task -> {
-                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
-                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+                    List<DocumentSnapshot> allPending = task.getResult().getDocuments();
+                    List<String> toRemove = new ArrayList<>();
+                    
+                    for (DocumentSnapshot doc : allPending) {
+                        Timestamp chosenAt = doc.getTimestamp("chosenAt");
+                        if (chosenAt != null && chosenAt.compareTo(threshold) < 0) {
+                            toRemove.add(doc.getId());
+                        }
+                    }
+                    
+                    if (toRemove.isEmpty()) return performLotteryDraw(eventId, winningMessage);
 
                     WriteBatch batch = firestore.batch();
-                    for (DocumentSnapshot doc : expired) {
-                        String uid = doc.getId();
+                    for (String uid : toRemove) {
                         batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
                         batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
                     }
@@ -1153,6 +1217,15 @@ public class EventRepository {
         return userProfile;
     }
 
+    /**
+     * loads a list of Events from the database for a query used in managed Event screens
+     * @param query
+     * the firestore query used to load the Events
+     * @param failureMessage
+     * the error message used if loading fails
+     * @return
+     * a Task containing the list of loaded Event objects
+     */
     private Task<List<EventItem>> loadManagedEvents(
             @NonNull Query query,
             @NonNull String failureMessage
@@ -1303,8 +1376,8 @@ public class EventRepository {
      * determines event access for the current user
      * @param isPublic
      * whether the event is public
-     * @param isHost
-     * whether the current user hosts the event
+     * @param canManage
+     * whether the current user can manage the event
      * @param hasWaitlistEntry
      * whether the current user already has an event waitlist record
      * @return
@@ -1318,10 +1391,28 @@ public class EventRepository {
         return isPublic || canManage || hasWaitlistEntry;
     }
 
+    /**
+     * checks if the given user is the host of a Event
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user is the host of the Event
+     */
     public static boolean isHost(@NonNull EventItem event, @Nullable String uid) {
         return hasText(uid) && uid.equals(event.getHostUid());
     }
 
+    /**
+     * checks if the given user can manage a Event as the host or a coorganizer
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user can manage the Event
+     */
     public static boolean canManageEvent(@NonNull EventItem event, @Nullable String uid) {
         if (isHost(event, uid)) {
             return true;
@@ -1332,6 +1423,15 @@ public class EventRepository {
         return event.getCoorganizers().contains(uid);
     }
 
+    /**
+     * merges hosted Events and coorganized Events into one list without duplicates
+     * @param hostedEvents
+     * the list of Events hosted by the user
+     * @param coorganizedEvents
+     * the list of Events coorganized by the user
+     * @return
+     * a sorted list of managed Events without duplicates
+     */
     @NonNull
     public static List<EventItem> mergeManagedEvents(
             @NonNull List<EventItem> hostedEvents,
@@ -1402,6 +1502,13 @@ public class EventRepository {
         return normalized;
     }
 
+    /**
+     * normalizes coorganizer user ids read from user input or firestore
+     * @param rawCoorganizers
+     * raw coorganizer user id list
+     * @return
+     * trimmed coorganizer user ids without duplicates or blanks
+     */
     @NonNull
     public static List<String> normalizeCoorganizers(@Nullable Object rawCoorganizers) {
         if (!(rawCoorganizers instanceof List<?>)) {
@@ -1480,5 +1587,131 @@ public class EventRepository {
      */
     private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    /**
+     * Adds a new comment to the specified event.
+     *
+     * @param eventId the ID of the event receiving the comment
+     * @param currentUser the signed-in user posting the comment
+     * @param text the comment text to post
+     * @return a task representing the result of the comment write operation
+     */
+
+    public Task<Void> addComment(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String text
+    ) {
+        String trimmedText = text.trim();
+        if (trimmedText.isEmpty()) {
+            return Tasks.forException(new IllegalArgumentException("Comment cannot be empty"));
+        }
+
+        DocumentReference commentRef = firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document();
+
+        return getCommentDisplayName(currentUser)
+                .continueWithTask(task -> {
+                    String displayName = task.isSuccessful() ? normalize(task.getResult()) : "";
+
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("uid", currentUser.getUid());
+                    payload.put("text", trimmedText);
+                    payload.put("username", displayName);
+                    payload.put("createdAt", FieldValue.serverTimestamp());
+                    return commentRef.set(payload);
+                });
+    }
+
+    /**
+     * Resolves the name shown for a comment author.
+     *
+     * @param currentUser the signed-in user posting the comment
+     * @return a task resolving to the preferred display name for comments
+     */
+    private Task<String> getCommentDisplayName(@NonNull FirebaseUser currentUser) {
+        return firestore.collection("users")
+                .document(currentUser.getUid())
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        return "";
+                    }
+
+                    DocumentSnapshot userDoc = task.getResult();
+                    if (userDoc == null || !userDoc.exists()) {
+                        return "";
+                    }
+
+                    return normalize(userDoc.getString("fullName"));
+                });
+    }
+
+    /**
+     * Deletes a comment from an event.
+     *
+     * @param eventId the ID of the event containing the comment
+     * @param commentId the ID of the comment to delete
+     * @return a task representing the delete operation
+     */
+    public Task<Void> deleteComment(
+            @NonNull String eventId,
+            @NonNull String commentId
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document(commentId)
+                .delete();
+    }
+
+    /**
+     * Loads all comments for the specified event.
+     *
+     * Comments are read from the event's comments subcollection and returned as
+     * {@link CommentItem} objects sorted by creation time.
+     *
+     * @param eventId the ID of the event whose comments should be loaded
+     * @return a task containing the list of comments for the event
+     */
+
+    public Task<List<CommentItem>> getComments(@NonNull String eventId) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load comments");
+                    }
+
+                    List<CommentItem> comments = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        String uid = normalize(doc.getString("uid"));
+                        String username = normalize(doc.getString("username"));
+                        String text = normalize(doc.getString("text"));
+                        Timestamp createdAtTimestamp = doc.getTimestamp("createdAt");
+
+                        comments.add(new CommentItem(
+                                doc.getId(),
+                                uid,
+                                username,
+                                text,
+                                createdAtTimestamp == null ? null : createdAtTimestamp.toDate()
+                        ));
+                    }
+
+                    comments.sort(Comparator.comparing(
+                            CommentItem::getCreatedAt,
+                            Comparator.nullsLast(Date::compareTo)
+                    ));
+
+                    return comments;
+                });
     }
 }

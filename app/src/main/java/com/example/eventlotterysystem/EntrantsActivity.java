@@ -32,12 +32,14 @@ public class EntrantsActivity extends AppCompatActivity {
     private int totalEntrants;
     private int maxEntrants;
     private int chosenEntrants;
+    private int confirmedEntrants;
     private int cancelledEntrants;
     private Button allEntrantsButton;
     private Button notifyWaitlistButton;
     private Button performDrawButton;
     private Button processExpiredButton;
     private Button chosenEntrantsButton;
+    private Button confirmedEntrantsButton;
     private Button cancelledEntrantsButton;
 
     /**
@@ -67,6 +69,7 @@ public class EntrantsActivity extends AppCompatActivity {
 
         allEntrantsButton = findViewById(R.id.entrantsAllEntrantsButton);
         chosenEntrantsButton = findViewById(R.id.entrantsChosenButton);
+        confirmedEntrantsButton = findViewById(R.id.entrantsConfirmedButton);
         cancelledEntrantsButton = findViewById(R.id.entrantsCancelledButton);
         notifyWaitlistButton = findViewById(R.id.entrantsNotifyWaitlistButton);
         performDrawButton = findViewById(R.id.entrantsPerformDrawButton);
@@ -75,6 +78,7 @@ public class EntrantsActivity extends AppCompatActivity {
         findViewById(R.id.entrantsBackButton).setOnClickListener(v -> finish());
         allEntrantsButton.setOnClickListener(v -> openEntrantsList(null));
         chosenEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_CHOSEN));
+        confirmedEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_CONFIRMED));
         cancelledEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_DECLINED));
         notifyWaitlistButton.setOnClickListener(v -> showNotifyOptionsDialog());
         performDrawButton.setOnClickListener(v -> showDrawConfirmation());
@@ -121,6 +125,9 @@ public class EntrantsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * loads the number of Entrants in each status and updates the matching status buttons
+     */
     private void loadEntrantCounts() {
         repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CHOSEN)
                 .addOnSuccessListener(count -> {
@@ -149,6 +156,20 @@ public class EntrantsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG
                     ).show();
                 });
+
+        repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CONFIRMED)
+                .addOnSuccessListener(count -> {
+                    confirmedEntrants = count;
+                    updateButtons();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load confirmed entrant count", e);
+                    Toast.makeText(
+                            EntrantsActivity.this,
+                            getString(R.string.failed_to_load_entrants),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
     }
 
     /**
@@ -162,6 +183,10 @@ public class EntrantsActivity extends AppCompatActivity {
         chosenEntrantsButton.setText(getString(
                 R.string.chosen_entrants_button_label,
                 chosenEntrants
+        ));
+        confirmedEntrantsButton.setText(getString(
+                R.string.confirmed_entrants_button_label,
+                confirmedEntrants
         ));
         cancelledEntrantsButton.setText(getString(
                 R.string.cancelled_entrants_button_label,
