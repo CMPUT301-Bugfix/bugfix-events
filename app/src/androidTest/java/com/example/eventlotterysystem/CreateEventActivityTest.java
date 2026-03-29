@@ -5,9 +5,12 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.hasErrorText;
+import static androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertEquals;
@@ -84,6 +87,89 @@ public class CreateEventActivityTest {
         }
 
         deleteEventsByTitle(title);
+    }
+
+    /**
+     * test to see if creating a public event allows the organiser to generate a promotional QR code
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void publicEventGeneratesQrCodeTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Public QR Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try {
+            try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+                fillRequiredFields(title, "Public QR event for University of Alberta students in Edmonton.", "CAB Edmonton", "5");
+                pickToday(R.id.createEventDeadlineButton);
+                pickToday(R.id.createEventDateButton);
+                onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+                SystemClock.sleep(5000);
+            }
+
+            DocumentSnapshot event = findEventByTitle(title);
+            assertNotNull(event);
+            assertTrue(EventRepository.normalizeIsPublic(event.getBoolean("isPublic")));
+
+            Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+            intent.putExtra("EVENT_ID", event.getId());
+
+            try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.createQRCode)).check(matches(isDisplayed()));
+                onView(withId(R.id.createQRCode)).perform(click());
+                SystemClock.sleep(3000);
+
+                onView(withId(R.id.qrCode)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEventsByTitle(title);
+        }
+    }
+
+    /**
+     * test to see if creating a private event keeps it off the public listing and hides the promotional QR code
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void privateEventHiddenFromListingAndQrTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Private Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try {
+            try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+                fillRequiredFields(title, "Private event for University of Alberta students in Edmonton.", "ECHA Edmonton", "5");
+                pickToday(R.id.createEventDeadlineButton);
+                pickToday(R.id.createEventDateButton);
+                onView(withId(R.id.createEventPublicSwitch)).perform(scrollTo(), click());
+                onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+                SystemClock.sleep(5000);
+            }
+
+            DocumentSnapshot event = findEventByTitle(title);
+            assertNotNull(event);
+            assertFalse(EventRepository.normalizeIsPublic(event.getBoolean("isPublic")));
+
+            try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(HomeActivity.class)) {
+                SystemClock.sleep(4000);
+                onView(withText(title)).check(doesNotExist());
+            }
+
+            Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+            intent.putExtra("EVENT_ID", event.getId());
+
+            try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+                onView(withId(R.id.createQRCode)).check(matches(withEffectiveVisibility(GONE)));
+            }
+        } finally {
+            deleteEventsByTitle(title);
+        }
     }
 
     /**
