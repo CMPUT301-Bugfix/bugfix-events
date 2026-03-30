@@ -1,28 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
+    android:background="#ECEAEA"
     tools:context=".UserProfilesActivity">
 
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/userProfilesHeaderGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.31" />
+
     <LinearLayout
+        android:id="@+id/userProfilesTopSection"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="20dp"
+        android:background="#D93A4A"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:paddingStart="22dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="18dp"
+        app:layout_constraintBottom_toTopOf="@id/userProfilesHeaderGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:minHeight="48dp">
+            android:layout_height="wrap_content">
 
             <TextView
                 android:id="@+id/userProfilesBackButton"
@@ -30,40 +41,81 @@
                 android:layout_height="wrap_content"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="8dp"
+                android:fontFamily="serif"
+                android:padding="4dp"
                 android:text="@string/back"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
-                android:layout_width="0dp"
+                android:id="@+id/userProfilesTopTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="@string/user_profiles"
-                android:textColor="?android:textColorPrimary"
-                android:textSize="22sp"
+                android:fontFamily="serif"
+                android:text="@string/my_things"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
+        <TextView
+            android:id="@+id/userProfilesScreenTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="34dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/admin_zone"
+            android:textColor="#F4F1F1"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/userProfilesSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/user_profiles"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/userProfilesBottomSection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/userProfilesHeaderGuide">
+
         <Spinner
             android:id="@+id/userTypeFilterSpinner"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp" />
+            android:layout_height="52dp"
+            android:background="#A7A4A6"
+            android:dropDownVerticalOffset="0dp"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:popupBackground="#F4F1F1" />
 
         <ProgressBar
             android:id="@+id/userProfilesLoading"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="12dp"
+            android:layout_marginTop="16dp"
             android:visibility="gone" />
 
         <TextView
@@ -71,8 +123,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
+            android:padding="24dp"
             android:text="@string/no_profiles_for_filter"
-            android:textColor="?android:textColorSecondary"
+            android:textColor="#666666"
             android:textSize="15sp"
             android:visibility="gone" />
 
@@ -81,7 +134,10 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:visibility="gone">
+            android:background="#ECEAEA"
+            android:scrollbars="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
 
             <LinearLayout
                 android:id="@+id/userProfilesContainer"
