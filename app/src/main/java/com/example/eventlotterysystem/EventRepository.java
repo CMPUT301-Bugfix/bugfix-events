@@ -441,6 +441,23 @@ public class EventRepository {
         });
     }
 
+    /**
+     * Helper function of joinWaitlist that execute the transaction to database
+     * @param eventId
+     *      ID of event that was signed up
+     * @param currentUser
+     *      Current user document from database
+     * @param location
+     *      The Geolocation of user when signed up
+     * @param eventRef
+     *      A reference to the event document in database
+     * @param eventWaitlistRef
+     *      A reference to the event waitlist document in database
+     * @param userWaitlistRef
+     *      A reference to the user waitlist document in database
+     * @return
+     *      A task that represent the asynchronous transaction to database
+     */
     public Task<Void> executeTransaction(String eventId, FirebaseUser currentUser, Location location, DocumentReference eventRef, DocumentReference eventWaitlistRef, DocumentReference userWaitlistRef){
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
