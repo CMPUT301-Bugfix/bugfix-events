@@ -199,12 +199,12 @@ public class NotificationRepository {
     }
 
     /**
-     * Retrieves all notifications from the notificactions collection, ordered by timestamp (newest first)
+     * Retrieves all notifications from the notifications collection, ordered by timestamp (newest first)
      * @return A Task containing a list of NotificationItem objects
      */
     public Task<List<NotificationItem>> getNotificationLog() {
         return firestore.collection("notifications")
-                //orderBy("timestamp", Query.Direction.DESCENDING)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
