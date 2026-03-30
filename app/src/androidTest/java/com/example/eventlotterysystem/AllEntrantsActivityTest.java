@@ -31,11 +31,20 @@ import androidx.test.filters.LargeTest;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.Timestamp;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.Assert;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -202,6 +211,111 @@ public class AllEntrantsActivityTest {
     }
 
     /**
+     * Test if the organizer can view the list of cancelled entrants for an Event
+     */
+    @Test
+    public void viewCancelledEntrantsStoryTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Cancelled Entrants Event " + timestamp);
+        String email = "test" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "cancelled" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Cancelled Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_DECLINED), 15, TimeUnit.SECONDS);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        intent.putExtra(AllEntrantsActivity.STATUS_FILTER, EventRepository.WAITLIST_STATUS_DECLINED);
+
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
+        }
+    }
+
+    /**
+     * Test if the organizer can view the final list of confirmed entrants for an Event
+     */
+    @Test
+    public void viewFinalEnrolledEntrantsStoryTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Confirmed Entrants Event " + timestamp);
+        String email = "testconfirmed" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "confirmed" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Confirmed Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_CONFIRMED), 15, TimeUnit.SECONDS);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        intent.putExtra(AllEntrantsActivity.STATUS_FILTER, EventRepository.WAITLIST_STATUS_CONFIRMED);
+
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
+        }
+    }
+
+    /**
+     * Test if the export to CSV button is shown for the final list of confirmed entrants
+     */
+    @Test
+    public void exportConfirmedEntrantsStoryTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Export Entrants Event " + timestamp);
+        String email = "testexport" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "export" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Export Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_CONFIRMED), 15, TimeUnit.SECONDS);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        intent.putExtra(AllEntrantsActivity.STATUS_FILTER, EventRepository.WAITLIST_STATUS_CONFIRMED);
+
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withId(R.id.allEntrantsExportButton)).check(matches(isDisplayed()));
+                onView(withText(R.string.export_to_csv)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
+        }
+    }
+
+    /**
+     * Test if the confirmed entrants export builds CSV content in the expected format
+     */
+    @Test
+    public void confirmedEntrantsCsvFormatTest() throws Exception {
+        List<UserProfile> entrants = new ArrayList<>();
+        entrants.add(new UserProfile("CSV Test", "csvtest@gmail.com", "csvuser", "", "888 888 8888", "entrant"));
+
+        String csv = ConfirmedEntrantCsvExporter.buildCsv(entrants);
+
+        Assert.assertTrue(csv.contains("full_name,username,email,phone_number,account_type"));
+        Assert.assertTrue(csv.contains("CSV Test,csvuser,csvtest@gmail.com,888 888 8888,entrant"));
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
@@ -209,5 +323,113 @@ public class AllEntrantsActivityTest {
         Context context = ApplicationProvider.getApplicationContext();
         AuthSessionPreference.setRemember(context, false);
         Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * creates an Event document managed by the shared test account
+     * @param title
+     * title of the Event that should be created
+     * @return
+     * the document id of the created Event
+     */
+    private String createManagedEntrantsTestEvent(String title) throws Exception {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        String eventId = firestore.collection("events").document().getId();
+
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("title", title);
+        eventPayload.put("description", "Entrants story test in Edmonton.");
+        eventPayload.put("location", "SUB Edmonton");
+        eventPayload.put("posterUrl", "");
+        eventPayload.put("maxEntrants", 10);
+        eventPayload.put("maxParticipants", 5);
+        eventPayload.put("totalEntrants", 1);
+        eventPayload.put("registrationDeadline", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(4)));
+        eventPayload.put("eventDate", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(7)));
+        eventPayload.put("requiresGeolocation", false);
+        eventPayload.put("hostUid", currentUser.getUid());
+        eventPayload.put("hostDisplayName", "Update Test");
+        eventPayload.put("waitlistOpen", true);
+        eventPayload.put("deleted", false);
+        eventPayload.put("createdAt", Timestamp.now());
+        eventPayload.put("winningMessage", "Welcome to the Edmonton event.");
+        eventPayload.put("coOrganizerUids", new ArrayList<>());
+        eventPayload.put("keywords", new ArrayList<>());
+        eventPayload.put("isPublic", true);
+
+        Tasks.await(firestore.collection("events").document(eventId).set(eventPayload), 15, TimeUnit.SECONDS);
+        return eventId;
+    }
+
+    /**
+     * creates a temporary entrant account for an entrants story test
+     * @param email
+     * email stored on the profile
+     * @param password
+     * password used for the temporary auth account
+     * @param username
+     * username stored on the profile
+     * @param fullName
+     * name stored on the profile
+     * @return
+     * uid of the created temporary user
+     */
+    private String createTemporaryEntrant(String email, String password, String username, String fullName) throws Exception {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        Tasks.await(auth.createUserWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);
+        FirebaseUser currentUser = auth.getCurrentUser();
+
+        Map<String, Object> userPayload = new HashMap<>();
+        userPayload.put("username", username);
+        userPayload.put("fullName", fullName);
+        userPayload.put("email", email);
+        userPayload.put("phoneNumber", "888 888 8888");
+        userPayload.put("accountType", "entrant");
+        userPayload.put("createdAt", Timestamp.now());
+        userPayload.put("deleted", false);
+
+        Tasks.await(FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).set(userPayload), 15, TimeUnit.SECONDS);
+        return currentUser.getUid();
+    }
+
+    /**
+     * joins the current signed-in user to the Event waitlist
+     * @param eventId
+     * id of the Event being joined
+     */
+    private void joinWaitlistAsCurrentUser(String eventId) throws Exception {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        Tasks.await(new EventRepository().joinWaitlist(eventId, currentUser), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * removes the Event and temporary entrant account created for an entrants story test
+     * @param eventId
+     * id of the Event to remove
+     * @param uid
+     * uid of the temporary entrant
+     * @param email
+     * email of the temporary entrant
+     * @param password
+     * password of the temporary entrant
+     */
+    private void deleteEntrantsStoryTestData(String eventId, String uid, String email, String password) throws Exception {
+        signInTestUser();
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        Tasks.await(firestore.collection("events").document(eventId).collection("waitlist").document(uid).delete(), 15, TimeUnit.SECONDS);
+        Tasks.await(firestore.collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+
+        FirebaseAuth.getInstance().signOut();
+        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);
+        try {
+            Tasks.await(firestore.collection("users").document(uid).collection("waitlists").document(eventId).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
+        try {
+            Tasks.await(firestore.collection("users").document(uid).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
+        Tasks.await(FirebaseAuth.getInstance().getCurrentUser().delete(), 15, TimeUnit.SECONDS);
     }
 }

@@ -6,10 +6,10 @@
     android:layout_height="match_parent"
     android:background="?android:colorBackground"
     android:padding="16dp"
-    tools:context=".AllEntrantsActivity">
+    tools:context=".CommentsActivity">
 
     <TextView
-        android:id="@+id/allEntrantsBackButton"
+        android:id="@+id/commentsBackButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:clickable="true"
@@ -22,67 +22,72 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
-        android:id="@+id/allEntrantsTitle"
+        android:id="@+id/commentsTitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="@string/all_entrants"
+        android:text="@string/comments_title"
         android:textColor="?android:textColorPrimary"
         android:textSize="22sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/allEntrantsBackButton" />
+        app:layout_constraintTop_toBottomOf="@id/commentsBackButton" />
 
     <LinearLayout
-        android:id="@+id/allEntrantsExportArea"
+        android:id="@+id/commentsComposer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:background="@android:color/transparent"
         android:orientation="vertical"
-        android:padding="0dp"
-        android:visibility="gone"
+        android:paddingTop="12dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/allEntrantsTitle"
-        tools:visibility="visible">
+        app:layout_constraintBottom_toBottomOf="parent">
 
-        <Button
-            android:id="@+id/allEntrantsExportButton"
+        <EditText
+            android:id="@+id/commentsInput"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/export_to_csv" />
+            android:gravity="top|start"
+            android:hint="@string/comments_input_hint"
+            android:inputType="textMultiLine"
+            android:minLines="2" />
+
+        <Button
+            android:id="@+id/commentsPostButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/comments_post_button" />
     </LinearLayout>
 
     <TextView
-        android:id="@+id/allEntrantsEmptyState"
+        android:id="@+id/commentsEmptyState"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:gravity="center"
         android:padding="24dp"
-        android:text="@string/no_entrants"
+        android:text="@string/comments_empty_state"
         android:textColor="?android:textColorSecondary"
         android:textSize="16sp"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/commentsComposer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/allEntrantsExportArea"
+        app:layout_constraintTop_toBottomOf="@id/commentsTitle"
         tools:visibility="visible" />
 
     <ListView
-        android:id="@+id/allEntrantsListView"
+        android:id="@+id/commentsListView"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
         android:divider="@android:color/transparent"
-        android:dividerHeight="10dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:dividerHeight="8dp"
+        app:layout_constraintBottom_toTopOf="@id/commentsComposer"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/allEntrantsExportArea"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintTop_toBottomOf="@id/commentsTitle" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
