@@ -225,6 +225,7 @@ public class ViewEventActivity extends AppCompatActivity {
             screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
+            showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
