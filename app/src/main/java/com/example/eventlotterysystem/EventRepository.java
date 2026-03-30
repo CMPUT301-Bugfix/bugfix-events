@@ -1,10 +1,18 @@
 package com.example.eventlotterysystem;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
@@ -14,6 +22,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
@@ -405,14 +414,39 @@ public class EventRepository {
         DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
         DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
-        return firestore.runTransaction(transaction -> {
-            DocumentSnapshot eventDoc = transaction.get(eventRef);
-            if (!eventDoc.exists()) {
+        return eventRef.get().continueWithTask(eventTask -> {
+            DocumentSnapshot eventDoc = eventTask.getResult();
+            if(!eventDoc.exists()){
                 throw new IllegalStateException("Event not found");
             }
 
+            Context context  = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            boolean geoLocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+
+            if(geoLocationRequired){
+                if(hasPermission){
+                    FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+                    return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).
+                            continueWithTask(locationTask -> {
+                                Location location = locationTask.isSuccessful()? locationTask.getResult() : null;
+                                return executeTransaction(eventId, currentUser, location, eventRef, eventWaitlistRef, userWaitlistRef);
+                            });
+                } else {
+                    return Tasks.forException(new SecurityException("Location Permission not Granted"));
+                }
+            } else {
+                return executeTransaction(eventId, currentUser, null, eventRef, eventWaitlistRef, userWaitlistRef);
+            }
+        });
+    }
+
+    public Task<Void> executeTransaction(String eventId, FirebaseUser currentUser, Location location, DocumentReference eventRef, DocumentReference eventWaitlistRef, DocumentReference userWaitlistRef){
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot eventDoc = transaction.get(eventRef);
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
             DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+
             if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
                 return null;
             }
@@ -442,6 +476,10 @@ public class EventRepository {
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
             membershipPayload.put("uid", currentUser.getUid());
+            if(location != null){
+                GeoPoint geoPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
+                membershipPayload.put("location", geoPoint);
+            }
 
             transaction.set(eventWaitlistRef, membershipPayload);
             transaction.set(userWaitlistRef, membershipPayload);
