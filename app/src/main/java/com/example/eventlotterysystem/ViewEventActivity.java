@@ -67,6 +67,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button entrantsButton;
     private Button editEventButton;
     private Button commentsButton;
+    private Button messageOrganizerButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
     private Button acceptInvitationButton;
@@ -112,6 +113,7 @@ public class ViewEventActivity extends AppCompatActivity {
         entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
         commentsButton = findViewById(R.id.viewEventCommentsButton);
+        messageOrganizerButton = findViewById(R.id.viewEventMessageOrganizerButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
         qrCodeButton = findViewById(R.id.createQRCode);
@@ -126,6 +128,7 @@ public class ViewEventActivity extends AppCompatActivity {
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
         commentsButton.setOnClickListener(v -> openCommentsScreen());
+        messageOrganizerButton.setOnClickListener(v -> openMessageScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
@@ -233,6 +236,7 @@ public class ViewEventActivity extends AppCompatActivity {
             descriptionTextView.setText(hasText(event.getDescription())
                     ? event.getDescription()
                     : getString(R.string.event_card_missing_description));
+            updateMessageButton(event, currentUser);
             loadWaitlistState(event);
         } catch (Exception exception) {
             Log.e(TAG, "Failed to render event details", exception);
@@ -275,6 +279,18 @@ public class ViewEventActivity extends AppCompatActivity {
     private void openCommentsScreen() {
         Intent intent = new Intent(this, CommentsActivity.class);
         intent.putExtra(CommentsActivity.EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
+    private void openMessageScreen() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentEvent == null || currentUser == null || EventRepository.canManageEvent(currentEvent, currentUser.getUid())) {
+            return;
+        }
+
+        Intent intent = new Intent(this, MessageActivity.class);
+        intent.putExtra(MessageActivity.OTHER_UID, currentEvent.getHostUid());
+        intent.putExtra(MessageActivity.OTHER_NAME, currentEvent.getHostDisplayName());
         startActivity(intent);
     }
 
@@ -837,6 +853,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
+        messageOrganizerButton.setVisibility(View.GONE);
         qrCodeButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
@@ -874,6 +891,12 @@ public class ViewEventActivity extends AppCompatActivity {
         return currentEvent != null
                 && currentUser != null
                 && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
+    }
+
+    private void updateMessageButton(EventItem event, FirebaseUser currentUser) {
+        boolean canMessage = currentUser != null && !EventRepository.canManageEvent(event, currentUser.getUid());
+        messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);
+        messageOrganizerButton.setEnabled(canMessage);
     }
 
     /**

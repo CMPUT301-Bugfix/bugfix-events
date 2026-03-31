@@ -82,6 +82,13 @@
             android:text="@string/my_waitlist" />
 
         <Button
+            android:id="@+id/messagesButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:text="@string/messages_button" />
+
+        <Button
             android:id="@+id/adminZoneButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
