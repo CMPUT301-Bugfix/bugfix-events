@@ -119,6 +119,7 @@ public class InboxActivity extends AppCompatActivity {
             }
         };
         database.getReference()
+                .child("userThreads")
                 .child(uid)
                 .addValueEventListener(threadsListener);
     }
