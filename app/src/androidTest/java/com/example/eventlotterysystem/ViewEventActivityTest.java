@@ -48,6 +48,71 @@ import java.util.concurrent.TimeUnit;
 public class ViewEventActivityTest {
 
     /**
+     * Test that clicking the Show Map button on a geolocation-required event
+     * with entrant locations displays the map dialog
+     */
+    @Test
+    public void showMapDisplaysEntrantLocationsTest() throws Exception {
+        signInTestUser();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+        String eventId = firestore.collection("events").document().getId();
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("title", "UofA Map Test " + System.currentTimeMillis());
+        eventPayload.put("description", "Map display test in Edmonton.");
+        eventPayload.put("location", "SUB Edmonton");
+        eventPayload.put("posterUrl", "");
+        eventPayload.put("maxEntrants", 10);
+        eventPayload.put("maxParticipants", 5);
+        eventPayload.put("totalEntrants", 1);
+        eventPayload.put("registrationDeadline", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(5)));
+        eventPayload.put("eventDate", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(6)));
+        eventPayload.put("requiresGeolocation", true);
+        eventPayload.put("hostUid", currentUser.getUid());
+        eventPayload.put("hostDisplayName", "UofA Organizer");
+        eventPayload.put("waitlistOpen", true);
+        eventPayload.put("deleted", false);
+        eventPayload.put("createdAt", Timestamp.now());
+        eventPayload.put("winningMessage", "Welcome to the Edmonton event.");
+
+        Tasks.await(firestore.collection("events").document(eventId).set(eventPayload), 15, TimeUnit.SECONDS);
+
+        Map<String, Object> waitlistPayload = new HashMap<>();
+        waitlistPayload.put("eventId", eventId);
+        waitlistPayload.put("uid", "fake-entrant-uid");
+        waitlistPayload.put("status", EventRepository.WAITLIST_STATUS_IN);
+        waitlistPayload.put("joinedAt", Timestamp.now());
+        waitlistPayload.put("location", new com.google.firebase.firestore.GeoPoint(53.5461, -113.4938));
+
+        Tasks.await(firestore.collection("events").document(eventId)
+                .collection("waitlist").document("fake-entrant-uid")
+                .set(waitlistPayload), 15, TimeUnit.SECONDS);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("CAN_EDIT_EVENT", true);
+
+        try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+            SystemClock.sleep(4000);
+
+            onView(withId(R.id.viewEventShowMapButton)).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventShowMapButton)).perform(click());
+            SystemClock.sleep(3000);
+
+            onView(withText("Entrant Locations")).check(matches(isDisplayed()));
+            onView(withText("Close")).check(matches(isDisplayed()));
+
+            onView(withText("Close")).perform(click());
+        }
+
+        Tasks.await(firestore.collection("events").document(eventId)
+                .collection("waitlist").document("fake-entrant-uid").delete(), 15, TimeUnit.SECONDS);
+        Tasks.await(firestore.collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+    }
+
+
+    /**
      * Test if the display is correct when given an event
      */
     @Test
