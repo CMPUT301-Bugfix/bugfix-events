@@ -48,6 +48,8 @@ public class EventRepository {
     public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
     public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
     public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
+    static final String LOCATION_REQUIRED_ERROR = "LOCATION_REQUIRED_TO_JOIN";
+    static final String LOCATION_PERMISSION_REQUIRED_ERROR = "LOCATION_PERMISSION_REQUIRED_TO_JOIN";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -411,54 +413,60 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
-        DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
         return eventRef.get().continueWithTask(eventTask -> {
+            if (!eventTask.isSuccessful()) {
+                throw eventTask.getException() != null
+                        ? eventTask.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
             DocumentSnapshot eventDoc = eventTask.getResult();
-            if(!eventDoc.exists()){
+            if (eventDoc == null || !eventDoc.exists()) {
                 throw new IllegalStateException("Event not found");
             }
 
-            Context context  = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
-            boolean hasPermission = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            boolean geoLocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
-
-            if(geoLocationRequired){
-                if(hasPermission){
-                    FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
-                    return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).
-                            continueWithTask(locationTask -> {
-                                Location location = locationTask.isSuccessful()? locationTask.getResult() : null;
-                                return executeTransaction(eventId, currentUser, location, eventRef, eventWaitlistRef, userWaitlistRef);
-                            });
-                } else {
-                    return Tasks.forException(new SecurityException("Location Permission not Granted"));
-                }
-            } else {
-                return executeTransaction(eventId, currentUser, null, eventRef, eventWaitlistRef, userWaitlistRef);
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (!geolocationRequired) {
+                return joinWaitlist(eventId, currentUser, null);
             }
+
+            Context context = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!hasPermission) {
+                return Tasks.forException(new SecurityException(LOCATION_PERMISSION_REQUIRED_ERROR));
+            }
+
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+            return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .continueWithTask(locationTask -> joinWaitlist(
+                            eventId,
+                            currentUser,
+                            locationTask.isSuccessful() ? locationTask.getResult() : null
+                    ));
         });
     }
 
     /**
-     * Helper function of joinWaitlist that execute the transaction to database
+     * Updates the database to add a user to an event waitlist using the supplied location
      * @param eventId
-     *      ID of event that was signed up
+     * Id of event that was signed up
      * @param currentUser
-     *      Current user document from database
+     * current User document from database
      * @param location
-     *      The Geolocation of user when signed up
-     * @param eventRef
-     *      A reference to the event document in database
-     * @param eventWaitlistRef
-     *      A reference to the event waitlist document in database
-     * @param userWaitlistRef
-     *      A reference to the user waitlist document in database
+     * The Geolocation of user when signed up
      * @return
-     *      A task that represent the asynchronous transaction to database
+     * Task that updates the waitlist document from the user and event documents
      */
-    public Task<Void> executeTransaction(String eventId, FirebaseUser currentUser, Location location, DocumentReference eventRef, DocumentReference eventWaitlistRef, DocumentReference userWaitlistRef){
+    Task<Void> joinWaitlist(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @Nullable Location location
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
+        DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
+
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
@@ -470,6 +478,11 @@ public class EventRepository {
 
             if (Boolean.TRUE.equals(eventDoc.getBoolean("deleted"))) {
                 throw new IllegalStateException("Event not found");
+            }
+
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (geolocationRequired && location == null) {
+                throw new IllegalStateException(LOCATION_REQUIRED_ERROR);
             }
 
             String hostUid = normalize(eventDoc.getString("hostUid"));
@@ -493,7 +506,7 @@ public class EventRepository {
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
             membershipPayload.put("uid", currentUser.getUid());
-            if(location != null){
+            if (location != null) {
                 GeoPoint geoPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
                 membershipPayload.put("location", geoPoint);
             }

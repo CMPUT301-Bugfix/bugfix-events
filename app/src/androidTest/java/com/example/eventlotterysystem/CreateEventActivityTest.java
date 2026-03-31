@@ -225,6 +225,32 @@ public class CreateEventActivityTest {
     }
 
     /**
+     * test to see if creating an event with geolocation enabled saves the requirement in the database
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void geolocationRequirementSavedTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Geolocation Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+            fillRequiredFields(title, "Geolocation join test for an Edmonton campus event.", "CAB Edmonton", "5");
+            pickToday(R.id.createEventDeadlineButton);
+            pickToday(R.id.createEventDateButton);
+            onView(withId(R.id.createEventGeolocationSwitch)).perform(scrollTo(), click());
+            onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+            SystemClock.sleep(5000);
+        }
+
+        DocumentSnapshot event = findEventByTitle(title);
+        assertNotNull(event);
+        assertTrue(Boolean.TRUE.equals(event.getBoolean("requiresGeolocation")));
+        deleteEventsByTitle(title);
+    }
+
+    /**
      * test to see if an event created with a Image is uploads the link to the image and stores the image on the database
      * @throws Exception if authentication, image setup, or Firestore operations fail
      */
