@@ -227,7 +227,8 @@ public class ViewEventActivity extends AppCompatActivity {
             canEditEvent = currentUser != null && EventRepository.canManageEvent(event, currentUser.getUid());
             screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-            qrCodeButton.setVisibility(event.isPublic() ? View.VISIBLE : View.GONE);
+            qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
+            showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -318,6 +319,9 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * This ask the user for permission of using GPS to location current location
+     */
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if(!isGranted){
@@ -329,9 +333,9 @@ public class ViewEventActivity extends AppCompatActivity {
             });
 
     /**
-     * This is method that get the user to join the waitlist of the event
-     * if successful it saves the waitlist item to the database
-     * on failure notifies the user that it was unable to do so
+     * This method check the Geolocation requirement of the event before join the waitlist
+     * if required, and have no permission of GPS, it will ask for permission
+     * if not required or has permission, it will proceed to join the waitlist and save to database
      */
     private void joinWaitlist() {
         if (currentEvent == null) {
@@ -346,6 +350,11 @@ public class ViewEventActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * This is method that get the user to join the waitlist of the event
+     * if successful it saves the waitlist item to the database
+     * on failure notifies the user that it was unable to do so
+     */
     private void executeJoinWaitlist(){
         FirebaseUser currentUser = auth.getCurrentUser();
         if(currentUser == null) return;
@@ -404,7 +413,10 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
-
+    /**
+     * This function get a list of geolocation of participant from the waitlist
+     * Create a pop up window, and pin point the participant's location on map
+     */
     private void showMap(){
         if (currentEvent == null || !canEditEvent) return;
 
