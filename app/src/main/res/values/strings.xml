@@ -243,6 +243,16 @@
     <string name="notification_message_hint">Enter your message here...</string>
     <string name="notification_sent">Notification sent successfully</string>
     <string name="notifications_title">Notifications</string>
+    <string name="messages_button">Messages</string>
+    <string name="message_the_organizer">Message the Organizer</string>
+    <string name="messages_input_hint">Write a message</string>
+    <string name="messages_send_button">Send Message</string>
+    <string name="messages_empty_inbox">No conversations yet.</string>
+    <string name="messages_empty_thread">No messages yet. Start the conversation.</string>
+    <string name="messages_load_failed">Failed to load messages.</string>
+    <string name="messages_send_failed">Failed to send message.</string>
+    <string name="messages_empty_error">Message cannot be empty.</string>
+    <string name="messages_permission_denied">You do not have access to this conversation.</string>
     <string name="notification_send_action">Send</string>
     <string name="perform_draw">Perform Draw</string>
     <string name="draw_success">Draw completed! Winners notified.</string>
