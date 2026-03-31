@@ -142,6 +142,8 @@
     <string name="waitlist_join_success">You joined the waitlist.</string>
     <string name="waitlist_leave_success">You left the waitlist.</string>
     <string name="waitlist_action_failed">Waitlist action failed.</string>
+    <string name="location_permission_required_to_join">Location permission is required to join this event.</string>
+    <string name="location_required_to_join">Your device location is required to join this event.</string>
     <string name="no_waitlists">You have not joined any waitlists yet.</string>
     <string name="waitlist_load_failed">Failed to load waitlists.</string>
     <string name="waitlist_status_label">Status: %1$s</string>

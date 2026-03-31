@@ -92,6 +92,25 @@ public class ViewEventActivityTest {
     }
 
     /**
+     * Test if the event screen shows that geolocation is required when the event requires it
+     */
+    @Test
+    public void geolocationRequiredDisplayedTest() throws Exception {
+        signInTestUser();
+        String eventId = createViewEventTestEvent("UofA Geolocation Display Event " + System.currentTimeMillis(), "Geolocation display test in Edmonton.", "CAB Edmonton", true, 5, 6, 0, 10, "geolocation-display-host", "", true);
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+
+        try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+            SystemClock.sleep(4000);
+            onView(withId(R.id.viewEventGeolocation)).check(matches(withText(R.string.event_geolocation_enabled)));
+        }
+
+        deleteViewEventTestData(eventId);
+    }
+
+    /**
      * Test if clicking on the sign up button signs up a user to the waitlist
      */
     @Test
@@ -330,6 +349,37 @@ public class ViewEventActivityTest {
      * the document id of the created event
      */
     private String createViewEventTestEvent(String title, String description, String location, boolean waitlistOpen, int deadlineOffsetDays, int eventOffsetDays, int totalEntrants, int maxEntrants, String hostUid, String waitlistStatus) throws Exception {
+        return createViewEventTestEvent(title, description, location, waitlistOpen, deadlineOffsetDays, eventOffsetDays, totalEntrants, maxEntrants, hostUid, waitlistStatus, false);
+    }
+
+    /**
+     * creates an event document and optional waitlist records for the view event tests
+     * @param title
+     * title of the event that should be created
+     * @param description
+     * description to store on the event
+     * @param location
+     * location to store on the event
+     * @param waitlistOpen
+     * whether the event should accept new waitlist sign-ups
+     * @param deadlineOffsetDays
+     * number of days from now to set the registration deadline
+     * @param eventOffsetDays
+     * number of days from now to set the event date
+     * @param totalEntrants
+     * total entrant count to store on the event
+     * @param maxEntrants
+     * maximum entrant count to store on the event
+     * @param hostUid
+     * uid to store as the organiser of the event
+     * @param waitlistStatus
+     * optional waitlist status to store for the signed-in user
+     * @param requiresGeolocation
+     * whether the event should require device geolocation on join
+     * @return
+     * the document id of the created event
+     */
+    private String createViewEventTestEvent(String title, String description, String location, boolean waitlistOpen, int deadlineOffsetDays, int eventOffsetDays, int totalEntrants, int maxEntrants, String hostUid, String waitlistStatus, boolean requiresGeolocation) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
         String eventId = firestore.collection("events").document().getId();
@@ -344,7 +394,7 @@ public class ViewEventActivityTest {
         eventPayload.put("totalEntrants", totalEntrants);
         eventPayload.put("registrationDeadline", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(deadlineOffsetDays)));
         eventPayload.put("eventDate", new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(eventOffsetDays)));
-        eventPayload.put("requiresGeolocation", false);
+        eventPayload.put("requiresGeolocation", requiresGeolocation);
         eventPayload.put("hostUid", hostUid);
         eventPayload.put("hostDisplayName", "UofA Organizer");
         eventPayload.put("waitlistOpen", waitlistOpen);

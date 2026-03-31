@@ -324,8 +324,8 @@ public class ViewEventActivity extends AppCompatActivity {
      */
     private final ActivityResultLauncher<String> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if(!isGranted){
-                    Toast.makeText(this, "Location permission is required to join this event.", Toast.LENGTH_LONG).show();
+                if (!isGranted) {
+                    Toast.makeText(this, R.string.location_permission_required_to_join, Toast.LENGTH_LONG).show();
                     setWaitlistActionLoading(false);
                 } else {
                     executeJoinWaitlist();
@@ -881,7 +881,14 @@ public class ViewEventActivity extends AppCompatActivity {
      */
     private String buildWaitlistErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
-            return getString(R.string.waitlist_action_failed) + ": " + exception.getMessage().trim();
+            String message = exception.getMessage().trim();
+            if (EventRepository.LOCATION_PERMISSION_REQUIRED_ERROR.equals(message)) {
+                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_permission_required_to_join);
+            }
+            if (EventRepository.LOCATION_REQUIRED_ERROR.equals(message)) {
+                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_required_to_join);
+            }
+            return getString(R.string.waitlist_action_failed) + ": " + message;
         }
         return getString(R.string.waitlist_action_failed);
     }
