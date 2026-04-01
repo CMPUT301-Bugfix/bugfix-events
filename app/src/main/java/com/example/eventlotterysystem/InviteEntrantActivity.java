@@ -74,6 +74,10 @@ public class InviteEntrantActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * controller for the invite entrant button
+     * manages the set up for the search and ensures user inputted text is valid
+     */
     private void findEntrant() {
         int selectedId = searchTypeView.getCheckedRadioButtonId();
 
@@ -100,27 +104,29 @@ public class InviteEntrantActivity extends AppCompatActivity {
 
         if (selectedText.equals("Name")) {
             loadMatchingEntrant("username",inputtedText);
-        } else if (selectedText.equals("email")){
-            loadMatchingEntrant("username",inputtedText);
+        } else if (selectedText.equals("Email")){
+            loadMatchingEntrant("email",inputtedText);
         } else if (selectedText.equals("Phone Number")) {
             loadMatchingEntrant("phoneNumber",inputtedText);
         }
     }
 
     /**
-     * Loads the Information Of all entrant to find a match
+     * Loads the Information of all entrant to find a match
      */
     private void loadMatchingEntrant(String field, String value) {
         repository.loadMatchingEntrant(field, value)
                 .addOnSuccessListener(users -> {
-                    inviteEntrant(users.get(0));
-                })
-                .addOnFailureListener(e -> {
-                    new AlertDialog.Builder(this)
-                            .setTitle("No User Found")
-                            .setMessage("We could not find the user you were looking for")
-                            .setPositiveButton("Ok", null)
-                            .show();
+                    if (users.isEmpty()) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("No User Found")
+                                .setMessage("We could not find the user you were looking for")
+                                .setPositiveButton("Ok", null)
+                                .show();
+                    }
+                    else {
+                        inviteEntrant(users.get(0));
+                    }
                 });
     }
 
@@ -129,11 +135,10 @@ public class InviteEntrantActivity extends AppCompatActivity {
      * @param entrant
      * the user to be sent the invitation
      */
-
     private void inviteEntrant(UserProfile entrant) {
         new AlertDialog.Builder(this)
                 .setTitle("Found User: "+ entrant.getUsername())
-                .setMessage("Would you like to invite this entrant to the event")
+                .setMessage("Would you like to invite this entrant to the event?")
                 .setPositiveButton("Yes", (dialog, which) -> sendNotification(entrant, eventId))
                 .setNegativeButton("No", null)
                 .show();
