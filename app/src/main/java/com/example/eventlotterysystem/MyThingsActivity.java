@@ -36,6 +36,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     private TextView myThingsSubtitle;
     private Button adminZoneButton;
     private Button myWaitlistButton;
+    private Button messagesButton;
     private RecyclerView notificationsRecyclerView;
     private NotificationAdapter notificationAdapter;
     private List<NotificationItem> notificationList = new ArrayList<>();
@@ -61,6 +62,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         myThingsSubtitle = findViewById(R.id.myThingsSubtitle);
         adminZoneButton = findViewById(R.id.adminZoneButton);
         myWaitlistButton = findViewById(R.id.myWaitlistButton);
+        messagesButton = findViewById(R.id.messagesButton);
         notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
 
         notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -74,6 +76,8 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                 startActivity(new Intent(this, HostedEventsActivity.class)));
         myWaitlistButton.setOnClickListener(v ->
                 startActivity(new Intent(this, MyWaitlistActivity.class)));
+        messagesButton.setOnClickListener(v ->
+                startActivity(new Intent(this, InboxActivity.class)));
         findViewById(R.id.myThingsLogoutButton).setOnClickListener(v -> onLogOutClicked());
         adminZoneButton.setOnClickListener(v ->
                 startActivity(new Intent(this, AdminZoneActivity.class)));
