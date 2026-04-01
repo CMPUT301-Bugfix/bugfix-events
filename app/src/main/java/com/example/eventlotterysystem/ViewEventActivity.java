@@ -1,25 +1,17 @@
 package com.example.eventlotterysystem;
 
-import android.Manifest;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
-import android.icu.text.CaseMap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -28,18 +20,9 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-import org.osmdroid.api.IMapController;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
-import org.osmdroid.util.GeoPoint;
-import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.Marker;
 
 /**
  * This is a class that is the controller of the activity_view_event screen
@@ -67,12 +50,11 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button entrantsButton;
     private Button editEventButton;
     private Button commentsButton;
-    private Button messageOrganizerButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
-    private Button showMapButton;
+    private Button inviteEntrant;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
@@ -113,13 +95,13 @@ public class ViewEventActivity extends AppCompatActivity {
         entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
         commentsButton = findViewById(R.id.viewEventCommentsButton);
-        messageOrganizerButton = findViewById(R.id.viewEventMessageOrganizerButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
         qrCodeButton = findViewById(R.id.createQRCode);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
-        showMapButton = findViewById(R.id.viewEventShowMapButton);
+        inviteEntrant = findViewById(R.id.viewEventInviteEntrant);
+
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -128,12 +110,12 @@ public class ViewEventActivity extends AppCompatActivity {
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
         commentsButton.setOnClickListener(v -> openCommentsScreen());
-        messageOrganizerButton.setOnClickListener(v -> openMessageScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
-        showMapButton.setOnClickListener(v -> showMap());
+        inviteEntrant.setOnClickListener(v -> openInviteEntrant());
+
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -144,8 +126,7 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-        showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-        qrCodeButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        qrCodeButton.setVisibility(View.GONE);
 
         qrCodeButton.setOnClickListener(v -> {
             Intent intent = new Intent(this, QRCode.class);
@@ -227,8 +208,8 @@ public class ViewEventActivity extends AppCompatActivity {
             canEditEvent = currentUser != null && EventRepository.canManageEvent(event, currentUser.getUid());
             screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-            qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
-            showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+            qrCodeButton.setVisibility(event.isPublic() ? View.VISIBLE : View.GONE);
+            inviteEntrant.setVisibility((canEditEvent && !event.isPublic())? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -236,7 +217,6 @@ public class ViewEventActivity extends AppCompatActivity {
             descriptionTextView.setText(hasText(event.getDescription())
                     ? event.getDescription()
                     : getString(R.string.event_card_missing_description));
-            updateMessageButton(event, currentUser);
             loadWaitlistState(event);
         } catch (Exception exception) {
             Log.e(TAG, "Failed to render event details", exception);
@@ -282,18 +262,6 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void openMessageScreen() {
-        FirebaseUser currentUser = auth.getCurrentUser();
-        if (currentEvent == null || currentUser == null || EventRepository.canManageEvent(currentEvent, currentUser.getUid())) {
-            return;
-        }
-
-        Intent intent = new Intent(this, MessageActivity.class);
-        intent.putExtra(MessageActivity.OTHER_UID, currentEvent.getHostUid());
-        intent.putExtra(MessageActivity.OTHER_NAME, currentEvent.getHostDisplayName());
-        startActivity(intent);
-    }
-
     /**
      * This is a controller for when joinWaitlistButton is pressed
      * it opens a popup to confirm the signup of to the Event
@@ -318,46 +286,17 @@ public class ViewEventActivity extends AppCompatActivity {
                 .show();
     }
 
-
-    /**
-     * This ask the user for permission of using GPS to location current location
-     */
-    private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if (!isGranted) {
-                    Toast.makeText(this, R.string.location_permission_required_to_join, Toast.LENGTH_LONG).show();
-                    setWaitlistActionLoading(false);
-                } else {
-                    executeJoinWaitlist();
-                }
-            });
-
-    /**
-     * This method check the Geolocation requirement of the event before join the waitlist
-     * if required, and have no permission of GPS, it will ask for permission
-     * if not required or has permission, it will proceed to join the waitlist and save to database
-     */
-    private void joinWaitlist() {
-        if (currentEvent == null) {
-            return;
-        }
-        setWaitlistActionLoading(true);
-        if(currentEvent.isRequiresGeolocation() &&
-                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
-            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
-            executeJoinWaitlist();
-        }
-    }
-
     /**
      * This is method that get the user to join the waitlist of the event
      * if successful it saves the waitlist item to the database
      * on failure notifies the user that it was unable to do so
      */
-    private void executeJoinWaitlist(){
+    private void joinWaitlist() {
         FirebaseUser currentUser = auth.getCurrentUser();
-        if(currentUser == null) return;
+        if (currentUser == null || currentEvent == null) {
+            return;
+        }
+        setWaitlistActionLoading(true);
         repository.joinWaitlist(eventId, currentUser)
                 .addOnSuccessListener(ignored -> {
                     Toast.makeText(
@@ -414,83 +353,11 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
-     * This function get a list of geolocation of participant from the waitlist
-     * Create a pop up window, and pin point the participant's location on map
-     */
-    private void showMap(){
-        if (currentEvent == null || !canEditEvent) return;
-
-        if (!currentEvent.isRequiresGeolocation()){
-            Toast.makeText(ViewEventActivity.this, "This event do not requires geolocation", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        FirebaseFirestore.getInstance()
-                .collection("events")
-                .document(eventId)
-                .collection("waitlist")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<GeoPoint> points = new ArrayList<>();
-                    for (DocumentSnapshot doc : querySnapshot){
-                        com.google.firebase.firestore.GeoPoint location = doc.getGeoPoint("location");
-                        if (location != null){
-                            points.add(new GeoPoint(location.getLatitude(), location.getLongitude()));
-                        }
-                    }
-
-                    if(points.isEmpty()){
-                        Toast.makeText(ViewEventActivity.this, "No entrant locations are available", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    Context context = getApplicationContext();
-                    org.osmdroid.config.Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid_prefs", Context.MODE_PRIVATE));
-                    org.osmdroid.config.Configuration.getInstance().setUserAgentValue(getPackageName());
-
-                    MapView mapView = new MapView(ViewEventActivity.this);
-
-                    mapView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 800));
-
-                    mapView.setTileSource(TileSourceFactory.MAPNIK);
-                    mapView.setMultiTouchControls(true);
-                    IMapController controller = mapView.getController();
-                    controller.setZoom(5.0);
-
-                    for(GeoPoint point : points){
-                        Marker marker = new Marker(mapView);
-                        marker.setPosition(point);
-                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                        marker.setTitle("Entrant");
-                        mapView.getOverlays().add(marker);
-                    }
-
-                    controller.setCenter(points.get(0));
-
-                    mapView.onResume();
-                    new AlertDialog.Builder(ViewEventActivity.this)
-                            .setTitle("Entrant Locations")
-                            .setView(mapView)
-                            .setPositiveButton("Close", (dialog, which) -> {
-                                mapView.onPause();
-                            }).show();
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to load entrant locations", e);
-                    Toast.makeText(ViewEventActivity.this, "Failed to load map data", Toast.LENGTH_SHORT).show();
-                });
-
-    }
-
-    /**
      * Accepts an invitation for the current user by updating the waitlist status
      * to CONFIRMED.
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
-
-
-
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -573,6 +440,19 @@ public class ViewEventActivity extends AppCompatActivity {
                     setWaitlistActionLoading(false);
                     applyWaitlistViewState();
                 });
+    }
+
+    /**
+     * This is a controller for when inviteEntrant is pressed
+     * it starts the InviteEntrantActivity and should only be visible to an organizer for a private event
+     */
+    private void openInviteEntrant() {
+        if (currentEvent == null || !canEditEvent) {
+            return;
+        }
+        Intent intent = new Intent(this, InviteEntrantActivity.class);
+        intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
+        startActivity(intent);
     }
 
     /**
@@ -853,7 +733,7 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
-        messageOrganizerButton.setVisibility(View.GONE);
+        inviteEntrant.setVisibility(View.GONE);
         qrCodeButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
@@ -881,14 +761,7 @@ public class ViewEventActivity extends AppCompatActivity {
      */
     private String buildWaitlistErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
-            String message = exception.getMessage().trim();
-            if (EventRepository.LOCATION_PERMISSION_REQUIRED_ERROR.equals(message)) {
-                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_permission_required_to_join);
-            }
-            if (EventRepository.LOCATION_REQUIRED_ERROR.equals(message)) {
-                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_required_to_join);
-            }
-            return getString(R.string.waitlist_action_failed) + ": " + message;
+            return getString(R.string.waitlist_action_failed) + ": " + exception.getMessage().trim();
         }
         return getString(R.string.waitlist_action_failed);
     }
@@ -898,12 +771,6 @@ public class ViewEventActivity extends AppCompatActivity {
         return currentEvent != null
                 && currentUser != null
                 && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
-    }
-
-    private void updateMessageButton(EventItem event, FirebaseUser currentUser) {
-        boolean canMessage = currentUser != null && !EventRepository.canManageEvent(event, currentUser.getUid());
-        messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);
-        messageOrganizerButton.setEnabled(canMessage);
     }
 
     /**
