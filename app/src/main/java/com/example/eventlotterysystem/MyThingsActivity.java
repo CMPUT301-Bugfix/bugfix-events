@@ -153,6 +153,8 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             showWinningDialog(notification);
         } else if ("INVITE".equals(notification.getType())) {
             showInviteDialog(notification);
+        } else if ("ASSIGN".equals(notification.getType())) {
+            showCoOrganiserDialog(notification);
         } else {
             showGeneralDialog(notification);
         }
@@ -218,6 +220,27 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
 
         builder.show();
     }
+
+    /**
+     * creates a popup that shows the invitation to become a coorganizser and allows the user to accept or reject it.
+     * @param notification NotificationItem that was clicked
+     */
+    private void showCoOrganiserDialog(NotificationItem notification) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Ok", (dialog, which) -> handleCoOranizerInvite(notification));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
+    }
+
 
     /**
      * creates a popup that show the notification message
@@ -305,6 +328,44 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                                 .addOnSuccessListener(v -> loadNotifications(uid));
                     });
             Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Handles the acceptance or rejection of a CoOrganizer invitation.
+     * @param notification The notification being responded to
+     * @param accepted True if accepted, false if rejected
+     */
+    private void handleCoOranizerInvite(NotificationItem notification, boolean accepted) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+
+        if (accepted) {
+            FirebaseUser currentUser = auth.getCurrentUser();
+            if (currentUser == null) return;
+
+            eventRepository.assignCoorganizer(eventId, currentUser.getUid())
+                    .addOnSuccessListener(unused -> {
+                        notificationRepository.updateNotificationStatus(uid, notification.getId(), "ACCEPTED")
+                                .addOnSuccessListener(aVoid -> {
+                                    notificationRepository.updateCoorganiserTrackingStatus(eventId, uid, "ACCEPTED")
+                                            .addOnSuccessListener(v -> loadNotifications(uid));
+                                });
+                        Toast.makeText(this, "Became Coorganizer for event", Toast.LENGTH_SHORT).show();
+
+                    })
+                    .addOnFailureListener(exception -> {
+                        Toast.makeText(this, "Failed to become Coorganizer: " + exception.getMessage(), Toast.LENGTH_LONG).show();
+
+                    });
+        } else {
+            notificationRepository.updateNotificationStatus(uid, notification.getId(), "REJECTED")
+                    .addOnSuccessListener(aVoid -> {
+                        notificationRepository.updateCoorganiserTrackingStatus(eventId, uid, "REJECTED")
+                                .addOnSuccessListener(v -> loadNotifications(uid));
+                    });
+            FirebaseUser currentUser = auth.getCurrentUser();
+            eventRepository.joinWaitlist(eventId, currentUser);
         }
     }
 

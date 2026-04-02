@@ -609,23 +609,43 @@ public class ViewEventActivity extends AppCompatActivity {
             applyWaitlistViewState();
             return;
         }
-
-        repository.getWaitlistStatus(eventId, currentUser.getUid())
-                .addOnSuccessListener(status -> {
-                    currentWaitlistStatus = status;
-                    updateWaitlistControls(event, currentUser.getUid(), status);
-                    applyWaitlistViewState();
+        repository.getCoorganizerStatus(eventId, currentUser.getUid())
+                .addOnSuccessListener(CoorganizerStatus -> {
+                    if (CoorganizerStatus == EventRepository.COORGANIZER_INVITE) {
+                        currentWaitlistStatus = "";
+                        updateWaitlistControls(event, currentUser.getUid(), CoorganizerStatus);
+                        applyWaitlistViewState();
+                    }
+                    else {
+                        repository.getWaitlistStatus(eventId, currentUser.getUid())
+                                .addOnSuccessListener(status -> {
+                                    currentWaitlistStatus = status;
+                                    updateWaitlistControls(event, currentUser.getUid(), status);
+                                    applyWaitlistViewState();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "Failed to load waitlist state", e);
+                                    Toast.makeText(
+                                            ViewEventActivity.this,
+                                            buildWaitlistErrorMessage(e),
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                    currentWaitlistStatus = "";
+                                    updateWaitlistControls(event, currentUser.getUid(), "");
+                                    applyWaitlistViewState();
+                                });
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to load waitlist state", e);
-                    Toast.makeText(
-                            ViewEventActivity.this,
-                            buildWaitlistErrorMessage(e),
-                            Toast.LENGTH_LONG
-                    ).show();
-                    currentWaitlistStatus = "";
-                    updateWaitlistControls(event, currentUser.getUid(), "");
-                    applyWaitlistViewState();
+                            Log.e(TAG, "Failed to load waitlist state", e);
+                            Toast.makeText(
+                                    ViewEventActivity.this,
+                                    buildWaitlistErrorMessage(e),
+                                    Toast.LENGTH_LONG
+                            ).show();
+                            currentWaitlistStatus = "";
+                            updateWaitlistControls(event, currentUser.getUid(), "");
+                            applyWaitlistViewState();
                 });
     }
     /**
@@ -721,6 +741,10 @@ public class ViewEventActivity extends AppCompatActivity {
 
         if (EventRepository.WAITLIST_STATUS_IN.equals(status)) {
             updateWaitlistFlags(false, false, true, true);
+            return;
+        }
+        if (EventRepository.COORGANIZER_INVITE.equals(status)) {
+            updateWaitlistFlags(false, false, false, false);
             return;
         }
 

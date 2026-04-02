@@ -48,6 +48,7 @@ public class EventRepository {
     public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
     public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
     public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
+    public static final String COORGANIZER_INVITE = "PENDING";
     static final String LOCATION_REQUIRED_ERROR = "LOCATION_REQUIRED_TO_JOIN";
     static final String LOCATION_PERMISSION_REQUIRED_ERROR = "LOCATION_PERMISSION_REQUIRED_TO_JOIN";
 
@@ -258,6 +259,38 @@ public class EventRepository {
     }
 
     /**
+     * Check to see if there is a Coorganizer entry for a user signed up to an event and what that status is
+     * @param eventId
+     * Id of the Event
+     * @param uid
+     * Id of the user
+     * @return
+     * Task that tries to obtains a Co-organiser entry matching the argument id's and returns result if found
+     */
+    public Task<String> getCoorganizerStatus(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventCoorganizerEntry(eventId, uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load Co-organiser status");
+                    }
+
+                    DocumentSnapshot doc = task.getResult();
+                    if (doc == null || !doc.exists()) {
+                        return "";
+                    }
+
+                    String status = normalize(doc.getString("status"));
+                    return status.isEmpty() ? COORGANIZER_INVITE : status;
+                });
+    }
+
+    /**
      * determines whether a user can access an event detail screen
      * for private events, access is granted to the host and to anyone
      * who already has a waitlist record for the event
@@ -299,22 +332,19 @@ public class EventRepository {
     }
 
     /**
-     * assigns a user as a coorganizer for an Event and removes any waitlist entry they had for it
+     * assigns a user as a coorganizer for an Event
      * @param eventId
      * the String id of the Event
      * @param targetUid
      * the String uid of the user being assigned
-     * @param actingUid
-     * the String uid of the host assigning the coorganizer
      * @return
      * a Task that updates the Event and removes matching waitlist entries
      */
     public Task<Void> assignCoorganizer(
             @NonNull String eventId,
-            @NonNull String targetUid,
-            @NonNull String actingUid
+            @NonNull String targetUid
     ) {
-        if (!hasText(eventId) || !hasText(targetUid) || !hasText(actingUid)) {
+        if (!hasText(eventId) || !hasText(targetUid)) {
             return Tasks.forException(new IllegalArgumentException("Missing co-organizer assignment details"));
         }
 
@@ -329,9 +359,6 @@ public class EventRepository {
             }
 
             EventItem event = readEventItem(eventDoc);
-            if (!isHost(event, actingUid)) {
-                throw new IllegalStateException("Only the host can assign co-organizers");
-            }
             if (isHost(event, targetUid)) {
                 return null;
             }
@@ -555,6 +582,54 @@ public class EventRepository {
                 transaction.update(eventRef, "totalEntrants", decrementWaitlistCount(totalEntrants));
             }
             return null;
+        });
+    }
+
+    /**
+     * Updates the database to remove a user from an event waitlist
+     * @param eventId
+     * Id of event that was signed up
+     * @param user
+     * current User document from database
+     * @return
+     * Task that removes the waitlist document from the user and event documents
+     */
+    public Task<Void> setPendingCoorganizer(
+            @NonNull String eventId,
+            @NonNull FirebaseUser User
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+
+        return eventRef.get().continueWithTask(eventTask -> {
+            if (!eventTask.isSuccessful()) {
+                throw eventTask.getException() != null
+                        ? eventTask.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
+            DocumentSnapshot eventDoc = eventTask.getResult();
+            if (eventDoc == null || !eventDoc.exists()) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (!geolocationRequired) {
+                return joinWaitlist(eventId, currentUser, null);
+            }
+
+            Context context = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!hasPermission) {
+                return Tasks.forException(new SecurityException(LOCATION_PERMISSION_REQUIRED_ERROR));
+            }
+
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+            return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .continueWithTask(locationTask -> joinWaitlist(
+                            eventId,
+                            currentUser,
+                            locationTask.isSuccessful() ? locationTask.getResult() : null
+                    ));
         });
     }
 
@@ -1351,6 +1426,27 @@ public class EventRepository {
                 .collection("waitlist")
                 .document(uid);
     }
+
+    /**
+     * returns the Co-organizer entry of a event for a specific user from the database
+     * @param eventId
+     * Event ID
+     * @param uid
+     * User ID
+     * @return
+     * the pointer to the waitlist item in the database (under events collection)
+     */
+    @NonNull
+    private DocumentReference eventCoorganizerEntry(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("coorganizerinvites")
+                .document(uid);
+    }
+
 
     /**
      * returns the waitlist entry of a user for a specific event from the database
