@@ -153,6 +153,8 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             showWinningDialog(notification);
         } else if ("INVITE".equals(notification.getType())) {
             showInviteDialog(notification);
+        } else if ("ASSIGN".equals(notification.getType())) {
+            showCoOrganiserDialog(notification);
         } else {
             showGeneralDialog(notification);
         }
@@ -210,6 +212,26 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             builder.setPositiveButton("Accept", (dialog, which) -> handlePrivateInvite(notification, true))
                    .setNeutralButton("Snooze", null) // Snoozing just closes the dialog, it stays PENDING
                    .setNegativeButton("Reject", (dialog, which) -> handlePrivateInvite(notification, false));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
+    }
+
+    /**
+     * creates a popup that shows the invitation to become a coorganizser and allows the user to accept it.
+     * @param notification NotificationItem that was clicked
+     */
+    private void showCoOrganiserDialog(NotificationItem notification) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Ok", (dialog, which) -> handleCoOranizerInvite(notification));
         } else {
             String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
             builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
@@ -306,6 +328,25 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                     });
             Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
         }
+    }
+
+
+    /**
+     * Handles the acceptance of a CoOrganizer invitation.
+     * @param notification The notification being responded to
+     */
+    private void handleCoOranizerInvite(NotificationItem notification) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) return;
+
+        notificationRepository.updateNotificationStatus(uid, notification.getId(), "ACCEPTED")
+                .addOnSuccessListener(aVoid -> {
+                    notificationRepository.updateInvitationTrackingStatus(eventId, uid, "ACCEPTED")
+                            .addOnSuccessListener(v -> loadNotifications(uid));
+                });
     }
 
     /**

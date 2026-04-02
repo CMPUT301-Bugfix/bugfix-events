@@ -170,6 +170,54 @@ public class NotificationRepository {
     }
 
     /**
+     * Sends invitations to be a coorganiser and creates tracking records in the event's sub-collection
+     * @param eventId ID of the event
+     * @param title   title of the notification
+     * @param message invitation message content
+     * @param users   List of UserProfile objects to invite
+     * @return A Task representing the completion of the invitation operation
+     */
+    public Task<Void> sendCoOrganizerInvitation(
+            @NonNull String eventId,
+            @NonNull String title,
+            @NonNull String message,
+            @NonNull List<UserProfile> users
+    ) {
+        if (users.isEmpty()) return Tasks.forResult(null);
+
+        WriteBatch batch = firestore.batch();
+
+        for (UserProfile user : users) {
+            // 1. Add to user's inbox
+            DocumentReference userNotifyRef = firestore.collection("users")
+                    .document(user.getUid())
+                    .collection("notifications")
+                    .document();
+            NotificationItem userItem = new NotificationItem(eventId, title, message, "ASSIGN");
+            userItem.setId(userNotifyRef.getId());
+            batch.set(userNotifyRef, userItem);
+
+            // 2. Add to event's invitations tracking
+            DocumentReference inviteRef = firestore.collection("events")
+                    .document(eventId)
+                    .collection("coorganizerinvites")
+                    .document(user.getUid());
+
+            Map<String, Object> inviteData = new HashMap<>();
+            inviteData.put("uid", user.getUid());
+            inviteData.put("name", user.getName());
+            inviteData.put("email", user.getEmail());
+            inviteData.put("username", user.getUsername());
+            inviteData.put("status", "PENDING");
+            inviteData.put("timestamp", FieldValue.serverTimestamp());
+
+            batch.set(inviteRef, inviteData);
+        }
+
+        return batch.commit();
+    }
+
+    /**
      * gets all notifications for a specific user, ordered by timestamp (newest first)
      *
      * @param uid UID of the user
@@ -225,6 +273,22 @@ public class NotificationRepository {
         return firestore.collection("events")
                 .document(eventId)
                 .collection("invitations")
+                .document(uid)
+                .update("status", newStatus);
+    }
+
+    /**
+     * Updates the tracking status of an coorganizer invitation under an event's invitations sub-collection
+     *
+     * @param eventId   ID of the event
+     * @param uid       UID of the user
+     * @param newStatus new status to set ("ACCEPTED", "REJECTED")
+     * @return A Task representing completion of the update
+     */
+    public Task<Void> updateCoorganiserTrackingStatus(@NonNull String eventId, @NonNull String uid, @NonNull String newStatus) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("coorganizerinvites")
                 .document(uid)
                 .update("status", newStatus);
     }
