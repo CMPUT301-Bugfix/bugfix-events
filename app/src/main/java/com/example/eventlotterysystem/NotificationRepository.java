@@ -8,38 +8,41 @@ import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Repository class for managing notifications in Firestore.
+ * Repository class for managing notifications in Firestore
  * This class handles the creation, retrieval, and status management of notifications,
- * including broadcasting messages to event waitlists.
+ * including broadcasting messages to event waitlists and managing private invitations
  */
 public class NotificationRepository {
 
     private final FirebaseFirestore firestore;
 
     /**
-     * Initializes the NotificationRepository with a Firestore instance.
+     * Initializes the NotificationRepository with a Firestore instance
      */
     public NotificationRepository() {
         this.firestore = FirebaseFirestore.getInstance();
     }
 
     /**
-     * Sends a notification to a specific sub-group of an event's waitlist based on their status.
+     * Sends a notification to a specific sub-group of an event's waitlist based on their status
      *
      * @param eventId       ID of the event
-     * @param eventTitle   title of the event
-     * @param message      message content
-     * @param type          type of notification (e.g., "WIN", "GENERAL").
-     * @param statusFilter status to filter recipients by (e.g., "IN_WAITLIST", "CHOSEN")
-     *                     If null, all users in the waitlist will be notified
+     * @param eventTitle    title of the event
+     * @param message       message content
+     * @param type          type of notification ("WIN", "GENERAL")
+     * @param statusFilter  status to filter recipients by ("IN_WAITLIST", "CHOSEN")
+     *                      If null, all users in the waitlist will be notified
      * @return A Task representing the completion of the batch send operation
      */
     public Task<Void> sendBatchNotification(
@@ -76,8 +79,8 @@ public class NotificationRepository {
     }
 
     /**
-     * Sends a notification to a specific list of user IDs.
-     * Records the notification in the global log and individual user inbox
+     * sends a notification to a specific list of user IDs
+     * records the notification in the global log and individual user inbox
      *
      * @param eventId       ID of the event associated with the notification
      * @param title         title of the notification
@@ -118,7 +121,56 @@ public class NotificationRepository {
     }
 
     /**
-     * Retrieves all notifications for a specific user, ordered by timestamp (newest first)
+     * Sends invitations for a private event and creates tracking records in the event's sub-collection
+     *
+     * @param eventId ID of the event
+     * @param title   title of the notification
+     * @param message invitation message content
+     * @param users   List of UserProfile objects to invite
+     * @return A Task representing the completion of the invitation operation
+     */
+    public Task<Void> sendInvitations(
+            @NonNull String eventId,
+            @NonNull String title,
+            @NonNull String message,
+            @NonNull List<UserProfile> users
+    ) {
+        if (users.isEmpty()) return Tasks.forResult(null);
+
+        WriteBatch batch = firestore.batch();
+
+        for (UserProfile user : users) {
+            // 1. Add to user's inbox
+            DocumentReference userNotifyRef = firestore.collection("users")
+                    .document(user.getUid())
+                    .collection("notifications")
+                    .document();
+            NotificationItem userItem = new NotificationItem(eventId, title, message, "INVITE");
+            userItem.setId(userNotifyRef.getId());
+            batch.set(userNotifyRef, userItem);
+
+            // 2. Add to event's invitations tracking
+            DocumentReference inviteRef = firestore.collection("events")
+                    .document(eventId)
+                    .collection("invitations")
+                    .document(user.getUid());
+            
+            Map<String, Object> inviteData = new HashMap<>();
+            inviteData.put("uid", user.getUid());
+            inviteData.put("name", user.getName());
+            inviteData.put("email", user.getEmail());
+            inviteData.put("username", user.getUsername());
+            inviteData.put("status", "PENDING");
+            inviteData.put("timestamp", FieldValue.serverTimestamp());
+            
+            batch.set(inviteRef, inviteData);
+        }
+
+        return batch.commit();
+    }
+
+    /**
+     * gets all notifications for a specific user, ordered by timestamp (newest first)
      *
      * @param uid UID of the user
      * @return A Task containing a list of NotificationItem objects
@@ -146,12 +198,12 @@ public class NotificationRepository {
     }
 
     /**
-     * Updates the status of a specific notification in a user inbox
+     * updates the status of a specific notification in a user's inbox
      *
      * @param uid            UID of the user
      * @param notificationId ID of the notification
-     * @param newStatus      new status to set (e.g., "READ", "ACCEPTED")
-     * @return A Task representing completion of upddte
+     * @param newStatus      new status to set ("READ", "ACCEPTED", "REJECTED")
+     * @return A Task representing completion of the update
      */
     public Task<Void> updateNotificationStatus(@NonNull String uid, @NonNull String notificationId, @NonNull String newStatus) {
         return firestore.collection("users")
@@ -162,10 +214,26 @@ public class NotificationRepository {
     }
 
     /**
-     * Deletes a specific notification from a user's inbox.
+     * Updates the tracking status of an invitation under an event's invitations sub-collection
+     *
+     * @param eventId   ID of the event
+     * @param uid       UID of the user
+     * @param newStatus new status to set ("ACCEPTED", "REJECTED")
+     * @return A Task representing completion of the update
+     */
+    public Task<Void> updateInvitationTrackingStatus(@NonNull String eventId, @NonNull String uid, @NonNull String newStatus) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("invitations")
+                .document(uid)
+                .update("status", newStatus);
+    }
+
+    /**
+     * Deletes a specific notification from a user's inbox
      *
      * @param uid            UID of the user
-     * @param notificationId ID of the notif to delete
+     * @param notificationId ID of the notification to delete
      * @return A Task representing the complete delete
      */
     public Task<Void> deleteNotification(@NonNull String uid, @NonNull String notificationId) {
@@ -177,11 +245,10 @@ public class NotificationRepository {
     }
 
     /**
-     * reads in a Notification document in the database into an Notification object
-     * @param doc
-     * a reference to Notification document in the database
-     * @return
-     * a created Notification object with the data from the document
+     * Reads a Notification document from Firestore and converts it to a NotificationItem object
+     *
+     * @param doc Firestore document snapshot
+     * @return A NotificationItem object representing the document data
      */
     @NonNull
     public NotificationItem readNotificationItem(@NonNull DocumentSnapshot doc) {
@@ -190,17 +257,21 @@ public class NotificationRepository {
         String message = doc.getString("message");
         String type = doc.getString("type");
 
-        return new NotificationItem(
+        NotificationItem item = new NotificationItem(
                 eventId,
                 title,
                 message,
                 type
         );
+        item.setId(doc.getId());
+        item.setStatus(doc.getString("status"));
+        return item;
     }
 
     /**
-     * Retrieves all notifications from the notifications collection, ordered by timestamp (newest first)
-     * @return A Task containing a list of NotificationItem objects
+     * Retrieves all notifications from global notifications log, ordered by timestamp (newest first)
+     *
+     * @return A Task containing a list of all NotificationItem objects in the log
      */
     public Task<List<NotificationItem>> getNotificationLog() {
         return firestore.collection("notifications")

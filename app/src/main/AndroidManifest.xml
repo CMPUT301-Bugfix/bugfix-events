@@ -99,6 +99,12 @@
             android:name=".AdminNotificationsLogActivity"
             android:exported="false" />
         <activity
+            android:name=".SendPrivateEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".InvitationStatusActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
