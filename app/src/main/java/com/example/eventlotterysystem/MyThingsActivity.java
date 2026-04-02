@@ -151,6 +151,8 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     public void onNotificationClick(NotificationItem notification) {
         if ("WIN".equals(notification.getType())) {
             showWinningDialog(notification);
+        } else if ("INVITE".equals(notification.getType())) {
+            showInviteDialog(notification);
         } else {
             showGeneralDialog(notification);
         }
@@ -186,6 +188,28 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             builder.setPositiveButton("Accept", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_CONFIRMED))
                    .setNeutralButton("Snooze", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_SNOOZED))
                    .setNegativeButton("Reject", (dialog, which) -> handleInvite(notification, EventRepository.WAITLIST_STATUS_DECLINED));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
+    }
+
+    /**
+     * creates a popup that shows the invitation for a private event and allows the user to accept or reject it.
+     * @param notification NotificationItem that was clicked
+     */
+    private void showInviteDialog(NotificationItem notification) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Accept", (dialog, which) -> handlePrivateInvite(notification, true))
+                   .setNeutralButton("Snooze", null) // Snoozing just closes the dialog, it stays PENDING
+                   .setNegativeButton("Reject", (dialog, which) -> handlePrivateInvite(notification, false));
         } else {
             String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
             builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
@@ -246,6 +270,42 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                     Toast.makeText(this, "Waitlist update failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     Log.e(TAG, "Waitlist update failed", e);
                 });
+    }
+
+    /**
+     * Handles the acceptance or rejection of a private event invitation.
+     * @param notification The notification being responded to
+     * @param accepted True if accepted, false if rejected
+     */
+    private void handlePrivateInvite(NotificationItem notification, boolean accepted) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+
+        if (accepted) {
+            FirebaseUser currentUser = auth.getCurrentUser();
+            if (currentUser == null) return;
+            
+            // Join waitlist for the private event
+            eventRepository.joinWaitlist(eventId, currentUser)
+                    .addOnSuccessListener(unused -> {
+                        notificationRepository.updateNotificationStatus(uid, notification.getId(), "ACCEPTED")
+                                .addOnSuccessListener(aVoid -> {
+                                    notificationRepository.updateInvitationTrackingStatus(eventId, uid, "ACCEPTED")
+                                            .addOnSuccessListener(v -> loadNotifications(uid));
+                                });
+                        Toast.makeText(this, "Joined waitlist for private event", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to join waitlist: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+        } else {
+            notificationRepository.updateNotificationStatus(uid, notification.getId(), "REJECTED")
+                    .addOnSuccessListener(aVoid -> {
+                        notificationRepository.updateInvitationTrackingStatus(eventId, uid, "REJECTED")
+                                .addOnSuccessListener(v -> loadNotifications(uid));
+                    });
+            Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
