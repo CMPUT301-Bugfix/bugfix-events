@@ -23,6 +23,15 @@ public class MessageThreadAdapter extends ArrayAdapter<MessageThreadItem> {
     private final LayoutInflater inflater;
     private final String currentUserUid;
 
+    /**
+     * creates the adapter for displaying message threads
+     * @param context
+     * the current screen context
+     * @param items
+     * the list of message threads to display
+     * @param currentUserUid
+     * the uid of the signed in user
+     */
     public MessageThreadAdapter(
             @NonNull Context context,
             @NonNull List<MessageThreadItem> items,
@@ -33,6 +42,17 @@ public class MessageThreadAdapter extends ArrayAdapter<MessageThreadItem> {
         this.currentUserUid = currentUserUid;
     }
 
+    /**
+     * creates the view for a single message thread row
+     * @param position
+     * the position of the message thread in the list
+     * @param convertView
+     * the existing row view if one is available
+     * @param parent
+     * the parent view group for the row
+     * @return
+     * the row view for the message thread
+     */
     @NonNull
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {

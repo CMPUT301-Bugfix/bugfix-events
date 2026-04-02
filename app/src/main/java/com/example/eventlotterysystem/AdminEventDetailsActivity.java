@@ -331,6 +331,11 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
                     finish();
                 })
                 .addOnFailureListener(new OnFailureListener() {
+                    /**
+                     * handles a failure while deleting the Event
+                     * @param e
+                     * the exception raised while deleting the Event
+                     */
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         handleDeleteFailure(e);
