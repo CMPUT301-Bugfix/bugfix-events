@@ -47,6 +47,12 @@ public class MessageActivity extends AppCompatActivity {
     private MessageThreadItem currentThread;
     private ValueEventListener messagesListener;
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable view to their controller
+     * @param savedInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,12 +82,19 @@ public class MessageActivity extends AppCompatActivity {
         sendButton.setOnClickListener(v -> sendMessage());
     }
 
+    /**
+     * This is the startup of the Activity
+     * it loads the current message thread
+     */
     @Override
     protected void onStart() {
         super.onStart();
         loadThread();
     }
 
+    /**
+     * removes the message listener when leaving the screen
+     */
     @Override
     protected void onStop() {
         super.onStop();
@@ -95,6 +108,9 @@ public class MessageActivity extends AppCompatActivity {
         messagesListener = null;
     }
 
+    /**
+     * loads the message thread for this screen and attaches the listener for its messages
+     */
     private void loadThread() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
@@ -152,6 +168,11 @@ public class MessageActivity extends AppCompatActivity {
                         }
 
                         messagesListener = new ValueEventListener() {
+                            /**
+                             * updates the screen when the thread messages change
+                             * @param snapshot
+                             * the snapshot containing the thread messages
+                             */
                             @Override
                             public void onDataChange(@NonNull DataSnapshot snapshot) {
                                 messages.clear();
@@ -165,6 +186,11 @@ public class MessageActivity extends AppCompatActivity {
                                 }
                             }
 
+                            /**
+                             * handles a failure while loading the thread messages
+                             * @param error
+                             * the database error returned by Firebase
+                             */
                             @Override
                             public void onCancelled(@NonNull DatabaseError error) {
                                 Toast.makeText(MessageActivity.this, R.string.messages_load_failed, Toast.LENGTH_SHORT).show();
@@ -212,6 +238,11 @@ public class MessageActivity extends AppCompatActivity {
                         }
 
                         messagesListener = new ValueEventListener() {
+                            /**
+                             * updates the screen when the thread messages change
+                             * @param snapshot
+                             * the snapshot containing the thread messages
+                             */
                             @Override
                             public void onDataChange(@NonNull DataSnapshot snapshot) {
                                 messages.clear();
@@ -225,6 +256,11 @@ public class MessageActivity extends AppCompatActivity {
                                 }
                             }
 
+                            /**
+                             * handles a failure while loading the thread messages
+                             * @param error
+                             * the database error returned by Firebase
+                             */
                             @Override
                             public void onCancelled(@NonNull DatabaseError error) {
                                 Toast.makeText(MessageActivity.this, R.string.messages_load_failed, Toast.LENGTH_SHORT).show();
@@ -248,6 +284,9 @@ public class MessageActivity extends AppCompatActivity {
         finish();
     }
 
+    /**
+     * sends the text currently entered in the message input field
+     */
     private void sendMessage() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentThread == null) {

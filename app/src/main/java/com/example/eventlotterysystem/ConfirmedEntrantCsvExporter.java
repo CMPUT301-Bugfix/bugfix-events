@@ -17,6 +17,9 @@ import java.util.Locale;
  * and for checking if the export views should be shown
  */
 final class ConfirmedEntrantCsvExporter {
+    /**
+     * helper class for CSV export only, so it should not be instantiated
+     */
     private ConfirmedEntrantCsvExporter() {
     }
 

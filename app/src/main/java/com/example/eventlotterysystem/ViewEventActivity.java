@@ -259,6 +259,9 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * opens the EntrantsActivity for the current Event when the user can manage it
+     */
     private void openEntrantsScreen() {
         if (currentEvent == null || !canEditEvent) {
             return;
@@ -279,6 +282,9 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * opens the direct message screen for the organizer of the current Event
+     */
     private void openMessageScreen() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentEvent == null || currentUser == null || EventRepository.canManageEvent(currentEvent, currentUser.getUid())) {
@@ -291,6 +297,9 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * opens the screen used for sending a private Event invitation
+     */
     private void openSendPrivateScreen() {
         if (currentEvent == null || !canEditEvent) {
             return;
@@ -532,6 +541,9 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * opens a popup asking the user to confirm rejecting the current invitation
+     */
     private void showRejectInvitationDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Reject invitation")
@@ -900,6 +912,11 @@ public class ViewEventActivity extends AppCompatActivity {
         return getString(R.string.waitlist_action_failed);
     }
 
+    /**
+     * checks if the entrants button should be shown for the current user
+     * @return
+     * true if the current user can manage the current Event
+     */
     private boolean shouldShowEntrantsButton() {
         FirebaseUser currentUser = auth.getCurrentUser();
         return currentEvent != null
@@ -907,6 +924,13 @@ public class ViewEventActivity extends AppCompatActivity {
                 && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
     }
 
+    /**
+     * updates the message organizer button based on whether the current user can message the organizer
+     * @param event
+     * the current Event being displayed
+     * @param currentUser
+     * the currently signed in FirebaseUser
+     */
     private void updateMessageButton(EventItem event, FirebaseUser currentUser) {
         boolean canMessage = currentUser != null && !EventRepository.canManageEvent(event, currentUser.getUid());
         messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);

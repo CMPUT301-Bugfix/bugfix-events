@@ -152,6 +152,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     finish();
                 })
                 .addOnFailureListener(new OnFailureListener() {
+                    /**
+                     * handles a failure while deleting the UserProfile
+                     * @param e
+                     * the exception raised while deleting the UserProfile
+                     */
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         handleDeleteFailure(e);
@@ -256,10 +261,24 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * shows a popup message to the user
+     * @param message
+     * the message that will be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * returns a fallback string if the given value is empty
+     * @param value
+     * the String value being checked
+     * @param fallbackResId
+     * the string resource used if the value is empty
+     * @return
+     * the given value, or the fallback string if it is empty
+     */
     @NonNull
     private String safeValue(@NonNull String value, int fallbackResId) {
         if (TextUtils.isEmpty(value)) {

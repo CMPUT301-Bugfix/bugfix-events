@@ -41,6 +41,15 @@ public class UserSearchAdapter extends RecyclerView.Adapter<UserSearchAdapter.Us
         this.listener = listener;
     }
 
+    /**
+     * creates the ViewHolder for a user search row
+     * @param parent
+     * the parent view group for the row
+     * @param viewType
+     * the type of row view being created
+     * @return
+     * the created UserSearchViewHolder
+     */
     @NonNull
     @Override
     public UserSearchViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -49,6 +58,13 @@ public class UserSearchAdapter extends RecyclerView.Adapter<UserSearchAdapter.Us
         return new UserSearchViewHolder(view);
     }
 
+    /**
+     * fills a row in the list with a user search result
+     * @param holder
+     * the ViewHolder being updated
+     * @param position
+     * the position of the user in the list
+     */
     @Override
     public void onBindViewHolder(@NonNull UserSearchViewHolder holder, int position) {
         UserProfile user = users.get(position);
@@ -63,6 +79,11 @@ public class UserSearchAdapter extends RecyclerView.Adapter<UserSearchAdapter.Us
         });
     }
 
+    /**
+     * gets the number of users in the adapter
+     * @return
+     * the number of users in the adapter
+     */
     @Override
     public int getItemCount() {
         return users.size();

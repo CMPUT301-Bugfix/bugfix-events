@@ -1608,6 +1608,15 @@ public class EventRepository {
         return isPublicValue == null || Boolean.TRUE.equals(isPublicValue);
     }
 
+    /**
+     * checks if a keyword already exists in a list of keywords ignoring case
+     * @param keywords
+     * the list of keywords being checked
+     * @param candidate
+     * the keyword being searched for
+     * @return
+     * true if the keyword already exists in the list
+     */
     private static boolean containsKeywordIgnoreCase(@NonNull List<String> keywords, @NonNull String candidate) {
         for (String keyword : keywords) {
             if (keyword.equalsIgnoreCase(candidate)) {
