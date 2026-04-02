@@ -17,6 +17,14 @@ public class UserProfile {
     private String accountType;
     private Timestamp createdAt;
 
+    // Notification preferences
+    private boolean optInCoorganizerInvites = true;
+    private boolean optInPrivateInvites = true;
+    private boolean optInWinningNotifications = true;
+    private boolean optInOtherNotifications = true;
+
+    public UserProfile() {}
+
     public UserProfile(String name, String email, String username, String usernameKey, String phoneNumber) {
         this(name, email, username, usernameKey, phoneNumber, "");
     }
@@ -99,5 +107,37 @@ public class UserProfile {
 
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isOptInCoorganizerInvites() {
+        return optInCoorganizerInvites;
+    }
+
+    public void setOptInCoorganizerInvites(boolean optInCoorganizerInvites) {
+        this.optInCoorganizerInvites = optInCoorganizerInvites;
+    }
+
+    public boolean isOptInPrivateInvites() {
+        return optInPrivateInvites;
+    }
+
+    public void setOptInPrivateInvites(boolean optInPrivateInvites) {
+        this.optInPrivateInvites = optInPrivateInvites;
+    }
+
+    public boolean isOptInWinningNotifications() {
+        return optInWinningNotifications;
+    }
+
+    public void setOptInWinningNotifications(boolean optInWinningNotifications) {
+        this.optInWinningNotifications = optInWinningNotifications;
+    }
+
+    public boolean isOptInOtherNotifications() {
+        return optInOtherNotifications;
+    }
+
+    public void setOptInOtherNotifications(boolean optInOtherNotifications) {
+        this.optInOtherNotifications = optInOtherNotifications;
     }
 }
