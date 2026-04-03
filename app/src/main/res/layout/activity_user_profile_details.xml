@@ -105,6 +105,13 @@
             android:layout_weight="1" />
 
         <Button
+            android:id="@+id/userProfileRemoveOrganizerButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/admin_remove_organizer"
+            android:layout_marginTop="12dp" />
+
+        <Button
             android:id="@+id/userProfileAssignCoorganizerButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

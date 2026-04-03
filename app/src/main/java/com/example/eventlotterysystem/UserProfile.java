@@ -16,6 +16,7 @@ public class UserProfile {
     private String phoneNumber;
     private String accountType;
     private Timestamp createdAt;
+    private boolean suspended;
 
     /**
      * creates the user profile object without an account type
@@ -63,6 +64,7 @@ public class UserProfile {
         this.usernameKey = usernameKey;
         this.phoneNumber = phoneNumber;
         this.accountType = accountType;
+        this.suspended = false;
     }
 
     /**
@@ -207,5 +209,13 @@ public class UserProfile {
      */
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean getSuspended() {
+        return suspended;
+    }
+
+    public void setSuspended(boolean suspended) {
+        this.suspended = suspended;
     }
 }

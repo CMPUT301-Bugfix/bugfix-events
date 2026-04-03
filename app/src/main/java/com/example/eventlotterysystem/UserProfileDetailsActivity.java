@@ -33,7 +33,7 @@ import java.util.Map;
 
 /**
  * This class deals with displaying the user details page for the
- * admins, which will allow admins to delete an event
+ * admins, which will allow admins to delete a user profile
  */
 
 public class UserProfileDetailsActivity extends AppCompatActivity {
@@ -51,6 +51,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     private FirebaseFirestore firestore;
     private Button deleteProfileButton;
     private Button assignCoorganizerButton;
+    private Button removeOrganizerButton;
     private EventRepository repository;
     private NotificationRepository notificationRepository;
     private boolean isDeleting;
@@ -85,6 +86,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         TextView detailsJoinDateValue = findViewById(R.id.userProfileDetailsJoinDateValue);
         deleteProfileButton = findViewById(R.id.userProfileDeleteButton);
         assignCoorganizerButton = findViewById(R.id.userProfileAssignCoorganizerButton);
+        removeOrganizerButton = findViewById(R.id.userProfileRemoveOrganizerButton);
 
         detailsBackButton.setOnClickListener(v -> finish());
 
@@ -115,6 +117,16 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
             deleteProfileButton.setOnClickListener(v -> onDeleteProfileClicked());
         }
 
+        boolean canRemoveOrganizer = !TextUtils.isEmpty(viewedUid)
+                && "organizer".equalsIgnoreCase(viewedAccountType);
+
+        if (!canRemoveOrganizer) {
+            removeOrganizerButton.setVisibility(View.GONE);
+        } else {
+            removeOrganizerButton.setVisibility(View.VISIBLE);
+            removeOrganizerButton.setOnClickListener(v -> onRemoveOrganizerClicked());
+        }
+
         assignCoorganizerButton.setVisibility(View.GONE);
         if (!TextUtils.isEmpty(sourceEventId) && !TextUtils.isEmpty(viewedUid)) {
             configureAssignCoorganizerButton();
@@ -138,6 +150,26 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 ))
                 .setNegativeButton(R.string.admin_delete_profile_cancel_action, (dialog, which) -> dialog.dismiss())
                 .setPositiveButton(R.string.admin_delete_profile_confirm_action, (dialog, which) -> deleteViewedProfile())
+                .show();
+    }
+
+    /**
+     * This method shows the dialog for confirming the removing of an organizer
+     */
+
+    private void onRemoveOrganizerClicked() {
+        if (isDeleting || TextUtils.isEmpty(viewedUid)) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.admin_remove_organizer_confirm_title)
+                .setMessage(getString(
+                        R.string.admin_remove_organizer_confirm_message,
+                        safeValue(viewedName, R.string.unknown_name)
+                ))
+                .setNegativeButton(R.string.admin_delete_profile_cancel_action, (d, w) -> d.dismiss())
+                .setPositiveButton(R.string.admin_remove_organizer_confirm_action, (d, w) -> removeOrganizerPrivileges())
                 .show();
     }
 
@@ -169,6 +201,36 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         handleDeleteFailure(e);
+                    }
+                });
+    }
+
+    /**
+     * This method removes an organizers privileges and changes them from
+     * an organizer to a user in the firestore collections and also adds a suspended
+     * field set to true for the user
+     */
+
+    private void removeOrganizerPrivileges() {
+        if (TextUtils.isEmpty(viewedUid)) {
+            showMessage(getString(R.string.admin_remove_organizer_failed));
+            return;
+        }
+
+        setDeleting(true);
+        firestore.collection("users")
+                .document(viewedUid)
+                .update("suspended", true, "accountType", "user")
+                .addOnSuccessListener(aVoid -> {
+                    setDeleting(false);
+                    showMessage(getString(R.string.admin_remove_organizer_success));
+                    viewedAccountType = "user";
+                    removeOrganizerButton.setVisibility(View.GONE);
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        showMessage(getString(R.string.admin_remove_organizer_failed));
                     }
                 });
     }

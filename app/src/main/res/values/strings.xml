@@ -283,4 +283,10 @@
     <string name="search_email">Search email, username, or name</string>
     <string name="search">Search</string>
     <string name="send_private_event">send private event</string>
+    <string name="admin_remove_organizer">Remove organizer privileges</string>
+    <string name="admin_remove_organizer_confirm_title">Remove organizer</string>
+    <string name="admin_remove_organizer_confirm_message">This will remove organizer privileges for: %1$s</string>
+    <string name="admin_remove_organizer_success">Organizer privileges removed.</string>
+    <string name="admin_remove_organizer_failed">Failed to remove organizer privileges.</string>
+    <string name="admin_remove_organizer_confirm_action">Suspend</string>
 </resources>
