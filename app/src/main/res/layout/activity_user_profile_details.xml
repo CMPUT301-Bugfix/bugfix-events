@@ -178,6 +178,23 @@
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/userProfileRemoveOrganizerButton"
+            android:layout_width="match_parent"
+            android:layout_height="72dp"
+            android:background="@drawable/square_button_orange"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/admin_remove_organizer"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/userProfileAssignCoorganizerButton"
             android:layout_width="match_parent"
             android:layout_height="72dp"

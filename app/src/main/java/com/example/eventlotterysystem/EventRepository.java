@@ -1,10 +1,18 @@
 package com.example.eventlotterysystem;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
@@ -14,6 +22,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
@@ -39,6 +48,8 @@ public class EventRepository {
     public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
     public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
     public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
+    static final String LOCATION_REQUIRED_ERROR = "LOCATION_REQUIRED_TO_JOIN";
+    static final String LOCATION_PERMISSION_REQUIRED_ERROR = "LOCATION_PERMISSION_REQUIRED_TO_JOIN";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -402,23 +413,76 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
+
+        return eventRef.get().continueWithTask(eventTask -> {
+            if (!eventTask.isSuccessful()) {
+                throw eventTask.getException() != null
+                        ? eventTask.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
+            DocumentSnapshot eventDoc = eventTask.getResult();
+            if (eventDoc == null || !eventDoc.exists()) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (!geolocationRequired) {
+                return joinWaitlist(eventId, currentUser, null);
+            }
+
+            Context context = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!hasPermission) {
+                return Tasks.forException(new SecurityException(LOCATION_PERMISSION_REQUIRED_ERROR));
+            }
+
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+            return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .continueWithTask(locationTask -> joinWaitlist(
+                            eventId,
+                            currentUser,
+                            locationTask.isSuccessful() ? locationTask.getResult() : null
+                    ));
+        });
+    }
+
+    /**
+     * Updates the database to add a user to an event waitlist using the supplied location
+     * @param eventId
+     * Id of event that was signed up
+     * @param currentUser
+     * current User document from database
+     * @param location
+     * The Geolocation of user when signed up
+     * @return
+     * Task that updates the waitlist document from the user and event documents
+     */
+    Task<Void> joinWaitlist(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @Nullable Location location
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
         DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
         DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
-            if (!eventDoc.exists()) {
-                throw new IllegalStateException("Event not found");
-            }
-
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
             DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+
             if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
                 return null;
             }
 
             if (Boolean.TRUE.equals(eventDoc.getBoolean("deleted"))) {
                 throw new IllegalStateException("Event not found");
+            }
+
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (geolocationRequired && location == null) {
+                throw new IllegalStateException(LOCATION_REQUIRED_ERROR);
             }
 
             String hostUid = normalize(eventDoc.getString("hostUid"));
@@ -442,6 +506,10 @@ public class EventRepository {
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
             membershipPayload.put("uid", currentUser.getUid());
+            if (location != null) {
+                GeoPoint geoPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
+                membershipPayload.put("location", geoPoint);
+            }
 
             transaction.set(eventWaitlistRef, membershipPayload);
             transaction.set(userWaitlistRef, membershipPayload);
@@ -1540,6 +1608,15 @@ public class EventRepository {
         return isPublicValue == null || Boolean.TRUE.equals(isPublicValue);
     }
 
+    /**
+     * checks if a keyword already exists in a list of keywords ignoring case
+     * @param keywords
+     * the list of keywords being checked
+     * @param candidate
+     * the keyword being searched for
+     * @return
+     * true if the keyword already exists in the list
+     */
     private static boolean containsKeywordIgnoreCase(@NonNull List<String> keywords, @NonNull String candidate) {
         for (String keyword : keywords) {
             if (keyword.equalsIgnoreCase(candidate)) {

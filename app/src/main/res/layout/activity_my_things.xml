@@ -138,6 +138,23 @@
             android:background="#C8D1D1" />
 
         <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/messagesButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/square_button_lavender"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/messages_button"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/adminZoneButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"

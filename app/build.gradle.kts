@@ -41,10 +41,13 @@ android {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
     implementation("com.opencsv:opencsv:5.12.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
