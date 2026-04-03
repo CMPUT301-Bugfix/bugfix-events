@@ -16,6 +16,7 @@ public class UserProfile {
     private String phoneNumber;
     private String accountType;
     private Timestamp createdAt;
+    private boolean suspended;
 
     public UserProfile(String name, String email, String username, String usernameKey, String phoneNumber) {
         this(name, email, username, usernameKey, phoneNumber, "");
@@ -35,6 +36,7 @@ public class UserProfile {
         this.usernameKey = usernameKey;
         this.phoneNumber = phoneNumber;
         this.accountType = accountType;
+        this.suspended = false;
     }
 
     public String getName() {
@@ -99,5 +101,13 @@ public class UserProfile {
 
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean getSuspended() {
+        return suspended;
+    }
+
+    public void setSuspended(boolean suspended) {
+        this.suspended = suspended;
     }
 }
