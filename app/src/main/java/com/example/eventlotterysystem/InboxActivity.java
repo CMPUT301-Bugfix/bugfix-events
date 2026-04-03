@@ -34,6 +34,12 @@ public class InboxActivity extends AppCompatActivity {
 
     private ValueEventListener threadsListener;
 
+    /**
+     * This is the creation of the Activity
+     * This connects to all the view on the screen and connects the clickable view to their controller
+     * @param savedInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,6 +72,10 @@ public class InboxActivity extends AppCompatActivity {
         findViewById(R.id.inboxBackButton).setOnClickListener(v -> finish());
     }
 
+    /**
+     * This is the startup of the Activity
+     * it attaches the listener that loads the user's message threads
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -77,6 +87,9 @@ public class InboxActivity extends AppCompatActivity {
         attachThreadsListener(currentUser.getUid());
     }
 
+    /**
+     * removes the message thread listener when leaving the screen
+     */
     @Override
     protected void onStop() {
         super.onStop();
@@ -90,6 +103,11 @@ public class InboxActivity extends AppCompatActivity {
         threadsListener = null;
     }
 
+    /**
+     * attaches the realtime database listener for the current user's message threads
+     * @param uid
+     * the uid of the signed in user
+     */
     private void attachThreadsListener(@NonNull String uid) {
         if (threadsListener != null) {
             database.getReference()
@@ -99,6 +117,11 @@ public class InboxActivity extends AppCompatActivity {
         }
 
         threadsListener = new ValueEventListener() {
+            /**
+             * updates the screen when the user's message threads change
+             * @param snapshot
+             * the snapshot containing the user's message threads
+             */
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 threads.clear();
@@ -109,6 +132,11 @@ public class InboxActivity extends AppCompatActivity {
                 emptyStateView.setVisibility(hasThreads ? View.GONE : View.VISIBLE);
             }
 
+            /**
+             * handles a failure while loading the user's message threads
+             * @param error
+             * the database error returned by Firebase
+             */
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Toast.makeText(

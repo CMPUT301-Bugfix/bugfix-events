@@ -277,6 +277,12 @@
     <string name="admin_event_entrants_format">entrants %1$d/%2$d</string>
     <string name="no_notifications">No notifications found.</string>
     <string name="notification_log_button">Notification Log</string>
+    <string name="view_invitation_status">view invitation status</string>
+    <string name="notify_batch">notify batch</string>
+    <string name="batch_0_users">Batch: 0 users</string>
+    <string name="search_email">Search email, username, or name</string>
+    <string name="search">Search</string>
+    <string name="send_private_event">send private event</string>
     <string name="admin_remove_organizer">Remove organizer privileges</string>
     <string name="admin_remove_organizer_confirm_title">Remove organizer</string>
     <string name="admin_remove_organizer_confirm_message">This will remove organizer privileges for: %1$s</string>

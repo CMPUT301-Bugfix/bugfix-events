@@ -27,9 +27,21 @@ public class EventMessageManager {
     private final FirebaseDatabase database = FirebaseDatabase.getInstance();
     private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
+    /**
+     * creates the manager for user message threads and chat messages
+     */
     public EventMessageManager() {
     }
 
+    /**
+     * builds the shared thread id for two users
+     * @param firstUid
+     * the uid of the first user
+     * @param secondUid
+     * the uid of the second user
+     * @return
+     * the String thread id for the two users
+     */
     @NonNull
     public static String buildThreadId(@NonNull String firstUid, @NonNull String secondUid) {
         String first = firstUid.trim();
@@ -40,6 +52,17 @@ public class EventMessageManager {
         return second + "_" + first;
     }
 
+    /**
+     * builds a message thread object for the current user and another user
+     * @param currentUser
+     * the signed in user
+     * @param otherUid
+     * the uid of the other user
+     * @param otherName
+     * the name of the other user
+     * @return
+     * a Task containing the message thread object
+     */
     @NonNull
     public Task<MessageThreadItem> buildThread(
             @NonNull FirebaseUser currentUser,
@@ -87,6 +110,13 @@ public class EventMessageManager {
                         }));
     }
 
+    /**
+     * loads a message thread from the database
+     * @param threadId
+     * the String id of the thread
+     * @return
+     * a Task containing the loaded thread
+     */
     @NonNull
     public Task<MessageThreadItem> getThread(@NonNull String threadId) {
         return database.getReference()
@@ -114,6 +144,17 @@ public class EventMessageManager {
                 });
     }
 
+    /**
+     * sends a message in a thread and updates the thread preview information
+     * @param thread
+     * the thread the message belongs to
+     * @param currentUser
+     * the signed in user sending the message
+     * @param text
+     * the message text to send
+     * @return
+     * a Task that writes the message and updates the thread
+     */
     @NonNull
     public Task<Void> sendMessage(
             @NonNull MessageThreadItem thread,
@@ -169,6 +210,13 @@ public class EventMessageManager {
         });
     }
 
+    /**
+     * reads message threads from a realtime database snapshot
+     * @param snapshot
+     * the snapshot containing thread data
+     * @return
+     * the list of message threads sorted by most recent message
+     */
     @NonNull
     public List<MessageThreadItem> readThreads(@NonNull DataSnapshot snapshot) {
         List<MessageThreadItem> threads = new ArrayList<>();
@@ -182,6 +230,13 @@ public class EventMessageManager {
         return threads;
     }
 
+    /**
+     * reads chat messages from a realtime database snapshot
+     * @param snapshot
+     * the snapshot containing message data
+     * @return
+     * the list of chat messages sorted by time sent
+     */
     @NonNull
     public List<ChatMessageItem> readMessages(@NonNull DataSnapshot snapshot) {
         List<ChatMessageItem> messages = new ArrayList<>();
@@ -194,6 +249,14 @@ public class EventMessageManager {
         messages.sort(Comparator.comparingLong(ChatMessageItem::getSentAt));
         return messages;
     }
+
+    /**
+     * gets the display name for a user from firestore
+     * @param uid
+     * the uid of the user
+     * @return
+     * a Task containing the user name, or an empty String if it cannot be found
+     */
     @NonNull
     private Task<String> getUserName(@NonNull String uid) {
         return firestore.collection("users")
@@ -213,6 +276,13 @@ public class EventMessageManager {
                 });
     }
 
+    /**
+     * refreshes the stored user names for a message thread and saves the updated thread
+     * @param thread
+     * the thread being updated
+     * @return
+     * a Task containing the updated thread
+     */
     @NonNull
     private Task<MessageThreadItem> refreshThreadNames(@NonNull MessageThreadItem thread) {
         return getUserName(thread.getUserOneUid())
@@ -235,6 +305,13 @@ public class EventMessageManager {
                         }));
     }
 
+    /**
+     * saves the current thread information into the database
+     * @param thread
+     * the thread being saved
+     * @return
+     * a Task that writes the thread information
+     */
     @NonNull
     private Task<Void> saveThreadInfo(@NonNull MessageThreadItem thread) {
         DatabaseReference threadReference = database.getReference()

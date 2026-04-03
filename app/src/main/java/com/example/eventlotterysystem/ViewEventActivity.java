@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
-import android.icu.text.CaseMap;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -73,6 +72,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
     private Button showMapButton;
+    private Button sendPrivateButton;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
@@ -120,6 +120,7 @@ public class ViewEventActivity extends AppCompatActivity {
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
         showMapButton = findViewById(R.id.viewEventShowMapButton);
+        sendPrivateButton = findViewById(R.id.viewEventSendPrivateButton);
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -134,6 +135,7 @@ public class ViewEventActivity extends AppCompatActivity {
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
         showMapButton.setOnClickListener(v -> showMap());
+        sendPrivateButton.setOnClickListener(v -> openSendPrivateScreen());
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -146,12 +148,6 @@ public class ViewEventActivity extends AppCompatActivity {
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         qrCodeButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-
-        qrCodeButton.setOnClickListener(v -> {
-            Intent intent = new Intent(this, QRCode.class);
-            intent.putExtra("Event_ID", eventId);
-            startActivity(intent);
-        });
     }
 
     /**
@@ -229,6 +225,7 @@ public class ViewEventActivity extends AppCompatActivity {
             editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
             qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
             showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+            sendPrivateButton.setVisibility((!event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -262,6 +259,9 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * opens the EntrantsActivity for the current Event when the user can manage it
+     */
     private void openEntrantsScreen() {
         if (currentEvent == null || !canEditEvent) {
             return;
@@ -282,6 +282,9 @@ public class ViewEventActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * opens the direct message screen for the organizer of the current Event
+     */
     private void openMessageScreen() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentEvent == null || currentUser == null || EventRepository.canManageEvent(currentEvent, currentUser.getUid())) {
@@ -291,6 +294,19 @@ public class ViewEventActivity extends AppCompatActivity {
         Intent intent = new Intent(this, MessageActivity.class);
         intent.putExtra(MessageActivity.OTHER_UID, currentEvent.getHostUid());
         intent.putExtra(MessageActivity.OTHER_NAME, currentEvent.getHostDisplayName());
+        startActivity(intent);
+    }
+
+    /**
+     * opens the screen used for sending a private Event invitation
+     */
+    private void openSendPrivateScreen() {
+        if (currentEvent == null || !canEditEvent) {
+            return;
+        }
+        Intent intent = new Intent(this, SendPrivateEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("EVENT_TITLE", currentEvent.getTitle());
         startActivity(intent);
     }
 
@@ -525,6 +541,9 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * opens a popup asking the user to confirm rejecting the current invitation
+     */
     private void showRejectInvitationDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Reject invitation")
@@ -893,6 +912,11 @@ public class ViewEventActivity extends AppCompatActivity {
         return getString(R.string.waitlist_action_failed);
     }
 
+    /**
+     * checks if the entrants button should be shown for the current user
+     * @return
+     * true if the current user can manage the current Event
+     */
     private boolean shouldShowEntrantsButton() {
         FirebaseUser currentUser = auth.getCurrentUser();
         return currentEvent != null
@@ -900,6 +924,13 @@ public class ViewEventActivity extends AppCompatActivity {
                 && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
     }
 
+    /**
+     * updates the message organizer button based on whether the current user can message the organizer
+     * @param event
+     * the current Event being displayed
+     * @param currentUser
+     * the currently signed in FirebaseUser
+     */
     private void updateMessageButton(EventItem event, FirebaseUser currentUser) {
         boolean canMessage = currentUser != null && !EventRepository.canManageEvent(event, currentUser.getUid());
         messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);

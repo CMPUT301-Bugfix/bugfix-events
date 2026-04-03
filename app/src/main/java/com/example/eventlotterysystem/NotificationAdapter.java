@@ -15,7 +15,7 @@ import java.util.Locale;
 
 /**
  * Adapter for displaying a list of NotificationItem objects in a RecyclerView.
- * This class handles the layout inflation and data binding for individual notification items,
+ * This class handles the layout inflation and display for individual notification items,
  * and provides click listeners for interaction.
  */
 public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapter.NotificationViewHolder> {
@@ -52,6 +52,15 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         this.listener = listener;
     }
 
+    /**
+     * creates the ViewHolder for a notification row
+     * @param parent
+     * the parent view group for the row
+     * @param viewType
+     * the type of row view being created
+     * @return
+     * the created NotificationViewHolder
+     */
     @NonNull
     @Override
     public NotificationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -60,6 +69,13 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         return new NotificationViewHolder(view);
     }
 
+    /**
+     * fills a notification row with the current notification data
+     * @param holder
+     * the ViewHolder being updated
+     * @param position
+     * the position of the notification in the list
+     */
     @Override
     public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
         NotificationItem item = notifications.get(position);
@@ -87,6 +103,11 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         });
     }
 
+    /**
+     * gets the number of notifications in the adapter
+     * @return
+     * the number of notifications in the adapter
+     */
     @Override
     public int getItemCount() {
         return notifications.size();

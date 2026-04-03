@@ -15,6 +15,12 @@ import androidx.appcompat.app.AppCompatActivity;
  * and generate the QR code image using the {@link BarcodeEncoder}.
  */
 public class QRCode extends AppCompatActivity {
+    /**
+     * This is the creation of the Activity
+     * it creates and displays the QR code for the current Event
+     * @param saveInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle saveInstanceState){
         super.onCreate(saveInstanceState);

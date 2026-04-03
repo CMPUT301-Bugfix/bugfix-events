@@ -12,16 +12,22 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.SetOptions;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -47,9 +53,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     private Button assignCoorganizerButton;
     private Button removeOrganizerButton;
     private EventRepository repository;
+    private NotificationRepository notificationRepository;
     private boolean isDeleting;
     private boolean isAssigningCoorganizer;
     private String viewedUid;
+    private List<UserProfile> batchUsers = new ArrayList<>();
     private String viewedAccountType;
     private String viewedName;
     private String sourceEventId;
@@ -67,6 +75,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_user_profile_details);
         firestore = FirebaseFirestore.getInstance();
         repository = new EventRepository();
+        notificationRepository = new NotificationRepository();
 
         TextView detailsBackButton = findViewById(R.id.userProfileDetailsBackButton);
         TextView detailsNameValue = findViewById(R.id.userProfileDetailsNameValue);
@@ -184,6 +193,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     finish();
                 })
                 .addOnFailureListener(new OnFailureListener() {
+                    /**
+                     * handles a failure while deleting the UserProfile
+                     * @param e
+                     * the exception raised while deleting the UserProfile
+                     */
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         handleDeleteFailure(e);
@@ -304,10 +318,13 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
 
         isAssigningCoorganizer = true;
         assignCoorganizerButton.setEnabled(false);
+        UserProfile user = createUserProfile(viewedUid);
+        batchUsers.add(user);
         repository.assignCoorganizer(sourceEventId, viewedUid, currentUser.getUid())
                 .addOnSuccessListener(unused -> {
                     isAssigningCoorganizer = false;
                     assignCoorganizerButton.setEnabled(true);
+                    sendNotifications();
                     showMessage(getString(R.string.assign_coorganizer_success));
                     finish();
                 })
@@ -316,12 +333,90 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     assignCoorganizerButton.setEnabled(true);
                     showMessage(getString(R.string.assign_coorganizer_failed));
                 });
+
     }
 
+    /**
+     * sends invitation notifications to user currently in the batch
+     */
+    private void sendNotifications() {
+        repository.getEventById(sourceEventId)
+                .addOnSuccessListener(event -> {
+                    String message = "You are invited to be a Coorganizer for the event: " + event.getTitle();
+                    notificationRepository.sendCoOrganizerInvitation(sourceEventId, "Coorganizer Invitation", message, batchUsers)
+                            .addOnSuccessListener(unused -> {
+                                Toast.makeText(this, "Notification sent", Toast.LENGTH_SHORT).show();
+                                batchUsers.clear();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "Failed to send notification:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    isAssigningCoorganizer = false;
+                    assignCoorganizerButton.setEnabled(true);
+                    showMessage(getString(R.string.assign_coorganizer_failed));
+                });
+
+    }
+
+    /**
+     * Creates a user profile object from a user ID
+     *
+     * @param UID ID of user's profile to be create
+     * @return the profile object of the user
+     */
+    private UserProfile createUserProfile(String UID) {
+        Task<DocumentSnapshot> loadingDocument = firestore.collection("users").document(UID).get();
+        while (!loadingDocument.isComplete()) {
+        }
+        return readUserProfile(loadingDocument.getResult());
+    }
+
+    /**
+     * reads in a user from the database into a UserProfile
+     * @param doc
+     * a reference to the user document to read data of
+     * @return
+     * the User profile of matching the document in the database
+     */
+    @NonNull
+    private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
+        UserProfile userProfile = new UserProfile(
+                normalize(doc.getString("fullName")),
+                normalize(doc.getString("email")),
+                normalize(doc.getString("username")),
+                normalize(doc.getString("usernameKey")),
+                normalize(doc.getString("phoneNumber")),
+                normalize(doc.getString("accountType"))
+        );
+        userProfile.setUid(doc.getId());
+
+        Timestamp createdAt = doc.getTimestamp("createdAt");
+        if (createdAt != null) {
+            userProfile.setCreatedAt(createdAt);
+        }
+        return userProfile;
+    }
+
+    /**
+     * shows a popup message to the user
+     * @param message
+     * the message that will be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
+    /**
+     * returns a fallback string if the given value is empty
+     * @param value
+     * the String value being checked
+     * @param fallbackResId
+     * the string resource used if the value is empty
+     * @return
+     * the given value, or the fallback string if it is empty
+     */
     @NonNull
     private String safeValue(@NonNull String value, int fallbackResId) {
         if (TextUtils.isEmpty(value)) {

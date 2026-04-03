@@ -27,6 +27,15 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessageItem> {
     private final LayoutInflater inflater;
     private final String currentUserUid;
 
+    /**
+     * creates the adapter for displaying chat messages in a conversation
+     * @param context
+     * the current screen context
+     * @param messages
+     * the list of chat messages to display
+     * @param currentUserUid
+     * the uid of the signed in user
+     */
     public ChatMessageAdapter(
             @NonNull Context context,
             @NonNull List<ChatMessageItem> messages,
@@ -37,6 +46,17 @@ public class ChatMessageAdapter extends ArrayAdapter<ChatMessageItem> {
         this.currentUserUid = currentUserUid;
     }
 
+    /**
+     * creates the view for a single chat message row
+     * @param position
+     * the position of the chat message in the list
+     * @param convertView
+     * the existing row view if one is available
+     * @param parent
+     * the parent view group for the row
+     * @return
+     * the row view for the chat message
+     */
     @Override
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         View view = convertView;
