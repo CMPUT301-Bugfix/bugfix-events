@@ -52,9 +52,12 @@
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
         android:text="@string/search"
+        android:backgroundTint="#866DB8"
+        android:textColor="@android:color/white"
         app:layout_constraintBottom_toBottomOf="@+id/userSearchInput"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/userSearchInput" />
+
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/userSearchResultsRecyclerView"

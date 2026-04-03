@@ -1,27 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
+    android:background="#ECEAEA"
     tools:context=".UserProfileDetailsActivity">
 
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/userProfileDetailsHeaderGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.333" />
+
     <LinearLayout
+        android:id="@+id/userProfileDetailsTopSection"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_margin="20dp"
+        android:background="#D93A4A"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:paddingStart="22dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="18dp"
+        app:layout_constraintBottom_toTopOf="@id/userProfileDetailsHeaderGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:minHeight="48dp">
+            android:layout_height="wrap_content">
 
             <TextView
                 android:id="@+id/userProfileDetailsBackButton"
@@ -29,107 +41,194 @@
                 android:layout_height="wrap_content"
                 android:clickable="true"
                 android:focusable="true"
-                android:padding="8dp"
+                android:fontFamily="serif"
+                android:padding="4dp"
                 android:text="@string/back"
-                android:textColor="?attr/colorPrimary"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
-                android:layout_width="0dp"
+                android:id="@+id/userProfileDetailsTopTitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="@string/user_profile_details"
-                android:textColor="?android:textColorPrimary"
-                android:textSize="22sp"
+                android:fontFamily="serif"
+                android:text="@string/admin_zone"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <TextView
-            android:id="@+id/userProfileDetailsNameValue"
+            android:id="@+id/userProfileDetailsScreenTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="18sp"
+            android:layout_marginTop="34dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/user_profile_details"
+            android:textColor="#F4F1F1"
+            android:textSize="34sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/userProfileDetailsTypeValue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="15sp" />
-
-        <TextView
-            android:id="@+id/userProfileDetailsUsernameValue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="15sp" />
-
-        <TextView
-            android:id="@+id/userProfileDetailsEmailValue"
+            android:id="@+id/userProfileDetailsSubtitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="15sp" />
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/user_profiles"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
-        <TextView
-            android:id="@+id/userProfileDetailsPhoneValue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="15sp" />
+    <LinearLayout
+        android:id="@+id/userProfileDetailsBottomSection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#C8D1D1"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/userProfileDetailsHeaderGuide">
 
-        <TextView
-            android:id="@+id/userProfileDetailsJoinDateValue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="15sp" />
-
-        <View
+        <LinearLayout
+            android:id="@+id/userProfileDetailsContent"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingStart="26dp"
+            android:paddingTop="22dp"
+            android:paddingEnd="26dp"
+            android:paddingBottom="22dp">
 
-        <Button
+            <TextView
+                android:id="@+id/userProfileDetailsNameValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                tools:text="Jane Smith" />
+
+            <TextView
+                android:id="@+id/userProfileDetailsTypeValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                tools:text="Organizer" />
+
+            <TextView
+                android:id="@+id/userProfileDetailsUsernameValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                tools:text="Username: janesmith" />
+
+            <TextView
+                android:id="@+id/userProfileDetailsEmailValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                tools:text="Email: jane@email.com" />
+
+            <TextView
+                android:id="@+id/userProfileDetailsPhoneValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                tools:text="Phone: 780-555-5555" />
+
+            <TextView
+                android:id="@+id/userProfileDetailsJoinDateValue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="serif"
+                android:textColor="#111111"
+                android:textSize="19sp"
+                android:textStyle="bold"
+                tools:text="Joined: March 1, 2026" />
+        </LinearLayout>
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/userProfileRemoveOrganizerButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="72dp"
+            android:background="@drawable/square_button_orange"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
             android:text="@string/admin_remove_organizer"
-            android:layout_marginTop="12dp" />
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/userProfileAssignCoorganizerButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_height="72dp"
+            android:background="@drawable/square_button_green"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
             android:text="@string/assign_coorganizer_action"
             android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="20sp"
+            android:textStyle="bold"
             android:visibility="gone"
+            app:backgroundTint="@null"
             tools:visibility="visible" />
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/userProfileDeleteButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="@android:color/holo_red_dark"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_red"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
             android:text="@string/admin_delete_profile"
             android:textAllCaps="false"
-            android:textColor="@android:color/white" />
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
