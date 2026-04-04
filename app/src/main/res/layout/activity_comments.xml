@@ -41,9 +41,19 @@
         android:layout_marginTop="16dp"
         android:orientation="vertical"
         android:paddingTop="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/commentsReplyingTo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textColor="?attr/colorPrimary"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="Replying to Bob" />
 
         <EditText
             android:id="@+id/commentsInput"
