@@ -136,6 +136,8 @@ public class HostedEventsActivityTest {
 
     /**
      * matches a hosted event row by title
+     * @param title
+     * title value that the matcher should look for
      */
     private org.hamcrest.Matcher<Object> withEventTitle(String title) {
         return new org.hamcrest.TypeSafeMatcher<>() {

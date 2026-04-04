@@ -102,6 +102,8 @@ public class AdminBrowseEventsActivityTest {
 
     /**
      * creates an event visible to the admin browse screen
+     * @param title
+     * title of the event to create
      */
     private String createAdminBrowseTestEvent(String title) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -135,6 +137,8 @@ public class AdminBrowseEventsActivityTest {
 
     /**
      * deletes a test event
+     * @param eventId
+     * document id of the event to delete
      */
     private void deleteEvent(String eventId) throws Exception {
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);

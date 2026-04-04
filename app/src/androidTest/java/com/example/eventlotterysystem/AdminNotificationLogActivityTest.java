@@ -128,6 +128,8 @@ public class AdminNotificationLogActivityTest {
 
     /**
      * deletes a seeded admin notification
+     * @param notificationId
+     * uid of the user whose seeded notification documents should be removed
      */
     private void deleteAdminNotification(String notificationId) throws Exception {
         try {

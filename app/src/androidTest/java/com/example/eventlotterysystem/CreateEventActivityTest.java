@@ -39,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -535,7 +536,30 @@ public class CreateEventActivityTest {
      * document id of the event that should be removed
      */
     private void deleteEvent(String eventId) throws Exception {
+        DocumentSnapshot event = Tasks.await(
+                FirebaseFirestore.getInstance().collection("events").document(eventId).get(),
+                15,
+                TimeUnit.SECONDS
+        );
+        String posterUrl = event.getString("posterUrl");
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+        deletePosterIfPresent(posterUrl);
+    }
+
+    /**
+     * deletes an uploaded poster file when the event references one
+     * @param posterUrl
+     * download url stored on the event document
+     */
+    private void deletePosterIfPresent(String posterUrl) {
+        if (posterUrl == null || posterUrl.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            Tasks.await(FirebaseStorage.getInstance().getReferenceFromUrl(posterUrl).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
     }
 
     /**

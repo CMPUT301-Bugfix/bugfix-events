@@ -221,6 +221,12 @@ public class EntrantsActivityTest {
 
     /**
      * creates a managed event that the current user can administer
+     * @param title
+     * title of the event to create
+     * @param maxParticipants
+     * participant cap stored on the event
+     * @param totalEntrants
+     * entrant count stored on the event
      */
     private String createManagedEntrantsTestEvent(String title, int maxParticipants, int totalEntrants) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -254,6 +260,14 @@ public class EntrantsActivityTest {
 
     /**
      * creates a temporary entrant account with a matching user profile document
+     * @param email
+     * email for the temporary auth account
+     * @param password
+     * password for the temporary auth account
+     * @param username
+     * username stored on the temporary profile
+     * @param fullName
+     * full name stored on the temporary profile
      */
     private String createTemporaryEntrant(String email, String password, String username, String fullName) throws Exception {
         FirebaseAuth auth = FirebaseAuth.getInstance();
@@ -278,6 +292,8 @@ public class EntrantsActivityTest {
 
     /**
      * joins the current signed-in user to the event waitlist
+     * @param eventId
+     * document id of the event to join
      */
     private void joinWaitlistAsCurrentUser(String eventId) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -286,6 +302,8 @@ public class EntrantsActivityTest {
 
     /**
      * launches entrants activity for the supplied event
+     * @param eventId
+     * document id of the event to open
      */
     private ActivityScenario<EntrantsActivity> launchEntrantsActivity(String eventId) {
         Intent intent = new Intent(ApplicationProvider.getApplicationContext(), EntrantsActivity.class);
@@ -295,6 +313,8 @@ public class EntrantsActivityTest {
 
     /**
      * removes the event and its waitlist entries
+     * @param eventId
+     * document id of the event to clean up
      */
     private void deleteEntrantsTestData(String eventId) throws Exception {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
@@ -310,6 +330,14 @@ public class EntrantsActivityTest {
 
     /**
      * removes a temporary entrant account, its profile, and its waitlist membership
+     * @param uid
+     * uid of the temporary entrant
+     * @param email
+     * email used to sign back into the temporary entrant
+     * @param password
+     * password used to sign back into the temporary entrant
+     * @param eventId
+     * document id of the event whose waitlist membership should be removed
      */
     private void deleteTemporaryEntrant(String uid, String email, String password, String eventId) throws Exception {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
@@ -332,6 +360,8 @@ public class EntrantsActivityTest {
 
     /**
      * deletes an event if it still exists
+     * @param eventId
+     * document id of the event to delete
      */
     private void deleteEvent(String eventId) throws Exception {
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);

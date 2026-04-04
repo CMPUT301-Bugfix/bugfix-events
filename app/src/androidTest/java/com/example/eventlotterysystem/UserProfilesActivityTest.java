@@ -78,14 +78,14 @@ public class UserProfilesActivityTest {
 
     /**
      * creates a temporary user profile document for an admin profile test
-     * @param uid
-     * uid of the profile document
+     * @param email
+     * email stored on the profile
+     * @param password
+     * password for the temporary auth account
      * @param fullName
      * name stored on the profile
      * @param username
      * username stored on the profile
-     * @param email
-     * email stored on the profile
      * @param accountType
      * account type stored on the profile
      */
@@ -111,6 +111,10 @@ public class UserProfilesActivityTest {
      * removes the temporary user profile document created for an admin profile test
      * @param uid
      * uid of the profile document to remove
+     * @param email
+     * email used to sign into the temporary account
+     * @param password
+     * password used to sign into the temporary account
      */
     private void deleteTemporaryProfileUser(String uid, String email, String password) throws Exception {
         FirebaseAuth.getInstance().signOut();
