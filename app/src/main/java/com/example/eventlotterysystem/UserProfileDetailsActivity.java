@@ -12,22 +12,28 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.SetOptions;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 /**
  * This class deals with displaying the user details page for the
- * admins, which will allow admins to delete an event
+ * admins, which will allow admins to delete a user profile
  */
 
 public class UserProfileDetailsActivity extends AppCompatActivity {
@@ -45,10 +51,13 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
     private FirebaseFirestore firestore;
     private Button deleteProfileButton;
     private Button assignCoorganizerButton;
+    private Button removeOrganizerButton;
     private EventRepository repository;
+    private NotificationRepository notificationRepository;
     private boolean isDeleting;
     private boolean isAssigningCoorganizer;
     private String viewedUid;
+    private List<UserProfile> batchUsers = new ArrayList<>();
     private String viewedAccountType;
     private String viewedName;
     private String sourceEventId;
@@ -66,6 +75,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_user_profile_details);
         firestore = FirebaseFirestore.getInstance();
         repository = new EventRepository();
+        notificationRepository = new NotificationRepository();
 
         TextView detailsBackButton = findViewById(R.id.userProfileDetailsBackButton);
         TextView detailsNameValue = findViewById(R.id.userProfileDetailsNameValue);
@@ -76,6 +86,7 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
         TextView detailsJoinDateValue = findViewById(R.id.userProfileDetailsJoinDateValue);
         deleteProfileButton = findViewById(R.id.userProfileDeleteButton);
         assignCoorganizerButton = findViewById(R.id.userProfileAssignCoorganizerButton);
+        removeOrganizerButton = findViewById(R.id.userProfileRemoveOrganizerButton);
 
         detailsBackButton.setOnClickListener(v -> finish());
 
@@ -106,6 +117,16 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
             deleteProfileButton.setOnClickListener(v -> onDeleteProfileClicked());
         }
 
+        boolean canRemoveOrganizer = !TextUtils.isEmpty(viewedUid)
+                && "organizer".equalsIgnoreCase(viewedAccountType);
+
+        if (!canRemoveOrganizer) {
+            removeOrganizerButton.setVisibility(View.GONE);
+        } else {
+            removeOrganizerButton.setVisibility(View.VISIBLE);
+            removeOrganizerButton.setOnClickListener(v -> onRemoveOrganizerClicked());
+        }
+
         assignCoorganizerButton.setVisibility(View.GONE);
         if (!TextUtils.isEmpty(sourceEventId) && !TextUtils.isEmpty(viewedUid)) {
             configureAssignCoorganizerButton();
@@ -129,6 +150,26 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                 ))
                 .setNegativeButton(R.string.admin_delete_profile_cancel_action, (dialog, which) -> dialog.dismiss())
                 .setPositiveButton(R.string.admin_delete_profile_confirm_action, (dialog, which) -> deleteViewedProfile())
+                .show();
+    }
+
+    /**
+     * This method shows the dialog for confirming the removing of an organizer
+     */
+
+    private void onRemoveOrganizerClicked() {
+        if (isDeleting || TextUtils.isEmpty(viewedUid)) {
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.admin_remove_organizer_confirm_title)
+                .setMessage(getString(
+                        R.string.admin_remove_organizer_confirm_message,
+                        safeValue(viewedName, R.string.unknown_name)
+                ))
+                .setNegativeButton(R.string.admin_delete_profile_cancel_action, (d, w) -> d.dismiss())
+                .setPositiveButton(R.string.admin_remove_organizer_confirm_action, (d, w) -> removeOrganizerPrivileges())
                 .show();
     }
 
@@ -160,6 +201,36 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         handleDeleteFailure(e);
+                    }
+                });
+    }
+
+    /**
+     * This method removes an organizers privileges and changes them from
+     * an organizer to a user in the firestore collections and also adds a suspended
+     * field set to true for the user
+     */
+
+    private void removeOrganizerPrivileges() {
+        if (TextUtils.isEmpty(viewedUid)) {
+            showMessage(getString(R.string.admin_remove_organizer_failed));
+            return;
+        }
+
+        setDeleting(true);
+        firestore.collection("users")
+                .document(viewedUid)
+                .update("suspended", true, "accountType", "user")
+                .addOnSuccessListener(aVoid -> {
+                    setDeleting(false);
+                    showMessage(getString(R.string.admin_remove_organizer_success));
+                    viewedAccountType = "user";
+                    removeOrganizerButton.setVisibility(View.GONE);
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        showMessage(getString(R.string.admin_remove_organizer_failed));
                     }
                 });
     }
@@ -247,10 +318,13 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
 
         isAssigningCoorganizer = true;
         assignCoorganizerButton.setEnabled(false);
+        UserProfile user = createUserProfile(viewedUid);
+        batchUsers.add(user);
         repository.assignCoorganizer(sourceEventId, viewedUid, currentUser.getUid())
                 .addOnSuccessListener(unused -> {
                     isAssigningCoorganizer = false;
                     assignCoorganizerButton.setEnabled(true);
+                    sendNotifications();
                     showMessage(getString(R.string.assign_coorganizer_success));
                     finish();
                 })
@@ -259,6 +333,70 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     assignCoorganizerButton.setEnabled(true);
                     showMessage(getString(R.string.assign_coorganizer_failed));
                 });
+
+    }
+
+    /**
+     * sends invitation notifications to user currently in the batch
+     */
+    private void sendNotifications() {
+        repository.getEventById(sourceEventId)
+                .addOnSuccessListener(event -> {
+                    String message = "You are invited to be a Coorganizer for the event: " + event.getTitle();
+                    notificationRepository.sendCoOrganizerInvitation(sourceEventId, "Coorganizer Invitation", message, batchUsers)
+                            .addOnSuccessListener(unused -> {
+                                Toast.makeText(this, "Notification sent", Toast.LENGTH_SHORT).show();
+                                batchUsers.clear();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "Failed to send notification:" + e.getMessage(), Toast.LENGTH_SHORT).show();
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    isAssigningCoorganizer = false;
+                    assignCoorganizerButton.setEnabled(true);
+                    showMessage(getString(R.string.assign_coorganizer_failed));
+                });
+
+    }
+
+    /**
+     * Creates a user profile object from a user ID
+     *
+     * @param UID ID of user's profile to be create
+     * @return the profile object of the user
+     */
+    private UserProfile createUserProfile(String UID) {
+        Task<DocumentSnapshot> loadingDocument = firestore.collection("users").document(UID).get();
+        while (!loadingDocument.isComplete()) {
+        }
+        return readUserProfile(loadingDocument.getResult());
+    }
+
+    /**
+     * reads in a user from the database into a UserProfile
+     * @param doc
+     * a reference to the user document to read data of
+     * @return
+     * the User profile of matching the document in the database
+     */
+    @NonNull
+    private UserProfile readUserProfile(@NonNull DocumentSnapshot doc) {
+        UserProfile userProfile = new UserProfile(
+                normalize(doc.getString("fullName")),
+                normalize(doc.getString("email")),
+                normalize(doc.getString("username")),
+                normalize(doc.getString("usernameKey")),
+                normalize(doc.getString("phoneNumber")),
+                normalize(doc.getString("accountType"))
+        );
+        userProfile.setUid(doc.getId());
+
+        Timestamp createdAt = doc.getTimestamp("createdAt");
+        if (createdAt != null) {
+            userProfile.setCreatedAt(createdAt);
+        }
+        return userProfile;
     }
 
     /**

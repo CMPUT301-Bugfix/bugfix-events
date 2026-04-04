@@ -38,6 +38,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     private Button myWaitlistButton;
     private Button messagesButton;
     private RecyclerView notificationsRecyclerView;
+    private Button hostEventButton;
     private NotificationAdapter notificationAdapter;
     private List<NotificationItem> notificationList = new ArrayList<>();
 
@@ -64,6 +65,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         myWaitlistButton = findViewById(R.id.myWaitlistButton);
         messagesButton = findViewById(R.id.messagesButton);
         notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
+        hostEventButton = findViewById(R.id.hostEventButton);
 
         notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         notificationAdapter = new NotificationAdapter(notificationList, this);
@@ -106,7 +108,9 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     }
 
     /**
-     * allows access to the adminZoneButton if the user is an admin
+     * allows access to the adminZoneButton if the user is an admin and
+     * hides the host an event button if the user has organizer privileges
+     * suspended
      * @param uid
      * Id of the current user
      */
@@ -119,6 +123,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                     String accountType = snapshot.getString("accountType");
                     if ("admin".equals(accountType)) {
                         adminZoneButton.setVisibility(View.VISIBLE);
+                    }
+
+                    Boolean suspended = snapshot.getBoolean("suspended");
+                    if (Boolean.TRUE.equals(suspended)) {
+                        hostEventButton.setVisibility(View.GONE);
                     }
                 })
                 .addOnFailureListener(exception -> adminZoneButton.setVisibility(View.GONE));
@@ -153,6 +162,8 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             showWinningDialog(notification);
         } else if ("INVITE".equals(notification.getType())) {
             showInviteDialog(notification);
+        } else if ("ASSIGN".equals(notification.getType())) {
+            showCoOrganiserDialog(notification);
         } else {
             showGeneralDialog(notification);
         }
@@ -210,6 +221,26 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
             builder.setPositiveButton("Accept", (dialog, which) -> handlePrivateInvite(notification, true))
                    .setNeutralButton("Snooze", null) // Snoozing just closes the dialog, it stays PENDING
                    .setNegativeButton("Reject", (dialog, which) -> handlePrivateInvite(notification, false));
+        } else {
+            String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
+            builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
+            builder.setPositiveButton("OK", null);
+        }
+
+        builder.show();
+    }
+
+    /**
+     * creates a popup that shows the invitation to become a coorganizser and allows the user to accept it.
+     * @param notification NotificationItem that was clicked
+     */
+    private void showCoOrganiserDialog(NotificationItem notification) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(notification.getTitle())
+                .setMessage(notification.getMessage());
+
+        if ("PENDING".equals(notification.getStatus())) {
+            builder.setPositiveButton("Ok", (dialog, which) -> handleCoOranizerInvite(notification));
         } else {
             String statusText = "ACCEPTED".equals(notification.getStatus()) ? "Accepted" : "Declined";
             builder.setMessage(notification.getMessage() + "\n\nStatus: " + statusText);
@@ -306,6 +337,25 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                     });
             Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
         }
+    }
+
+
+    /**
+     * Handles the acceptance of a CoOrganizer invitation.
+     * @param notification The notification being responded to
+     */
+    private void handleCoOranizerInvite(NotificationItem notification) {
+        String uid = auth.getUid();
+        String eventId = notification.getEventId();
+
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) return;
+
+        notificationRepository.updateNotificationStatus(uid, notification.getId(), "ACCEPTED")
+                .addOnSuccessListener(aVoid -> {
+                    notificationRepository.updateInvitationTrackingStatus(eventId, uid, "ACCEPTED")
+                            .addOnSuccessListener(v -> loadNotifications(uid));
+                });
     }
 
     /**

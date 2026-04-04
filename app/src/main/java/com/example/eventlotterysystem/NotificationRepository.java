@@ -81,6 +81,7 @@ public class NotificationRepository {
     /**
      * sends a notification to a specific list of user IDs
      * records the notification in the global log and individual user inbox
+     * filters users based on their notification preferences
      *
      * @param eventId       ID of the event associated with the notification
      * @param title         title of the notification
@@ -98,30 +99,45 @@ public class NotificationRepository {
     ) {
         if (recipientUids.isEmpty()) return Tasks.forResult(null);
 
-        WriteBatch batch = firestore.batch();
-
-        // 1. Add to global notification log (root notifications collection)
-        DocumentReference logRef = firestore.collection("notifications").document();
-        NotificationItem logItem = new NotificationItem(eventId, title, message, type);
-        logItem.setId(logRef.getId());
-        batch.set(logRef, logItem);
-
-        // 2. Add to each user's individual inbox
+        List<Task<DocumentSnapshot>> userTasks = new ArrayList<>();
         for (String uid : recipientUids) {
-            DocumentReference userNotifyRef = firestore.collection("users")
-                    .document(uid)
-                    .collection("notifications")
-                    .document();
-            NotificationItem userItem = new NotificationItem(eventId, title, message, type);
-            userItem.setId(userNotifyRef.getId());
-            batch.set(userNotifyRef, userItem);
+            userTasks.add(firestore.collection("users").document(uid).get());
         }
 
-        return batch.commit();
+        return Tasks.whenAllComplete(userTasks).continueWithTask(task -> {
+            WriteBatch batch = firestore.batch();
+            
+            // add to global notification log (always record the attempt)
+            DocumentReference logRef = firestore.collection("notifications").document();
+            NotificationItem logItem = new NotificationItem(eventId, title, message, type);
+            logItem.setId(logRef.getId());
+            batch.set(logRef, logItem);
+
+            boolean addedAnyRecipients = false;
+            for (Task<DocumentSnapshot> userTask : userTasks) {
+                if (userTask.isSuccessful()) {
+                    DocumentSnapshot userDoc = userTask.getResult();
+                    if (checkPreference(userDoc, type)) {
+                        String uid = userDoc.getId();
+                        DocumentReference userNotifyRef = firestore.collection("users")
+                                .document(uid)
+                                .collection("notifications")
+                                .document();
+                        NotificationItem userItem = new NotificationItem(eventId, title, message, type);
+                        userItem.setId(userNotifyRef.getId());
+                        batch.set(userNotifyRef, userItem);
+                        addedAnyRecipients = true;
+                    }
+                }
+            }
+
+            return batch.commit();
+        });
     }
 
     /**
      * Sends invitations for a private event and creates tracking records in the event's sub-collection
+     * filters users based on their private invite opt-in preference
      *
      * @param eventId ID of the event
      * @param title   title of the notification
@@ -137,6 +153,103 @@ public class NotificationRepository {
     ) {
         if (users.isEmpty()) return Tasks.forResult(null);
 
+        List<Task<DocumentSnapshot>> userTasks = new ArrayList<>();
+        for (UserProfile user : users) {
+            userTasks.add(firestore.collection("users").document(user.getUid()).get());
+        }
+
+        return Tasks.whenAllComplete(userTasks).continueWithTask(task -> {
+            WriteBatch batch = firestore.batch();
+            boolean addedAny = false;
+
+            for (Task<DocumentSnapshot> userTask : userTasks) {
+                if (userTask.isSuccessful()) {
+                    DocumentSnapshot userDoc = userTask.getResult();
+                    if (checkPreference(userDoc, "INVITE")) {
+                        String uid = userDoc.getId();
+                        
+                        // 1. Add to user's inbox
+                        DocumentReference userNotifyRef = firestore.collection("users")
+                                .document(uid)
+                                .collection("notifications")
+                                .document();
+                        NotificationItem userItem = new NotificationItem(eventId, title, message, "INVITE");
+                        userItem.setId(userNotifyRef.getId());
+                        batch.set(userNotifyRef, userItem);
+
+                        // 2. Add to event's invitations tracking
+                        DocumentReference inviteRef = firestore.collection("events")
+                                .document(eventId)
+                                .collection("invitations")
+                                .document(uid);
+                        
+                        Map<String, Object> inviteData = new HashMap<>();
+                        inviteData.put("uid", uid);
+                        inviteData.put("name", userDoc.getString("fullName"));
+                        inviteData.put("email", userDoc.getString("email"));
+                        inviteData.put("username", userDoc.getString("username"));
+                        inviteData.put("status", "PENDING");
+                        inviteData.put("timestamp", FieldValue.serverTimestamp());
+                        
+                        batch.set(inviteRef, inviteData);
+                        addedAny = true;
+                    }
+                }
+            }
+
+            return batch.commit();
+        });
+    }
+
+    /**
+     * helper method to check if a user has opted in for a specific notification type
+     * defaults to true if the preference field is not found
+     *
+     * @param userSnapshot Firestore document snapshot of the user
+     * @param type         type of notification to check preference for
+     * @return true if opted in or preference is unset, false otherwise
+     */
+    private boolean checkPreference(DocumentSnapshot userSnapshot, String type) {
+        if (userSnapshot == null || !userSnapshot.exists()) return false;
+        
+        String field;
+        switch (type) {
+            case "WIN": 
+                field = "optInWinningNotifications"; 
+                break;
+            case "INVITE": 
+                field = "optInPrivateInvites"; 
+                break;
+            case "COORGANIZER": 
+                field = "optInCoorganizerInvites"; 
+                break;
+            case "GENERAL": 
+                field = "optInOtherNotifications"; 
+                break;
+            default: 
+                return true;
+        }
+        
+        // If the field doesn't exist, default to true
+        return !userSnapshot.contains(field) || Boolean.TRUE.equals(userSnapshot.getBoolean(field));
+    }
+
+    /**
+     * Sends invitations to be a coorganiser and creates tracking records in the event's sub-collection
+     * @param eventId ID of the event
+     * @param title   title of the notification
+     * @param message invitation message content
+     * @param users   List of UserProfile objects to invite
+     * @return A Task representing the completion of the invitation operation
+     */
+    public Task<Void> sendCoOrganizerInvitation(
+            @NonNull String eventId,
+            @NonNull String title,
+            @NonNull String message,
+            @NonNull List<UserProfile> users
+    ) {
+        if (users.isEmpty()) return Tasks.forResult(null);
+
         WriteBatch batch = firestore.batch();
 
         for (UserProfile user : users) {
@@ -145,16 +258,16 @@ public class NotificationRepository {
                     .document(user.getUid())
                     .collection("notifications")
                     .document();
-            NotificationItem userItem = new NotificationItem(eventId, title, message, "INVITE");
+            NotificationItem userItem = new NotificationItem(eventId, title, message, "ASSIGN");
             userItem.setId(userNotifyRef.getId());
             batch.set(userNotifyRef, userItem);
 
             // 2. Add to event's invitations tracking
             DocumentReference inviteRef = firestore.collection("events")
                     .document(eventId)
-                    .collection("invitations")
+                    .collection("coorganizerinvites")
                     .document(user.getUid());
-            
+
             Map<String, Object> inviteData = new HashMap<>();
             inviteData.put("uid", user.getUid());
             inviteData.put("name", user.getName());
@@ -162,7 +275,7 @@ public class NotificationRepository {
             inviteData.put("username", user.getUsername());
             inviteData.put("status", "PENDING");
             inviteData.put("timestamp", FieldValue.serverTimestamp());
-            
+
             batch.set(inviteRef, inviteData);
         }
 
@@ -225,6 +338,22 @@ public class NotificationRepository {
         return firestore.collection("events")
                 .document(eventId)
                 .collection("invitations")
+                .document(uid)
+                .update("status", newStatus);
+    }
+
+    /**
+     * Updates the tracking status of an coorganizer invitation under an event's invitations sub-collection
+     *
+     * @param eventId   ID of the event
+     * @param uid       UID of the user
+     * @param newStatus new status to set ("ACCEPTED", "REJECTED")
+     * @return A Task representing completion of the update
+     */
+    public Task<Void> updateCoorganiserTrackingStatus(@NonNull String eventId, @NonNull String uid, @NonNull String newStatus) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("coorganizerinvites")
                 .document(uid)
                 .update("status", newStatus);
     }

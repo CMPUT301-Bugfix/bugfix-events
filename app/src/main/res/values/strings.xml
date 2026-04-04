@@ -283,6 +283,4 @@
     <string name="search_email">Search email, username, or name</string>
     <string name="search">Search</string>
     <string name="send_private_event">send private event</string>
-    <string name="comments_replying_to">Replying to %1$s</string>
-    <string name="comments_vote_failed">Failed to vote</string>
 </resources>

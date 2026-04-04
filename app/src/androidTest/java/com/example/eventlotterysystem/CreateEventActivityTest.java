@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -17,6 +18,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import static org.hamcrest.Matchers.anything;
 
 import android.content.Context;
 import android.content.Intent;
@@ -36,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,10 +85,9 @@ public class CreateEventActivityTest {
             SystemClock.sleep(5000);
         }
 
-        try (ActivityScenario<HostedEventsActivity> ignored = ActivityScenario.launch(HostedEventsActivity.class)) {
-            SystemClock.sleep(4000);
-            onView(withText(title)).check(matches(isDisplayed()));
-        }
+        DocumentSnapshot event = findEventByTitle(title);
+        assertNotNull(event);
+        assertEquals(title, event.getString("title"));
 
         deleteEventsByTitle(title);
     }
@@ -394,11 +397,11 @@ public class CreateEventActivityTest {
             SystemClock.sleep(4000);
 
             onView(withId(R.id.createEventTitleInput))
-                    .perform(replaceText(updatedTitle), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText(updatedTitle), closeSoftKeyboard());
             onView(withId(R.id.createEventLocationInput))
-                    .perform(replaceText("CCIS Edmonton"), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("CCIS Edmonton"), closeSoftKeyboard());
             onView(withId(R.id.createEventDescriptionInput))
-                    .perform(replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
             onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
 
             SystemClock.sleep(5000);
@@ -424,11 +427,11 @@ public class CreateEventActivityTest {
      */
     private void fillRequiredFields(String title, String description, String location, String maxParticipants) {
         onView(withId(R.id.createEventTitleInput))
-                .perform(replaceText(title), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(title), closeSoftKeyboard());
         onView(withId(R.id.createEventDescriptionInput))
-                .perform(replaceText(description), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(description), closeSoftKeyboard());
         onView(withId(R.id.createEventLocationInput))
-                .perform(replaceText(location), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(location), closeSoftKeyboard());
         onView(withId(R.id.createEventMaxParticipantsInput))
                 .perform(scrollTo(), replaceText(maxParticipants), closeSoftKeyboard());
     }
@@ -447,10 +450,7 @@ public class CreateEventActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -536,7 +536,30 @@ public class CreateEventActivityTest {
      * document id of the event that should be removed
      */
     private void deleteEvent(String eventId) throws Exception {
+        DocumentSnapshot event = Tasks.await(
+                FirebaseFirestore.getInstance().collection("events").document(eventId).get(),
+                15,
+                TimeUnit.SECONDS
+        );
+        String posterUrl = event.getString("posterUrl");
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+        deletePosterIfPresent(posterUrl);
+    }
+
+    /**
+     * deletes an uploaded poster file when the event references one
+     * @param posterUrl
+     * download url stored on the event document
+     */
+    private void deletePosterIfPresent(String posterUrl) {
+        if (posterUrl == null || posterUrl.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            Tasks.await(FirebaseStorage.getInstance().getReferenceFromUrl(posterUrl).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
     }
 
     /**

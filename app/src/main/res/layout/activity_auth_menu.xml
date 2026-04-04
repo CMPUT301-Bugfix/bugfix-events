@@ -1,46 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
+    android:background="#EDEBEB"
     tools:context=".AuthMenuActivity">
 
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/authHeaderGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.333" />
+
     <LinearLayout
+        android:id="@+id/authTopSection"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
+        android:background="#1E2B63"
         android:gravity="center"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        app:layout_constraintBottom_toTopOf="@id/authHeaderGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <TextView
+            android:id="@+id/authMenuTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
+            android:fontFamily="serif"
+            android:gravity="center"
             android:text="@string/event_lottery_system"
-            android:textColor="?android:textColorPrimary"
-            android:textSize="32sp"
+            android:textColor="#F4F1F1"
+            android:textSize="30sp"
             android:textStyle="bold" />
+    </LinearLayout>
 
-        <Button
+    <LinearLayout
+        android:id="@+id/authBottomSection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#EDEBEB"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="120dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/authHeaderGuide">
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/menuLoginButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:text="@string/login" />
+            android:layout_width="250dp"
+            android:layout_height="78dp"
+            android:background="@drawable/square_button_blue"
+            android:fontFamily="serif"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/login"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/menuCreateAccountButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/create_an_account" />
+            android:layout_width="250dp"
+            android:layout_height="78dp"
+            android:layout_marginTop="70dp"
+            android:background="@drawable/square_button_blue"
+            android:fontFamily="serif"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:text="@string/create_an_account"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

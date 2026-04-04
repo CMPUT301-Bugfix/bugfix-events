@@ -6,6 +6,7 @@ import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -25,6 +26,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -167,13 +170,61 @@ public class UserProfileDetailsActivityTest {
     }
 
     /**
+     * Test if adding Coorganizer Creates a notification to the correct User
+     */
+    @Test
+    public void sendNotificationsTest() throws Exception {
+        signInTestUser();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createCoorganizerTestEvent(currentUser.getUid(), "Edmonton Coorganizer Event " + timestamp);
+        String targetEmail = "test" + timestamp + "@gmail.com";
+        String targetPassword = "test123";
+        String targetUsername = "testco" + timestamp;
+        String targetUid = createTemporaryCoorganizerUser(targetEmail, targetPassword, targetUsername, "Coorganizer Test");
+        createCoorganizerWaitlistEntry(eventId, targetUid);
+        signInTestUser();
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), UserProfileDetailsActivity.class);
+        intent.putExtra(UserProfileDetailsActivity.NAME, "Coorganizer Test");
+        intent.putExtra(UserProfileDetailsActivity.ACCOUNT_TYPE, "entrant");
+        intent.putExtra(UserProfileDetailsActivity.USERNAME, targetUsername);
+        intent.putExtra(UserProfileDetailsActivity.EMAIL, targetEmail);
+        intent.putExtra(UserProfileDetailsActivity.PHONE, "888 888 8888");
+        intent.putExtra(UserProfileDetailsActivity.UID, targetUid);
+        intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, System.currentTimeMillis());
+        intent.putExtra(UserProfileDetailsActivity.ALLOW_DELETE, true);
+        intent.putExtra(UserProfileDetailsActivity.EVENT_ID, eventId);
+
+        try {
+            try (ActivityScenario<UserProfileDetailsActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.userProfileAssignCoorganizerButton)).check(matches(isDisplayed()));
+                onView(withId(R.id.userProfileAssignCoorganizerButton)).perform(click());
+                onView(withText(R.string.assign_coorganizer_action)).perform(click());
+
+                SystemClock.sleep(4000);
+            }
+
+            FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+            DocumentSnapshot eventSnapshot = Tasks.await(firestore.collection("events").document(eventId).get(), 15, TimeUnit.SECONDS);
+            QuerySnapshot eventNotificationQuery = Tasks.await(firestore.collection("events").document(eventId).collection("coorganizerinvites").whereEqualTo("uid", targetUid).get(), 15, TimeUnit.SECONDS);
+            DocumentSnapshot eventNotification = eventNotificationQuery.getDocuments().get(0);
+
+            assertTrue(eventNotification.exists());
+            assertEquals(eventNotification.getString("uid"), targetUid);
+
+        } finally {
+            deleteCoorganizerTestData(eventId, targetUid, targetEmail, targetPassword);
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

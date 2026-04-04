@@ -1,107 +1,226 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
-    android:padding="16dp"
+    android:background="#C4C4C4"
     tools:context=".EntrantsActivity">
 
-    <TextView
-        android:id="@+id/entrantsBackButton"
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/entrantsHeaderGuide"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:clickable="true"
-        android:focusable="true"
-        android:padding="8dp"
-        android:text="@string/back"
-        android:textColor="?attr/colorPrimary"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.22" />
 
-    <TextView
-        android:id="@+id/entrantsTitle"
+    <LinearLayout
+        android:id="@+id/entrantsTopSection"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/entrants_title"
-        android:textColor="?android:textColorPrimary"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="0dp"
+        android:background="#74B3A8"
+        android:orientation="vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="18dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/entrantsHeaderGuide"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsBackButton" />
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <Button
-        android:id="@+id/entrantsAllEntrantsButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="@string/all_entrants"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsTitle" />
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
-    <Button
-        android:id="@+id/entrantsChosenButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/chosen_entrants"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsAllEntrantsButton" />
+            <TextView
+                android:id="@+id/entrantsBackButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="serif"
+                android:padding="4dp"
+                android:text="@string/back"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-    <Button
-        android:id="@+id/entrantsConfirmedButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/confirmed_entrants"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsChosenButton" />
+            <TextView
+                android:id="@+id/entrantsTopTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="serif"
+                android:text="EVENT"
+                android:textColor="#F4F1F1"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <Button
-        android:id="@+id/entrantsCancelledButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/cancelled_entrants"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsConfirmedButton" />
+        <TextView
+            android:id="@+id/entrantsTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="34dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/entrants_title"
+            android:textColor="#F4F1F1"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
-    <Button
-        android:id="@+id/entrantsNotifyWaitlistButton"
+    <LinearLayout
+        android:id="@+id/entrantsBottomSection"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/notify_waitlist"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_height="0dp"
+        android:background="#C4C4C4"
+        android:orientation="vertical"
+        android:paddingTop="0dp"
+        app:layout_constraintTop_toBottomOf="@id/entrantsHeaderGuide"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsCancelledButton" />
+        app:layout_constraintEnd_toEndOf="parent">
 
-    <Button
-        android:id="@+id/entrantsPerformDrawButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="@string/perform_draw"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsNotifyWaitlistButton" />
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsAllEntrantsButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/all_entrants"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
 
-    <Button
-        android:id="@+id/entrantsProcessExpiredButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/process_expired"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/entrantsPerformDrawButton" />
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsChosenButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/chosen_entrants"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsConfirmedButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/confirmed_entrants"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsCancelledButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/cancelled_entrants"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#C4C4C4" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsNotifyWaitlistButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/notify_waitlist"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsPerformDrawButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/perform_draw"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/entrantsProcessExpiredButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_light"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="38dp"
+            android:paddingEnd="24dp"
+            android:text="@string/process_expired"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

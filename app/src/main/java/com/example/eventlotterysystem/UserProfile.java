@@ -16,6 +16,15 @@ public class UserProfile {
     private String phoneNumber;
     private String accountType;
     private Timestamp createdAt;
+    private boolean suspended;
+
+    // Notification preferences
+    private boolean optInCoorganizerInvites = true;
+    private boolean optInPrivateInvites = true;
+    private boolean optInWinningNotifications = true;
+    private boolean optInOtherNotifications = true;
+
+    public UserProfile() {}
 
     /**
      * creates the user profile object without an account type
@@ -63,6 +72,7 @@ public class UserProfile {
         this.usernameKey = usernameKey;
         this.phoneNumber = phoneNumber;
         this.accountType = accountType;
+        this.suspended = false;
     }
 
     /**
@@ -207,5 +217,45 @@ public class UserProfile {
      */
     public void setCreatedAt(Timestamp createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean getSuspended() {
+        return suspended;
+    }
+
+    public void setSuspended(boolean suspended) {
+        this.suspended = suspended;
+    }
+
+    public boolean isOptInCoorganizerInvites() {
+        return optInCoorganizerInvites;
+    }
+
+    public void setOptInCoorganizerInvites(boolean optInCoorganizerInvites) {
+        this.optInCoorganizerInvites = optInCoorganizerInvites;
+    }
+
+    public boolean isOptInPrivateInvites() {
+        return optInPrivateInvites;
+    }
+
+    public void setOptInPrivateInvites(boolean optInPrivateInvites) {
+        this.optInPrivateInvites = optInPrivateInvites;
+    }
+
+    public boolean isOptInWinningNotifications() {
+        return optInWinningNotifications;
+    }
+
+    public void setOptInWinningNotifications(boolean optInWinningNotifications) {
+        this.optInWinningNotifications = optInWinningNotifications;
+    }
+
+    public boolean isOptInOtherNotifications() {
+        return optInOtherNotifications;
+    }
+
+    public void setOptInOtherNotifications(boolean optInOtherNotifications) {
+        this.optInOtherNotifications = optInOtherNotifications;
     }
 }
