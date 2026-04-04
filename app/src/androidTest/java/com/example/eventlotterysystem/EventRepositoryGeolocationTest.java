@@ -43,10 +43,7 @@ public class EventRepositoryGeolocationTest {
      */
     @Before
     public void setUp() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

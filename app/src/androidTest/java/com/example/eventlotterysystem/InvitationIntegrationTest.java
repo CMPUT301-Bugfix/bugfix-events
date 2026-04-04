@@ -36,13 +36,7 @@ public class InvitationIntegrationTest {
 
     @Before
     public void setUp() throws Exception {
-        if (auth.getCurrentUser() == null) {
-            try {
-                Tasks.await(auth.signInWithEmailAndPassword("test@gmail.com", "test123"));
-            } catch (Exception e) {
-                Tasks.await(auth.signInAnonymously());
-            }
-        }
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

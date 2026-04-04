@@ -55,14 +55,6 @@ import java.util.concurrent.TimeUnit;
 @LargeTest
 public class AllEntrantsActivityTest {
 
-    private final String EventId = "WrGnWl3sZcFMzFhEmgln";
-    //private String EventId = "tEJkEpXh3FOGPePn3W3k";
-    private final String waitlistUser = "Username: testU4";
-    private final String chosenUser = "Username: testU1";
-    private final String confirmedUser = "Username: testU2";
-    private final String declinedUser = "Username: testU3";
-
-
     /**
      * Test to see if all entrants are displayed for an event
      * @throws Exception if authentication or asynchronous setup fails
@@ -70,20 +62,24 @@ public class AllEntrantsActivityTest {
     @Test
     public void viewAllEntrantsTest() throws Exception {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton All Entrants Event " + timestamp);
+        String email = "allentrants" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "waitlist" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Waitlist Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                AllEntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
-        try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            /* don't know why this doesn't work
-            onData(allOf(is(instanceOf(String.class)), is(waitlistUser)))
-                    .inAdapterView(withId(R.id.allEntrantsListView))
-                    .check(matches(isDisplayed()));
-            */
-            onView(withText(waitlistUser)).check(matches(isDisplayed()));
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -94,16 +90,25 @@ public class AllEntrantsActivityTest {
     @Test
     public void navigatedToAllEntrantsActivityTest() throws Exception {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton All Entrants Nav Event " + timestamp);
+        String email = "allnav" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "allnav" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Waitlist Nav Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                EntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
-        try (ActivityScenario<EntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            onView(withId(R.id.entrantsAllEntrantsButton)).perform(click());
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            onView(withText(waitlistUser)).check(matches(isDisplayed()));
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), EntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
+        try {
+            try (ActivityScenario<EntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                onView(withId(R.id.entrantsAllEntrantsButton)).perform(click());
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -114,22 +119,25 @@ public class AllEntrantsActivityTest {
     @Test
     public void viewWaitingListEntrantsTest() throws Exception {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Waiting Entrants Event " + timestamp);
+        String email = "waiting" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "waiting" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Waiting Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                AllEntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
         intent.putExtra(AllEntrantsActivity.STATUS_FILTER, "IN_WAITLIST");
-        try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            /* don't know why this doesn't work
-            onData(allOf(is(instanceOf(String.class)), is(waitlistUser)))
-                    .inAdapterView(withId(R.id.allEntrantsListView))
-                    .check(matches(isDisplayed()));
-            */
-            onView(withText(waitlistUser)).check(matches(isDisplayed()));
-
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -140,21 +148,26 @@ public class AllEntrantsActivityTest {
     @Test
     public void viewChosenEntrantsTest() throws Exception  {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Chosen Entrants Event " + timestamp);
+        String email = "chosen" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "chosen" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Chosen Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_CHOSEN), 15, TimeUnit.SECONDS);
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                AllEntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
         intent.putExtra(AllEntrantsActivity.STATUS_FILTER, "CHOSEN");
-        try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            /* don't know why this doesn't work
-            onData(allOf(is(instanceOf(String.class)), is(chosenUser)))
-                    .inAdapterView(withId(R.id.allEntrantsListView))
-                    .check(matches(isDisplayed()));
-            */
-            onView(withText(chosenUser)).check(matches(isDisplayed()));
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -165,22 +178,26 @@ public class AllEntrantsActivityTest {
     @Test
     public void viewConfirmedEntrantsTest() throws Exception  {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Confirmed Entrants Basic Event " + timestamp);
+        String email = "confirmedbasic" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "confirmedbasic" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Confirmed Basic Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_CONFIRMED), 15, TimeUnit.SECONDS);
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                AllEntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
         intent.putExtra(AllEntrantsActivity.STATUS_FILTER, "CONFIRMED");
-        try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            /* don't know why this doesn't work
-            onData(allOf(is(instanceOf(String.class)), is(confirmedUser)))
-                    .inAdapterView(withId(R.id.allEntrantsListView))
-                    .check(matches(isDisplayed()));
-            */
-            onView(withText(confirmedUser)).check(matches(isDisplayed()));
-
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -191,22 +208,26 @@ public class AllEntrantsActivityTest {
     @Test
     public void viewDeclinedEntrantsTest() throws Exception  {
         signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String eventId = createManagedEntrantsTestEvent("Edmonton Declined Entrants Basic Event " + timestamp);
+        String email = "declinedbasic" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "declinedbasic" + timestamp;
+        String uid = createTemporaryEntrant(email, password, username, "Declined Basic Test");
+        joinWaitlistAsCurrentUser(eventId);
+        signInTestUser();
+        Tasks.await(new EventRepository().updateWaitlistStatus(eventId, uid, EventRepository.WAITLIST_STATUS_DECLINED), 15, TimeUnit.SECONDS);
 
-        Intent intent = new Intent(
-                ApplicationProvider.getApplicationContext(),
-                AllEntrantsActivity.class
-        );
-        intent.putExtra(EVENT_ID, EventId);
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), AllEntrantsActivity.class);
+        intent.putExtra(EVENT_ID, eventId);
         intent.putExtra(AllEntrantsActivity.STATUS_FILTER, "DECLINED");
-        try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load users in time
-            /* don't know why this doesn't work
-            onData(allOf(is(instanceOf(String.class)), is(declinedUser)))
-                    .inAdapterView(withId(R.id.allEntrantsListView))
-                    .check(matches(isDisplayed()));
-            */
-            onView(withText(declinedUser)).check(matches(isDisplayed()));
-
+        try {
+            try (ActivityScenario<AllEntrantsActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withText("Username: " + username)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEntrantsStoryTestData(eventId, uid, email, password);
         }
     }
 
@@ -319,10 +340,7 @@ public class AllEntrantsActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

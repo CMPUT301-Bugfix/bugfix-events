@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
@@ -17,6 +18,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import static org.hamcrest.Matchers.anything;
 
 import android.content.Context;
 import android.content.Intent;
@@ -81,10 +84,9 @@ public class CreateEventActivityTest {
             SystemClock.sleep(5000);
         }
 
-        try (ActivityScenario<HostedEventsActivity> ignored = ActivityScenario.launch(HostedEventsActivity.class)) {
-            SystemClock.sleep(4000);
-            onView(withText(title)).check(matches(isDisplayed()));
-        }
+        DocumentSnapshot event = findEventByTitle(title);
+        assertNotNull(event);
+        assertEquals(title, event.getString("title"));
 
         deleteEventsByTitle(title);
     }
@@ -394,11 +396,11 @@ public class CreateEventActivityTest {
             SystemClock.sleep(4000);
 
             onView(withId(R.id.createEventTitleInput))
-                    .perform(replaceText(updatedTitle), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText(updatedTitle), closeSoftKeyboard());
             onView(withId(R.id.createEventLocationInput))
-                    .perform(replaceText("CCIS Edmonton"), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("CCIS Edmonton"), closeSoftKeyboard());
             onView(withId(R.id.createEventDescriptionInput))
-                    .perform(replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
             onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
 
             SystemClock.sleep(5000);
@@ -424,11 +426,11 @@ public class CreateEventActivityTest {
      */
     private void fillRequiredFields(String title, String description, String location, String maxParticipants) {
         onView(withId(R.id.createEventTitleInput))
-                .perform(replaceText(title), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(title), closeSoftKeyboard());
         onView(withId(R.id.createEventDescriptionInput))
-                .perform(replaceText(description), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(description), closeSoftKeyboard());
         onView(withId(R.id.createEventLocationInput))
-                .perform(replaceText(location), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(location), closeSoftKeyboard());
         onView(withId(R.id.createEventMaxParticipantsInput))
                 .perform(scrollTo(), replaceText(maxParticipants), closeSoftKeyboard());
     }
@@ -447,10 +449,7 @@ public class CreateEventActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

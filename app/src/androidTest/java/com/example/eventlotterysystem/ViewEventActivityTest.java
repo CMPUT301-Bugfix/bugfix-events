@@ -2,6 +2,7 @@ package com.example.eventlotterysystem;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.scrollTo;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
@@ -96,8 +97,8 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventShowMapButton)).check(matches(isDisplayed()));
-            onView(withId(R.id.viewEventShowMapButton)).perform(click());
+            onView(withId(R.id.viewEventShowMapButton)).perform(scrollTo()).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventShowMapButton)).perform(scrollTo(), click());
             SystemClock.sleep(3000);
 
             onView(withText("Entrant Locations")).check(matches(isDisplayed()));
@@ -190,7 +191,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(click());
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(scrollTo(), click());
             onView(withText(R.string.join)).perform(click());
             SystemClock.sleep(4000);
 
@@ -216,7 +217,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(click());
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(scrollTo(), click());
 
             onView(withText(R.string.join_waitlist)).check(matches(isDisplayed()));
             onView(withText(containsString("terms of the lottery"))).check(matches(isDisplayed()));
@@ -240,7 +241,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(click());
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(scrollTo(), click());
             onView(withText(R.string.join)).perform(click());
             SystemClock.sleep(4000);
         }
@@ -269,7 +270,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventLeaveWaitlistButton)).perform(click());
+            onView(withId(R.id.viewEventLeaveWaitlistButton)).perform(scrollTo(), click());
             SystemClock.sleep(4000);
 
             onView(withId(R.id.viewEventJoinWaitlistButton)).check(matches(isDisplayed()));
@@ -294,7 +295,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventLeaveWaitlistButton)).perform(click());
+            onView(withId(R.id.viewEventLeaveWaitlistButton)).perform(scrollTo(), click());
             SystemClock.sleep(4000);
         }
 
@@ -322,7 +323,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventJoinWaitlistButton)).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(scrollTo()).check(matches(isDisplayed()));
             onView(withId(R.id.viewEventJoinWaitlistButton)).check(matches(not(isEnabled())));
         }
 
@@ -343,7 +344,7 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventJoinWaitlistButton)).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventJoinWaitlistButton)).perform(scrollTo()).check(matches(isDisplayed()));
             onView(withId(R.id.viewEventJoinWaitlistButton)).check(matches(not(isEnabled())));
         }
 
@@ -356,8 +357,20 @@ public class ViewEventActivityTest {
     @Test
     public void openedByAuthorTest() throws Exception {
         signInTestUser();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         String title = "UofA Organizer Event " + System.currentTimeMillis();
-        String eventId = createViewEventTestEvent(title, "Organizer view test in Edmonton.", "SUB Edmonton", true, 5, 6, 0, 10, "author-host", "");
+        String eventId = createViewEventTestEvent(
+                title,
+                "Organizer view test in Edmonton.",
+                "SUB Edmonton",
+                true,
+                5,
+                6,
+                0,
+                10,
+                currentUser.getUid(),
+                ""
+        );
 
         Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
@@ -366,9 +379,9 @@ public class ViewEventActivityTest {
         try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventEditButton)).check(matches(isDisplayed()));
-            onView(withId(R.id.viewEventScreenTitle)).check(matches(isDisplayed()));
-            onView(withId(R.id.viewEventEditButton)).perform(click());
+            onView(withId(R.id.viewEventEditButton)).perform(scrollTo()).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventScreenTitle)).perform(scrollTo()).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventEditButton)).perform(scrollTo(), click());
             SystemClock.sleep(3000);
 
             onView(withId(R.id.createEventTitle)).check(matches(isDisplayed()));
@@ -382,10 +395,7 @@ public class ViewEventActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

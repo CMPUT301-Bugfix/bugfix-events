@@ -132,6 +132,7 @@ public class ViewEventActivity extends AppCompatActivity {
         messageOrganizerButton.setOnClickListener(v -> openMessageScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
+        qrCodeButton.setOnClickListener(v -> openQrCodeScreen());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
         showMapButton.setOnClickListener(v -> showMap());
@@ -256,6 +257,19 @@ public class ViewEventActivity extends AppCompatActivity {
         }
         Intent intent = new Intent(this, CreateEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
+        startActivity(intent);
+    }
+
+    /**
+     * opens the generated promotional QR code for public events that the current user can manage
+     */
+    private void openQrCodeScreen() {
+        if (!canEditEvent || currentEvent == null || !currentEvent.isPublic()) {
+            return;
+        }
+        Intent intent = new Intent(this, QRCode.class);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("Event_ID", eventId);
         startActivity(intent);
     }
 

@@ -31,16 +31,7 @@ public class EventRepositoryExpirationTest {
 
     @Before
     public void setUp() throws Exception {
-
-
-        if (auth.getCurrentUser() == null) {
-            try {
-                Tasks.await(auth.signInWithEmailAndPassword("test@gmail.com", "test123"));
-            } catch (Exception e) {
-               //this might not work bc anon login isnt in firebase but it shouldn't get here
-                Tasks.await(auth.signInAnonymously());
-            }
-        }
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**

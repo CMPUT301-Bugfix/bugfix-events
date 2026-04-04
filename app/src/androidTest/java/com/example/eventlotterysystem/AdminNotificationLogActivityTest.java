@@ -26,6 +26,7 @@ import androidx.test.filters.LargeTest;
 
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,16 +52,23 @@ public class AdminNotificationLogActivityTest {
     @Test
     public void viewNotificationsTest() throws Exception {
         signInTestUser();
+        String notificationId = createAdminNotification();
 
         Intent intent = new Intent(
                 ApplicationProvider.getApplicationContext(),
                 AdminNotificationsLogActivity.class
         );
 
-        try (ActivityScenario<AdminNotificationsLogActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load notifications in time
-            onView(withText(NotificationTitle)).check(matches(isDisplayed()));
-            onView(withText(NotificationContent)).check(matches(isDisplayed()));
+        try {
+            try (ActivityScenario<AdminNotificationsLogActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withId(R.id.adminNotificationsRecyclerView))
+                        .check(matches(hasDescendant(withText(NotificationTitle))));
+                onView(withId(R.id.adminNotificationsRecyclerView))
+                        .check(matches(hasDescendant(withText(NotificationContent))));
+            }
+        } finally {
+            deleteAdminNotification(notificationId);
         }
     }
 
@@ -71,17 +79,24 @@ public class AdminNotificationLogActivityTest {
     @Test
     public void navigatedToAdminNotificationLogActivityTest() throws Exception {
         signInTestUser();
+        String notificationId = createAdminNotification();
 
         Intent intent = new Intent(
                 ApplicationProvider.getApplicationContext(),
                 AdminZoneActivity.class
         );
-        try (ActivityScenario<AdminZoneActivity> scenario = ActivityScenario.launch(intent)) {
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load notifications in time
-            onView(withId(R.id.adminNotificationLogButton)).perform(click());
-            SystemClock.sleep(10000); // had to add sys clock as my laptop could not load notifications in time
-            onView(withText(NotificationTitle)).check(matches(isDisplayed()));
-            onView(withText(NotificationContent)).check(matches(isDisplayed()));
+        try {
+            try (ActivityScenario<AdminZoneActivity> scenario = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(5000);
+                onView(withId(R.id.adminNotificationLogButton)).perform(click());
+                SystemClock.sleep(5000);
+                onView(withId(R.id.adminNotificationsRecyclerView))
+                        .check(matches(hasDescendant(withText(NotificationTitle))));
+                onView(withId(R.id.adminNotificationsRecyclerView))
+                        .check(matches(hasDescendant(withText(NotificationContent))));
+            }
+        } finally {
+            deleteAdminNotification(notificationId);
         }
     }
 
@@ -89,9 +104,47 @@ public class AdminNotificationLogActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
+    }
+
+    /**
+     * creates a notification visible in the admin notification log
+     */
+    private String createAdminNotification() throws Exception {
+        String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        Tasks.await(
+                new NotificationRepository().sendToSpecificUsers(
+                        "admin-log-event",
+                        NotificationTitle,
+                        NotificationContent,
+                        "GENERAL",
+                        java.util.Collections.singletonList(uid)
+                ),
+                15,
+                TimeUnit.SECONDS
+        );
+        return uid;
+    }
+
+    /**
+     * deletes a seeded admin notification
+     */
+    private void deleteAdminNotification(String notificationId) throws Exception {
+        try {
+            for (com.google.firebase.firestore.DocumentSnapshot doc : Tasks.await(
+                    FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(notificationId)
+                            .collection("notifications")
+                            .whereEqualTo("title", NotificationTitle)
+                            .whereEqualTo("message", NotificationContent)
+                            .get(),
+                    15,
+                    TimeUnit.SECONDS
+            ).getDocuments()) {
+                Tasks.await(doc.getReference().delete(), 15, TimeUnit.SECONDS);
+            }
+        } catch (Exception ignored) {
+        }
     }
 }
