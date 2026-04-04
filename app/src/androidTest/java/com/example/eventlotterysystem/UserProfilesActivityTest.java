@@ -2,7 +2,10 @@ package com.example.eventlotterysystem;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import android.content.Context;
@@ -19,6 +22,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -53,7 +57,12 @@ public class UserProfilesActivityTest {
                 SystemClock.sleep(5000);
 
                 onView(withText("Name: " + fullName)).check(matches(isDisplayed()));
-                onView(withText("Account Type: entrant")).check(matches(isDisplayed()));
+                onView(Matchers.allOf(
+                        withId(R.id.profileTypeValue),
+                        withText("Account Type: entrant"),
+                        withParent(hasDescendant(withText("Name: " + fullName)))
+                ))
+                        .check(matches(isDisplayed()));
             }
         } finally {
             deleteTemporaryProfileUser(uid, email, password);
@@ -64,22 +73,19 @@ public class UserProfilesActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
      * creates a temporary user profile document for an admin profile test
-     * @param uid
-     * uid of the profile document
+     * @param email
+     * email stored on the profile
+     * @param password
+     * password for the temporary auth account
      * @param fullName
      * name stored on the profile
      * @param username
      * username stored on the profile
-     * @param email
-     * email stored on the profile
      * @param accountType
      * account type stored on the profile
      */
@@ -105,6 +111,10 @@ public class UserProfilesActivityTest {
      * removes the temporary user profile document created for an admin profile test
      * @param uid
      * uid of the profile document to remove
+     * @param email
+     * email used to sign into the temporary account
+     * @param password
+     * password used to sign into the temporary account
      */
     private void deleteTemporaryProfileUser(String uid, String email, String password) throws Exception {
         FirebaseAuth.getInstance().signOut();

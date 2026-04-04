@@ -178,7 +178,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginTop="150dp"
+                android:layout_marginTop="32dp"
                 android:buttonTint="#6F6F6F"
                 android:fontFamily="serif"
                 android:layoutDirection="rtl"
@@ -191,7 +191,7 @@
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/loginButton"
-                android:layout_width="326dp"
+                android:layout_width="match_parent"
                 android:layout_height="102dp"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="18dp"

@@ -8,8 +8,8 @@ import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,9 +49,9 @@ public class SettingsActivity extends AppCompatActivity {
     private FirebaseFirestore firestore;
 
     private TextView backButton;
-    private LinearLayout updateInformationHeader;
+    private View updateInformationHeader;
     private TextView updateInformationIndicator;
-    private LinearLayout updateInformationContent;
+    private ScrollView updateInformationContent;
     private EditText updateNameInput;
     private EditText updateEmailInput;
     private EditText updateUsernameInput;
@@ -88,7 +88,7 @@ public class SettingsActivity extends AppCompatActivity {
         backButton = findViewById(R.id.settingsBackButton);
         updateInformationHeader = findViewById(R.id.updateInformationHeader);
         updateInformationIndicator = findViewById(R.id.updateInformationIndicator);
-        updateInformationContent = findViewById(R.id.updateInformationContent);
+        updateInformationContent = findViewById(R.id.updateInformationContentScroll);
         updateNameInput = findViewById(R.id.updateNameInput);
         updateEmailInput = findViewById(R.id.updateEmailInput);
         updateUsernameInput = findViewById(R.id.updateUsernameInput);
