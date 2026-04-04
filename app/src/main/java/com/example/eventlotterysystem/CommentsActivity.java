@@ -10,6 +10,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
@@ -20,6 +21,9 @@ import java.util.List;
 
 /**
  * Displays and manages comments for a specific event.
+ *
+ * <p>This activity supports Reddit-style threaded comments with replies,
+ * upvotes, downvotes, score-based ordering, and organizer comment deletion.</p>
  */
 public class CommentsActivity extends AppCompatActivity {
     private static final String TAG = "CommentsActivity";
@@ -32,9 +36,13 @@ public class CommentsActivity extends AppCompatActivity {
     private boolean canDeleteComments;
     private EditText commentInput;
     private TextView emptyState;
+    private TextView replyingToText;
     private ListView commentsListView;
     private CommentAdapter commentAdapter;
     private final List<CommentItem> comments = new ArrayList<>();
+
+    private String selectedParentCommentId = "";
+    private int selectedReplyDepth = 0;
 
     /**
      * Initializes the comments screen, validates the event ID, and binds UI actions.
@@ -59,18 +67,41 @@ public class CommentsActivity extends AppCompatActivity {
         commentInput = findViewById(R.id.commentsInput);
         emptyState = findViewById(R.id.commentsEmptyState);
         commentsListView = findViewById(R.id.commentsListView);
+        replyingToText = findViewById(R.id.commentsReplyingTo);
         Button postCommentButton = findViewById(R.id.commentsPostButton);
 
-        commentAdapter = new CommentAdapter(this, comments);
+        commentAdapter = new CommentAdapter(this, comments, new CommentAdapter.CommentActionListener() {
+            @Override
+            public void onReplyClicked(@NonNull CommentItem comment) {
+                selectedParentCommentId = comment.getCommentId();
+                selectedReplyDepth = comment.getDepth() + 1;
+                replyingToText.setText(getString(R.string.comments_replying_to, safeUsername(comment)));
+                replyingToText.setVisibility(View.VISIBLE);
+                commentInput.requestFocus();
+            }
+
+            @Override
+            public void onUpvoteClicked(@NonNull CommentItem comment) {
+                voteOnComment(comment, 1);
+            }
+
+            @Override
+            public void onDownvoteClicked(@NonNull CommentItem comment) {
+                voteOnComment(comment, -1);
+            }
+        });
+
         commentsListView.setAdapter(commentAdapter);
 
         findViewById(R.id.commentsBackButton).setOnClickListener(v -> finish());
         postCommentButton.setOnClickListener(v -> postComment());
-        commentsListView.setOnItemClickListener((parent, view, position, id) -> {
+
+        commentsListView.setOnItemLongClickListener((parent, view, position, id) -> {
             if (!canDeleteComments || position < 0 || position >= comments.size()) {
-                return;
+                return false;
             }
             showDeleteCommentDialog(comments.get(position));
+            return true;
         });
     }
 
@@ -91,13 +122,18 @@ public class CommentsActivity extends AppCompatActivity {
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
                     FirebaseUser currentUser = auth.getCurrentUser();
-                    repository.canUserAccessEvent(
-                                    event,
-                                    eventId,
-                                    currentUser == null ? null : currentUser.getUid()
-                            )
+                    String currentUid = currentUser == null ? null : currentUser.getUid();
+
+                    repository.canUserAccessEvent(event, eventId, currentUid)
                             .addOnSuccessListener(canAccess -> {
-                                if (!canAccess) {
+                                if (canAccess) {
+                                    canDeleteComments = currentUser != null
+                                            && EventRepository.canManageEvent(event, currentUid);
+                                    loadComments();
+                                    return;
+                                }
+
+                                if (currentUser == null) {
                                     Toast.makeText(
                                             CommentsActivity.this,
                                             R.string.private_event_access_denied,
@@ -107,9 +143,30 @@ public class CommentsActivity extends AppCompatActivity {
                                     return;
                                 }
 
-                                canDeleteComments = currentUser != null
-                                        && EventRepository.canManageEvent(event, currentUser.getUid());
-                                loadComments();
+                                repository.hasUserCommentedOnEvent(eventId, currentUid)
+                                        .addOnSuccessListener(hasCommented -> {
+                                            if (!hasCommented) {
+                                                Toast.makeText(
+                                                        CommentsActivity.this,
+                                                        R.string.private_event_access_denied,
+                                                        Toast.LENGTH_SHORT
+                                                ).show();
+                                                finish();
+                                                return;
+                                            }
+
+                                            canDeleteComments = EventRepository.canManageEvent(event, currentUid);
+                                            loadComments();
+                                        })
+                                        .addOnFailureListener(exception -> {
+                                            Log.e(TAG, "Failed to verify comment access", exception);
+                                            Toast.makeText(
+                                                    CommentsActivity.this,
+                                                    buildLoadErrorMessage(exception),
+                                                    Toast.LENGTH_LONG
+                                            ).show();
+                                            finish();
+                                        });
                             })
                             .addOnFailureListener(exception -> {
                                 Log.e(TAG, "Failed to verify event access", exception);
@@ -133,7 +190,7 @@ public class CommentsActivity extends AppCompatActivity {
     }
 
     /**
-     * Posts a new comment for the current event and refreshes the list on success.
+     * Posts either a top-level comment or a reply for the current event.
      */
     private void postComment() {
         FirebaseUser currentUser = auth.getCurrentUser();
@@ -148,20 +205,29 @@ public class CommentsActivity extends AppCompatActivity {
             return;
         }
 
-        repository.addComment(eventId, currentUser, commentText)
+        repository.addComment(
+                        eventId,
+                        currentUser,
+                        commentText,
+                        selectedParentCommentId,
+                        selectedReplyDepth
+                )
                 .addOnSuccessListener(unused -> {
                     commentInput.setText("");
+                    clearReplyMode();
                     loadComments();
                     Toast.makeText(this, R.string.comments_posted, Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(exception -> {
                     Log.e(TAG, "Failed to post comment", exception);
-                    Toast.makeText(this, R.string.comments_post_failed, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this,
+                            "Failed to post comment: " + exception.getClass().getSimpleName() + " - " + exception.getMessage(),
+                            Toast.LENGTH_LONG).show();
                 });
     }
 
     /**
-     * Loads all comments for the current event and updates the list and empty state.
+     * Loads all comments for the current event and refreshes the list and empty state.
      */
     private void loadComments() {
         repository.getComments(eventId)
@@ -177,6 +243,27 @@ public class CommentsActivity extends AppCompatActivity {
                     comments.clear();
                     commentAdapter.notifyDataSetChanged();
                     updateEmptyState();
+                });
+    }
+
+    /**
+     * Sends an upvote or downvote for the selected comment.
+     *
+     * @param comment the comment being voted on
+     * @param voteValue the vote value, either 1 or -1
+     */
+    private void voteOnComment(@NonNull CommentItem comment, int voteValue) {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, R.string.comments_sign_in_required, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        repository.voteOnComment(eventId, comment.getCommentId(), currentUser.getUid(), voteValue)
+                .addOnSuccessListener(unused -> loadComments())
+                .addOnFailureListener(exception -> {
+                    Log.e(TAG, "Failed to vote on comment", exception);
+                    Toast.makeText(this, R.string.comments_vote_failed, Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -218,6 +305,30 @@ public class CommentsActivity extends AppCompatActivity {
         boolean hasComments = !comments.isEmpty();
         commentsListView.setVisibility(hasComments ? View.VISIBLE : View.GONE);
         emptyState.setVisibility(hasComments ? View.GONE : View.VISIBLE);
+    }
+
+    /**
+     * Clears the current reply target and hides the reply label.
+     */
+    private void clearReplyMode() {
+        selectedParentCommentId = "";
+        selectedReplyDepth = 0;
+        replyingToText.setText("");
+        replyingToText.setVisibility(View.GONE);
+    }
+
+    /**
+     * Returns a safe display name for a comment author.
+     *
+     * @param comment the comment whose author name should be displayed
+     * @return a non-empty display name
+     */
+    private String safeUsername(CommentItem comment) {
+        String username = comment.getUsername();
+        if (username == null || username.trim().isEmpty()) {
+            return "Unknown user";
+        }
+        return username;
     }
 
     /**

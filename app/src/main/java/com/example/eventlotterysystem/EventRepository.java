@@ -1669,16 +1669,21 @@ public class EventRepository {
     /**
      * Adds a new comment to the specified event.
      *
+     * <p>This method supports both top-level comments and replies.</p>
+     *
      * @param eventId the ID of the event receiving the comment
      * @param currentUser the signed-in user posting the comment
      * @param text the comment text to post
+     * @param parentCommentId the parent comment ID, or an empty string for a top-level comment
+     * @param depth the nesting depth for the comment
      * @return a task representing the result of the comment write operation
      */
-
     public Task<Void> addComment(
             @NonNull String eventId,
             @NonNull FirebaseUser currentUser,
-            @NonNull String text
+            @NonNull String text,
+            @Nullable String parentCommentId,
+            int depth
     ) {
         String trimmedText = text.trim();
         if (trimmedText.isEmpty()) {
@@ -1699,8 +1704,29 @@ public class EventRepository {
                     payload.put("text", trimmedText);
                     payload.put("username", displayName);
                     payload.put("createdAt", FieldValue.serverTimestamp());
+                    payload.put("parentCommentId", parentCommentId == null ? "" : parentCommentId.trim());
+                    payload.put("depth", Math.max(0, depth));
+                    payload.put("score", 0);
+                    payload.put("deleted", false);
+
                     return commentRef.set(payload);
                 });
+    }
+
+    /**
+     * Adds a new top-level comment to the specified event.
+     *
+     * @param eventId the ID of the event receiving the comment
+     * @param currentUser the signed-in user posting the comment
+     * @param text the comment text to post
+     * @return a task representing the result of the comment write operation
+     */
+    public Task<Void> addComment(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String text
+    ) {
+        return addComment(eventId, currentUser, text, "", 0);
     }
 
     /**
@@ -1728,33 +1754,34 @@ public class EventRepository {
     }
 
     /**
-     * Deletes a comment from an event.
+     * Soft-deletes a comment from an event while preserving the thread structure.
      *
      * @param eventId the ID of the event containing the comment
      * @param commentId the ID of the comment to delete
-     * @return a task representing the delete operation
+     * @return a task representing the update operation
      */
     public Task<Void> deleteComment(
             @NonNull String eventId,
             @NonNull String commentId
     ) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("text", "[deleted]");
+        updates.put("deleted", true);
+
         return firestore.collection("events")
                 .document(eventId)
                 .collection("comments")
                 .document(commentId)
-                .delete();
+                .update(updates);
     }
 
     /**
-     * Loads all comments for the specified event.
-     *
-     * Comments are read from the event's comments subcollection and returned as
-     * {@link CommentItem} objects sorted by creation time.
+     * Loads all comments for the specified event and returns them in a flattened
+     * threaded order sorted by score.
      *
      * @param eventId the ID of the event whose comments should be loaded
-     * @return a task containing the list of comments for the event
+     * @return a task containing the threaded list of comments for the event
      */
-
     public Task<List<CommentItem>> getComments(@NonNull String eventId) {
         return firestore.collection("events")
                 .document(eventId)
@@ -1767,28 +1794,208 @@ public class EventRepository {
                                 : new IllegalStateException("Failed to load comments");
                     }
 
-                    List<CommentItem> comments = new ArrayList<>();
+                    List<CommentItem> allComments = new ArrayList<>();
                     for (DocumentSnapshot doc : task.getResult().getDocuments()) {
                         String uid = normalize(doc.getString("uid"));
                         String username = normalize(doc.getString("username"));
                         String text = normalize(doc.getString("text"));
                         Timestamp createdAtTimestamp = doc.getTimestamp("createdAt");
+                        String parentCommentId = normalize(doc.getString("parentCommentId"));
 
-                        comments.add(new CommentItem(
+                        Long depthLong = doc.getLong("depth");
+                        int depth = depthLong == null ? 0 : depthLong.intValue();
+
+                        Long scoreLong = doc.getLong("score");
+                        int score = scoreLong == null ? 0 : scoreLong.intValue();
+
+                        Boolean deletedValue = doc.getBoolean("deleted");
+                        boolean deleted = Boolean.TRUE.equals(deletedValue);
+
+                        allComments.add(new CommentItem(
                                 doc.getId(),
                                 uid,
                                 username,
                                 text,
-                                createdAtTimestamp == null ? null : createdAtTimestamp.toDate()
+                                createdAtTimestamp == null ? null : createdAtTimestamp.toDate(),
+                                parentCommentId,
+                                depth,
+                                score,
+                                deleted
                         ));
                     }
 
-                    comments.sort(Comparator.comparing(
-                            CommentItem::getCreatedAt,
-                            Comparator.nullsLast(Date::compareTo)
-                    ));
+                    return buildThreadedComments(allComments);
+                });
+    }
 
-                    return comments;
+    /**
+     * Applies an upvote or downvote to a comment for the specified user.
+     *
+     * <p>If the same vote is applied twice, the vote is removed.</p>
+     *
+     * @param eventId the ID of the event containing the comment
+     * @param commentId the ID of the comment being voted on
+     * @param uid the user ID of the voter
+     * @param newVoteValue the requested vote value, either 1 or -1
+     * @return a task representing the transaction result
+     */
+    public Task<Void> voteOnComment(
+            @NonNull String eventId,
+            @NonNull String commentId,
+            @NonNull String uid,
+            int newVoteValue
+    ) {
+        if (newVoteValue != 1 && newVoteValue != -1) {
+            return Tasks.forException(new IllegalArgumentException("Vote must be 1 or -1"));
+        }
+
+        DocumentReference commentRef = firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document(commentId);
+
+        DocumentReference voteRef = commentRef
+                .collection("votes")
+                .document(uid);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot commentSnapshot = transaction.get(commentRef);
+            if (!commentSnapshot.exists()) {
+                throw new IllegalStateException("Comment not found");
+            }
+
+            DocumentSnapshot voteSnapshot = transaction.get(voteRef);
+
+            long currentScore = 0;
+            Long currentScoreLong = commentSnapshot.getLong("score");
+            if (currentScoreLong != null) {
+                currentScore = currentScoreLong;
+            }
+
+            int oldVote = 0;
+            if (voteSnapshot.exists()) {
+                Long oldVoteLong = voteSnapshot.getLong("value");
+                if (oldVoteLong != null) {
+                    oldVote = oldVoteLong.intValue();
+                }
+            }
+
+            int finalVote = (oldVote == newVoteValue) ? 0 : newVoteValue;
+            long newScore = currentScore - oldVote + finalVote;
+
+            transaction.update(commentRef, "score", newScore);
+
+            if (finalVote == 0) {
+                transaction.delete(voteRef);
+            } else {
+                Map<String, Object> voteData = new HashMap<>();
+                voteData.put("value", finalVote);
+                transaction.set(voteRef, voteData);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * Builds a flattened Reddit-style comment list from a raw collection of comments.
+     *
+     * @param allComments the raw list of comments loaded from Firestore
+     * @return a flattened threaded list suitable for display
+     */
+    @NonNull
+    private List<CommentItem> buildThreadedComments(@NonNull List<CommentItem> allComments) {
+        Map<String, List<CommentItem>> childrenMap = new HashMap<>();
+        List<CommentItem> topLevel = new ArrayList<>();
+
+        for (CommentItem comment : allComments) {
+            if (comment.isTopLevel()) {
+                topLevel.add(comment);
+            } else {
+                childrenMap.computeIfAbsent(comment.getParentCommentId(), key -> new ArrayList<>())
+                        .add(comment);
+            }
+        }
+
+        Comparator<CommentItem> rankingComparator = (a, b) -> {
+            if (b.getScore() != a.getScore()) {
+                return Integer.compare(b.getScore(), a.getScore());
+            }
+
+            Date aDate = a.getCreatedAt();
+            Date bDate = b.getCreatedAt();
+            if (aDate == null && bDate == null) {
+                return 0;
+            }
+            if (aDate == null) {
+                return 1;
+            }
+            if (bDate == null) {
+                return -1;
+            }
+            return aDate.compareTo(bDate);
+        };
+
+        topLevel.sort(rankingComparator);
+        for (List<CommentItem> childList : childrenMap.values()) {
+            childList.sort(rankingComparator);
+        }
+
+        List<CommentItem> flattened = new ArrayList<>();
+        for (CommentItem top : topLevel) {
+            addCommentWithReplies(top, childrenMap, flattened);
+        }
+
+        return flattened;
+    }
+
+    /**
+     * Recursively appends a parent comment and all of its descendants to the result list.
+     *
+     * @param parent the parent comment to append
+     * @param childrenMap a map from parent comment IDs to reply lists
+     * @param result the flattened output list
+     */
+    private void addCommentWithReplies(
+            @NonNull CommentItem parent,
+            @NonNull Map<String, List<CommentItem>> childrenMap,
+            @NonNull List<CommentItem> result
+    ) {
+        result.add(parent);
+        List<CommentItem> children = childrenMap.get(parent.getCommentId());
+        if (children == null) {
+            return;
+        }
+
+        for (CommentItem child : children) {
+            addCommentWithReplies(child, childrenMap, result);
+        }
+    }
+
+    /**
+     * Determines whether the specified user has previously commented on an event.
+     *
+     * @param eventId the ID of the event
+     * @param uid the ID of the user
+     * @return a task resolving to true if the user has at least one comment on the event
+     */
+    public Task<Boolean> hasUserCommentedOnEvent(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .whereEqualTo("uid", uid)
+                .limit(1)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to verify comment access");
+                    }
+                    return !task.getResult().isEmpty();
                 });
     }
 }
