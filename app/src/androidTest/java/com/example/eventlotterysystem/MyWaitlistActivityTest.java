@@ -78,9 +78,8 @@ public class MyWaitlistActivityTest {
         try (ActivityScenario<MyWaitlistActivity> ignored = ActivityScenario.launch(MyWaitlistActivity.class)) {
             SystemClock.sleep(4000);
 
-            onData(anything())
+            onData(withEventTitle(title))
                     .inAdapterView(withId(R.id.myWaitlistListView))
-                    .atPosition(0)
                     .perform(click());
 
             SystemClock.sleep(4000);
@@ -97,10 +96,7 @@ public class MyWaitlistActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -149,6 +145,25 @@ public class MyWaitlistActivityTest {
         Tasks.await(firestore.collection("users").document(currentUser.getUid()).collection("waitlists").document(eventId).set(waitlistPayload), 15, TimeUnit.SECONDS);
 
         return eventId;
+    }
+
+    /**
+     * matches a waitlist row by title
+     * @param title
+     * title value that the matcher should look for
+     */
+    private org.hamcrest.Matcher<Object> withEventTitle(String title) {
+        return new org.hamcrest.TypeSafeMatcher<>() {
+            @Override
+            protected boolean matchesSafely(Object item) {
+                return item instanceof WaitlistEntryItem && title.equals(((WaitlistEntryItem) item).getTitle());
+            }
+
+            @Override
+            public void describeTo(org.hamcrest.Description description) {
+                description.appendText("WaitlistEntryItem with title ").appendValue(title);
+            }
+        };
     }
 
     /**

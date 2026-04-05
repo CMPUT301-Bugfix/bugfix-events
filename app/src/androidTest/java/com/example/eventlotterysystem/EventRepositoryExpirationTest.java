@@ -31,16 +31,7 @@ public class EventRepositoryExpirationTest {
 
     @Before
     public void setUp() throws Exception {
-
-
-        if (auth.getCurrentUser() == null) {
-            try {
-                Tasks.await(auth.signInWithEmailAndPassword("test@gmail.com", "test123"));
-            } catch (Exception e) {
-               //this might not work bc anon login isnt in firebase but it shouldn't get here
-                Tasks.await(auth.signInAnonymously());
-            }
-        }
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -53,43 +44,40 @@ public class EventRepositoryExpirationTest {
         String eventId = "test-event-" + System.currentTimeMillis();
         String userId = "test-user-expired-" + System.currentTimeMillis();
 
-        //  create the parent Even
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("title", "Expiration Test Event");
-        eventData.put("hostUid", currentUid);
-        eventData.put("maxParticipants", 1);
-        eventData.put("waitlistOpen", true);
-        eventData.put("totalEntrants", 1);
-        Tasks.await(db.collection("events").document(eventId).set(eventData));
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("title", "Expiration Test Event");
+            eventData.put("hostUid", currentUid);
+            eventData.put("maxParticipants", 1);
+            eventData.put("waitlistOpen", true);
+            eventData.put("totalEntrants", 1);
+            Tasks.await(db.collection("events").document(eventId).set(eventData));
 
-        //  create a "fake" expired winner record (4 days ago)
-        long fourDaysAgoMillis = System.currentTimeMillis() - (4L * 24 * 60 * 60 * 1000);
-        Timestamp expiredTimestamp = new Timestamp(new Date(fourDaysAgoMillis));
+            long fourDaysAgoMillis = System.currentTimeMillis() - (4L * 24 * 60 * 60 * 1000);
+            Timestamp expiredTimestamp = new Timestamp(new Date(fourDaysAgoMillis));
 
-        Map<String, Object> waitlistEntry = new HashMap<>();
-        waitlistEntry.put("status", EventRepository.WAITLIST_STATUS_CHOSEN);
-        waitlistEntry.put("chosenAt", expiredTimestamp);
-        waitlistEntry.put("uid", userId);
+            Map<String, Object> waitlistEntry = new HashMap<>();
+            waitlistEntry.put("status", EventRepository.WAITLIST_STATUS_CHOSEN);
+            waitlistEntry.put("chosenAt", expiredTimestamp);
+            waitlistEntry.put("uid", userId);
 
-        // push to Firestore waitlist subcollection
-        Tasks.await(db.collection("events").document(eventId)
-                .collection("waitlist").document(userId).set(waitlistEntry));
-        
-        // add to user's personal waitlists collection
-        Tasks.await(db.collection("users").document(userId)
-                .collection("waitlists").document(eventId).set(waitlistEntry));
+            Tasks.await(db.collection("events").document(eventId)
+                    .collection("waitlist").document(userId).set(waitlistEntry));
+            Tasks.await(db.collection("users").document(userId)
+                    .collection("waitlists").document(eventId).set(waitlistEntry));
 
-        //  sweep
-        Tasks.await(repository.processExpiredWinners(eventId, "Replacement win notification"));
+            Tasks.await(repository.processExpiredWinners(eventId, "Replacement win notification"));
 
-        // check the status is now DECLINED in both locations
-        DocumentSnapshot eventDoc = Tasks.await(db.collection("events").document(eventId)
-                .collection("waitlist").document(userId).get());
-        assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, eventDoc.getString("status"));
+            DocumentSnapshot eventDoc = Tasks.await(db.collection("events").document(eventId)
+                    .collection("waitlist").document(userId).get());
+            assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, eventDoc.getString("status"));
 
-        DocumentSnapshot userDoc = Tasks.await(db.collection("users").document(userId)
-                .collection("waitlists").document(eventId).get());
-        assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, userDoc.getString("status"));
+            DocumentSnapshot userDoc = Tasks.await(db.collection("users").document(userId)
+                    .collection("waitlists").document(eventId).get());
+            assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, userDoc.getString("status"));
+        } finally {
+            deleteExpirationTestData(eventId, userId);
+        }
     }
 
     /**
@@ -101,29 +89,53 @@ public class EventRepositoryExpirationTest {
         String eventId = "test-event-recent-" + System.currentTimeMillis();
         String userId = "test-user-recent-" + System.currentTimeMillis();
 
-        // setup event
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("hostUid", currentUid);
-        Tasks.await(db.collection("events").document(eventId).set(eventData));
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("hostUid", currentUid);
+            Tasks.await(db.collection("events").document(eventId).set(eventData));
 
-        // create a "fake" recent winner record (1 day ago)
-        long oneDayAgoMillis = System.currentTimeMillis() - (1L * 24 * 60 * 60 * 1000);
-        Timestamp recentTimestamp = new Timestamp(new Date(oneDayAgoMillis));
+            long oneDayAgoMillis = System.currentTimeMillis() - (1L * 24 * 60 * 60 * 1000);
+            Timestamp recentTimestamp = new Timestamp(new Date(oneDayAgoMillis));
 
-        Map<String, Object> waitlistEntry = new HashMap<>();
-        waitlistEntry.put("status", EventRepository.WAITLIST_STATUS_CHOSEN);
-        waitlistEntry.put("chosenAt", recentTimestamp);
-        waitlistEntry.put("uid", userId);
+            Map<String, Object> waitlistEntry = new HashMap<>();
+            waitlistEntry.put("status", EventRepository.WAITLIST_STATUS_CHOSEN);
+            waitlistEntry.put("chosenAt", recentTimestamp);
+            waitlistEntry.put("uid", userId);
 
-        Tasks.await(db.collection("events").document(eventId)
-                .collection("waitlist").document(userId).set(waitlistEntry));
+            Tasks.await(db.collection("events").document(eventId)
+                    .collection("waitlist").document(userId).set(waitlistEntry));
 
-        // sweep
-        Tasks.await(repository.processExpiredWinners(eventId, "Replacement notification"));
+            Tasks.await(repository.processExpiredWinners(eventId, "Replacement notification"));
 
-        // verify status remains CHOSEN
-        DocumentSnapshot doc = Tasks.await(db.collection("events").document(eventId)
-                .collection("waitlist").document(userId).get());
-        assertEquals(EventRepository.WAITLIST_STATUS_CHOSEN, doc.getString("status"));
+            DocumentSnapshot doc = Tasks.await(db.collection("events").document(eventId)
+                    .collection("waitlist").document(userId).get());
+            assertEquals(EventRepository.WAITLIST_STATUS_CHOSEN, doc.getString("status"));
+        } finally {
+            deleteExpirationTestData(eventId, userId);
+        }
+    }
+
+    /**
+     * removes the event and any synthetic waitlist records created by an expiration test
+     * @param eventId
+     * test event document id
+     * @param userId
+     * synthetic waitlist user id
+     */
+    private void deleteExpirationTestData(String eventId, String userId) {
+        try {
+            Tasks.await(db.collection("events").document(eventId)
+                    .collection("waitlist").document(userId).delete());
+        } catch (Exception ignored) {
+        }
+        try {
+            Tasks.await(db.collection("users").document(userId)
+                    .collection("waitlists").document(eventId).delete());
+        } catch (Exception ignored) {
+        }
+        try {
+            Tasks.await(db.collection("events").document(eventId).delete());
+        } catch (Exception ignored) {
+        }
     }
 }

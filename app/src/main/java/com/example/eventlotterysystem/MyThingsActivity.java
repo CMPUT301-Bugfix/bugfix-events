@@ -38,6 +38,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     private Button myWaitlistButton;
     private Button messagesButton;
     private RecyclerView notificationsRecyclerView;
+    private Button hostEventButton;
     private NotificationAdapter notificationAdapter;
     private List<NotificationItem> notificationList = new ArrayList<>();
 
@@ -64,6 +65,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
         myWaitlistButton = findViewById(R.id.myWaitlistButton);
         messagesButton = findViewById(R.id.messagesButton);
         notificationsRecyclerView = findViewById(R.id.notificationsRecyclerView);
+        hostEventButton = findViewById(R.id.hostEventButton);
 
         notificationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         notificationAdapter = new NotificationAdapter(notificationList, this);
@@ -106,7 +108,9 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
     }
 
     /**
-     * allows access to the adminZoneButton if the user is an admin
+     * allows access to the adminZoneButton if the user is an admin and
+     * hides the host an event button if the user has organizer privileges
+     * suspended
      * @param uid
      * Id of the current user
      */
@@ -119,6 +123,11 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
                     String accountType = snapshot.getString("accountType");
                     if ("admin".equals(accountType)) {
                         adminZoneButton.setVisibility(View.VISIBLE);
+                    }
+
+                    Boolean suspended = snapshot.getBoolean("suspended");
+                    if (Boolean.TRUE.equals(suspended)) {
+                        hostEventButton.setVisibility(View.GONE);
                     }
                 })
                 .addOnFailureListener(exception -> adminZoneButton.setVisibility(View.GONE));

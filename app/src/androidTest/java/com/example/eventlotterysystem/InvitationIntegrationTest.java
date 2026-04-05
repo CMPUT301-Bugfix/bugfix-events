@@ -36,13 +36,7 @@ public class InvitationIntegrationTest {
 
     @Before
     public void setUp() throws Exception {
-        if (auth.getCurrentUser() == null) {
-            try {
-                Tasks.await(auth.signInWithEmailAndPassword("test@gmail.com", "test123"));
-            } catch (Exception e) {
-                Tasks.await(auth.signInAnonymously());
-            }
-        }
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -78,29 +72,48 @@ public class InvitationIntegrationTest {
     public void testRespondToInvitation() throws Exception {
         String currentUid = auth.getCurrentUser().getUid();
         String eventId = "test-respond-event-" + System.currentTimeMillis();
-        
-        // create parent event with currentUid as host
-        Tasks.await(db.collection("events").document(eventId).set(createValidEventData(currentUid)));
 
-        // create tracking record manually for the current user
-        Map<String, Object> inviteData = new HashMap<>();
-        inviteData.put("uid", currentUid);
-        inviteData.put("name", "Test User");
-        inviteData.put("email", "test@user.com");
-        inviteData.put("username", "testuser");
-        inviteData.put("status", "PENDING");
-        inviteData.put("timestamp", FieldValue.serverTimestamp());
+        try {
+            Tasks.await(db.collection("events").document(eventId).set(createValidEventData(currentUid)));
 
-        Tasks.await(db.collection("events").document(eventId)
-                .collection("invitations").document(currentUid).set(inviteData));
+            Map<String, Object> inviteData = new HashMap<>();
+            inviteData.put("uid", currentUid);
+            inviteData.put("name", "Test User");
+            inviteData.put("email", "test@user.com");
+            inviteData.put("username", "testuser");
+            inviteData.put("status", "PENDING");
+            inviteData.put("timestamp", FieldValue.serverTimestamp());
 
-        // update status to ACCEPTED via repository
-        Tasks.await(notificationRepository.updateInvitationTrackingStatus(eventId, currentUid, "ACCEPTED"));
+            Tasks.await(db.collection("events").document(eventId)
+                    .collection("invitations").document(currentUid).set(inviteData));
 
-        // verify the tracking record is updated
-        DocumentSnapshot inviteDoc = Tasks.await(db.collection("events").document(eventId)
-                .collection("invitations").document(currentUid).get());
-        
-        assertEquals("ACCEPTED", inviteDoc.getString("status"));
+            Tasks.await(notificationRepository.updateInvitationTrackingStatus(eventId, currentUid, "ACCEPTED"));
+
+            DocumentSnapshot inviteDoc = Tasks.await(db.collection("events").document(eventId)
+                    .collection("invitations").document(currentUid).get());
+
+            assertEquals("ACCEPTED", inviteDoc.getString("status"));
+        } finally {
+            deleteInvitationTestData(eventId, currentUid);
+        }
+    }
+
+    /**
+     * removes the event and invitation tracking record created by an integration test
+     * @param eventId
+     * test event document id
+     * @param uid
+     * invited user id
+     */
+    private void deleteInvitationTestData(String eventId, String uid) {
+        try {
+            Tasks.await(db.collection("events").document(eventId)
+                    .collection("invitations").document(uid).delete());
+        } catch (Exception ignored) {
+        }
+        try {
+            Tasks.await(db.collection("events").document(eventId).delete());
+        } catch (Exception ignored) {
+        }
     }
 }
