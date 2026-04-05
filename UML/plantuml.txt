@@ -153,6 +153,7 @@ package "Event Flow" {
     -myWaitlistButton: Button
     -messagesButton: Button
     -notificationsRecyclerView: RecyclerView
+    -hostEventButton: Button
     -notificationAdapter: NotificationAdapter
     -notificationList: List<NotificationItem>
     #onCreate(savedInstanceState: Bundle): void
@@ -177,9 +178,9 @@ package "Event Flow" {
     -auth: FirebaseAuth
     -firestore: FirebaseFirestore
     -backButton: TextView
-    -updateInformationHeader: LinearLayout
+    -updateInformationHeader: View
     -updateInformationIndicator: TextView
-    -updateInformationContent: LinearLayout
+    -updateInformationContent: ScrollView
     -updateNameInput: EditText
     -updateEmailInput: EditText
     -updateUsernameInput: EditText
@@ -190,7 +191,16 @@ package "Event Flow" {
     -saveProfileChangesButton: Button
     -deleteAccountButton: Button
     -loadingIndicator: ProgressBar
+    -notificationPreferencesHeader: LinearLayout
+    -notificationPreferencesIndicator: TextView
+    -notificationPreferencesContent: LinearLayout
+    -optInCoorganizerInvitesSwitch: SwitchCompat
+    -optInPrivateInvitesSwitch: SwitchCompat
+    -optInWinningNotificationsSwitch: SwitchCompat
+    -optInOtherNotificationsSwitch: SwitchCompat
+    -saveNotificationPreferencesButton: Button
     -isAccordionExpanded: boolean
+    -isNotifAccordionExpanded: boolean
     -isSaving: boolean
     -pendingSignOutAfterSave: boolean
     -profileLoaded: boolean
@@ -198,8 +208,10 @@ package "Event Flow" {
     #onCreate(savedInstanceState: Bundle): void
     #onResume(): void
     -setAccordionExpanded(expanded: boolean): void
+    -setNotifAccordionExpanded(expanded: boolean): void
     -loadCurrentProfile(): void
     -applyLoadedProfile(snapshot: DocumentSnapshot, authEmail: String): void
+    -onSaveNotifPreferencesClicked(): void
     -refreshVerifiedEmailIfNeeded(): void
     -onSaveClicked(): void
     -onDeleteAccountClicked(): void
@@ -351,6 +363,7 @@ package "Event Flow" {
     -loadEvent(): void
     -renderEvent(event: EventItem): void
     -openEventEditor(): void
+    -openQrCodeScreen(): void
     -openEntrantsScreen(): void
     -openCommentsScreen(): void
     -openMessageScreen(): void
@@ -483,17 +496,23 @@ package "Communication" {
     -canDeleteComments: boolean
     -commentInput: EditText
     -emptyState: TextView
+    -replyingToText: TextView
     -commentsListView: ListView
     -commentAdapter: CommentAdapter
     -comments: List<CommentItem>
+    -selectedParentCommentId: String
+    -selectedReplyDepth: int
     #onCreate(savedInstanceState: Bundle): void
     #onStart(): void
     -loadEventState(): void
     -postComment(): void
     -loadComments(): void
+    -voteOnComment(comment: CommentItem, voteValue: int): void
     -deleteComment(comment: CommentItem): void
     -showDeleteCommentDialog(comment: CommentItem): void
     -updateEmptyState(): void
+    -clearReplyMode(): void
+    -safeUsername(comment: CommentItem): String
     -buildLoadErrorMessage(exception: Exception): String
   }
 
@@ -624,6 +643,7 @@ package "Administration" {
     -firestore: FirebaseFirestore
     -deleteProfileButton: Button
     -assignCoorganizerButton: Button
+    -removeOrganizerButton: Button
     -repository: EventRepository
     -notificationRepository: NotificationRepository
     -isDeleting: boolean
@@ -635,7 +655,9 @@ package "Administration" {
     -sourceEventId: String
     #onCreate(savedInstanceState: Bundle): void
     -onDeleteProfileClicked(): void
+    -onRemoveOrganizerClicked(): void
     -deleteViewedProfile(): void
+    -removeOrganizerPrivileges(): void
     -handleDeleteFailure(exception: Exception): void
     -setDeleting(deleting: boolean): void
     -configureAssignCoorganizerButton(): void
@@ -824,9 +846,14 @@ package "Domain and Services" {
     -firstNonEmpty(candidates: String): String
     -{static} hasText(value: String): boolean
     +addComment(eventId: String, currentUser: FirebaseUser, text: String): Task<Void>
+    +addComment(eventId: String, currentUser: FirebaseUser, text: String, parentCommentId: String, depth: int): Task<Void>
     -getCommentDisplayName(currentUser: FirebaseUser): Task<String>
     +deleteComment(eventId: String, commentId: String): Task<Void>
     +getComments(eventId: String): Task<List<CommentItem>>
+    +voteOnComment(eventId: String, commentId: String, uid: String, newVoteValue: int): Task<Void>
+    -buildThreadedComments(allComments: List<CommentItem>): List<CommentItem>
+    -addCommentWithReplies(parent: CommentItem, childrenMap: Map<String, List<CommentItem>>, result: List<CommentItem>): void
+    +hasUserCommentedOnEvent(eventId: String, uid: String): Task<Boolean>
   }
 
   class NotificationRepository {
@@ -835,6 +862,7 @@ package "Domain and Services" {
     +sendBatchNotification(eventId: String, eventTitle: String, message: String, type: String, statusFilter: String): Task<Void>
     +sendToSpecificUsers(eventId: String, title: String, message: String, type: String, recipientUids: List<String>): Task<Void>
     +sendInvitations(eventId: String, title: String, message: String, users: List<UserProfile>): Task<Void>
+    -checkPreference(userSnapshot: DocumentSnapshot, type: String): boolean
     +sendCoOrganizerInvitation(eventId: String, title: String, message: String, users: List<UserProfile>): Task<Void>
     +getNotificationsForUser(uid: String): Task<List<NotificationItem>>
     +updateNotificationStatus(uid: String, notificationId: String, newStatus: String): Task<Void>
@@ -928,6 +956,12 @@ package "Domain and Services" {
     -phoneNumber: String
     -accountType: String
     -createdAt: Timestamp
+    -suspended: boolean
+    -optInCoorganizerInvites: boolean
+    -optInPrivateInvites: boolean
+    -optInWinningNotifications: boolean
+    -optInOtherNotifications: boolean
+    +UserProfile()
     +UserProfile(name: String, email: String, username: String, usernameKey: String, phoneNumber: String)
     +UserProfile(name: String, email: String, username: String, usernameKey: String, phoneNumber: String, accountType: String)
     +getName(): String
@@ -946,6 +980,16 @@ package "Domain and Services" {
     +setAccountType(accountType: String): void
     +getCreatedAt(): Timestamp
     +setCreatedAt(createdAt: Timestamp): void
+    +getSuspended(): boolean
+    +setSuspended(suspended: boolean): void
+    +isOptInCoorganizerInvites(): boolean
+    +setOptInCoorganizerInvites(optInCoorganizerInvites: boolean): void
+    +isOptInPrivateInvites(): boolean
+    +setOptInPrivateInvites(optInPrivateInvites: boolean): void
+    +isOptInWinningNotifications(): boolean
+    +setOptInWinningNotifications(optInWinningNotifications: boolean): void
+    +isOptInOtherNotifications(): boolean
+    +setOptInOtherNotifications(optInOtherNotifications: boolean): void
   }
 
   class CommentItem {
@@ -954,12 +998,22 @@ package "Domain and Services" {
     -username: String
     -text: String
     -createdAt: Date
-    +CommentItem(commentId: String, uid: String, username: String, text: String, createdAt: Date)
+    -parentCommentId: String
+    -depth: int
+    -score: int
+    -deleted: boolean
+    +CommentItem(commentId: String, uid: String, username: String, text: String, createdAt: Date, parentCommentId: String, depth: int, score: int, deleted: boolean)
     +getCommentId(): String
     +getUid(): String
     +getUsername(): String
     +getText(): String
+    +getRawText(): String
     +getCreatedAt(): Date
+    +getParentCommentId(): String
+    +getDepth(): int
+    +getScore(): int
+    +isDeleted(): boolean
+    +isTopLevel(): boolean
   }
 
   class ChatMessageItem {
@@ -1083,10 +1137,18 @@ package "Adapters and Support" {
 
   class CommentAdapter {
     -{static} DATE_PATTERN: String
+    -{static} INDENT_DP: int
     -inflater: LayoutInflater
-    +CommentAdapter(context: Context, items: List<CommentItem>)
+    -listener: CommentAdapter.CommentActionListener
+    +CommentAdapter(context: Context, items: List<CommentItem>, listener: CommentAdapter.CommentActionListener)
     +getView(position: int, convertView: View, parent: ViewGroup): View
     -formatDate(date: Date): String
+  }
+
+  interface "CommentAdapter.CommentActionListener" as CommentAdapter_CommentActionListener {
+    ~onReplyClicked(comment: CommentItem): void
+    ~onUpvoteClicked(comment: CommentItem): void
+    ~onDownvoteClicked(comment: CommentItem): void
   }
 
   class ChatMessageAdapter {
@@ -1194,6 +1256,7 @@ HostedEventsActivity --> CreateEventActivity
 HostedEventsActivity --> ViewEventActivity
 HostedEventsActivity ..> AuthMenuActivity
 ViewEventActivity --> CreateEventActivity
+ViewEventActivity --> QRCode
 ViewEventActivity --> EntrantsActivity
 ViewEventActivity --> CommentsActivity
 ViewEventActivity --> MessageActivity
@@ -1288,6 +1351,7 @@ EventListAdapter "1" -[norank]-> "0..*" EventItem
 WaitlistEntryAdapter "1" -[norank]-> "0..*" WaitlistEntryItem
 EntrantAdapter "1" -[norank]-> "0..*" UserProfile
 CommentAdapter "1" -[norank]-> "0..*" CommentItem
+CommentAdapter "1" -[norank]-> "1" CommentAdapter_CommentActionListener
 ChatMessageAdapter "1" -[norank]-> "0..*" ChatMessageItem
 MessageThreadAdapter "1" -[norank]-> "0..*" MessageThreadItem
 UserSearchAdapter "1" -[norank]-> "0..*" UserProfile
@@ -1348,6 +1412,7 @@ EventItem -[hidden]down-> EventListAdapter
 WaitlistEntryItem -[hidden]down-> WaitlistEntryAdapter
 UserProfile -[hidden]down-> EntrantAdapter
 CommentItem -[hidden]down-> CommentAdapter
+CommentAdapter -[hidden]down-> CommentAdapter_CommentActionListener
 CommentAdapter -[hidden]right-> MessageThreadAdapter
 EventListAdapter -[hidden]down-> ChatMessageAdapter
 ChatMessageAdapter -[hidden]right-> UserSearchAdapter
@@ -1356,4 +1421,5 @@ InvitationAdapter -[hidden]right-> NotificationAdapter
 InvitationAdapter -[hidden]down-> InvitationAdapter_InvitationViewHolder
 UserSearchAdapter -[hidden]down-> UserSearchAdapter_UserSearchViewHolder
 NotificationAdapter -[hidden]down-> NotificationAdapter_NotificationViewHolder
+
 @enduml
