@@ -395,7 +395,7 @@ package "Event Flow" {
     -buildLoadErrorMessage(exception: Exception): String
     -buildWaitlistErrorMessage(exception: Exception): String
     -shouldShowEntrantsButton(): boolean
-    -updateMessageButton(event: EventItem, currentUser: FirebaseUser): void
+    -updateMessageButton(currentUser: FirebaseUser): void
     -hasText(value: String): boolean
     -formatDate(date: Date): String
     -formatMaxEntrants(maxEntrants: int): String
@@ -857,7 +857,7 @@ package "Domain and Services" {
     -{static} containsKeywordIgnoreCase(keywords: List<String>, candidate: String): boolean
     -canManageOrganizerFeatures(userSnapshot: DocumentSnapshot): boolean
     -{static} normalize(value: String): String
-    -firstNonEmpty(candidates: String): String
+    -firstNonEmpty(candidates: String...): String
     -{static} hasText(value: String): boolean
     +addComment(eventId: String, currentUser: FirebaseUser, text: String): Task<Void>
     +addComment(eventId: String, currentUser: FirebaseUser, text: String, parentCommentId: String, depth: int): Task<Void>
@@ -1079,14 +1079,6 @@ package "Domain and Services" {
     +setLastSenderUid(lastSenderUid: String): void
   }
 
-  class EntrantInfo {
-    -name: String
-    -id: String
-    ~EntrantInfo(name: String, id: String)
-    +getName(): String
-    +getId(): String
-  }
-
   class NotificationItem {
     -id: String
     -eventId: String
@@ -1212,7 +1204,7 @@ package "Adapters and Support" {
     ~name: TextView
     ~detail: TextView
     ~status: TextView
-    +InvitationAdapter.InvitationViewHolder(itemView: View)
+    +InvitationViewHolder(itemView: View)
   }
 
   interface "NotificationAdapter.OnNotificationClickListener" as NotificationAdapter_OnNotificationClickListener {
@@ -1224,7 +1216,7 @@ package "Adapters and Support" {
     ~title: TextView
     ~message: TextView
     ~timestamp: TextView
-    +NotificationAdapter.NotificationViewHolder(itemView: View)
+    +NotificationViewHolder(itemView: View)
   }
 
   interface "UserSearchAdapter.OnUserAddListener" as UserSearchAdapter_OnUserAddListener {
@@ -1236,7 +1228,7 @@ package "Adapters and Support" {
     ~username: TextView
     ~email: TextView
     ~addButton: Button
-    +UserSearchAdapter.UserSearchViewHolder(itemView: View)
+    +UserSearchViewHolder(itemView: View)
   }
 
 }
@@ -1423,8 +1415,7 @@ UserProfile -[hidden]right-> CommentItem
 EventItem -[hidden]down-> MessageThreadItem
 MessageThreadItem -[hidden]right-> ChatMessageItem
 ChatMessageItem -[hidden]right-> NotificationItem
-NotificationItem -[hidden]right-> EntrantInfo
-EntrantInfo -[hidden]down-> ConfirmedEntrantCsvExporter
+NotificationItem -[hidden]down-> ConfirmedEntrantCsvExporter
 EventItem -[hidden]down-> EventListAdapter
 WaitlistEntryItem -[hidden]down-> WaitlistEntryAdapter
 UserProfile -[hidden]down-> EntrantAdapter
