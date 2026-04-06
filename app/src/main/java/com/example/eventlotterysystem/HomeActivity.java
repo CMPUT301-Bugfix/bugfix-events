@@ -393,6 +393,8 @@ public class HomeActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an user data load from database into a error message to be displayed
+     * @param exception
+     * the exception that happened during the event list load
      * @return
      * a String message describing what the error was
      */

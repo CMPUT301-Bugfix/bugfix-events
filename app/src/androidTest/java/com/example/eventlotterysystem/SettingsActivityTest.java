@@ -119,6 +119,63 @@ public class SettingsActivityTest {
     }
 
     /**
+     * test to see if a user can opt out of notification categories and have the
+     * preferences persisted on their profile
+     */
+    @Test
+    public void saveNotificationPreferencesTest() throws Exception {
+        signInTestUser();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        DocumentSnapshot originalProfile = Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).get(),
+                15,
+                TimeUnit.SECONDS
+        );
+
+        boolean originalCoorganizer = !originalProfile.contains("optInCoorganizerInvites")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInCoorganizerInvites"));
+        boolean originalPrivate = !originalProfile.contains("optInPrivateInvites")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInPrivateInvites"));
+        boolean originalWinning = !originalProfile.contains("optInWinningNotifications")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInWinningNotifications"));
+        boolean originalOther = !originalProfile.contains("optInOtherNotifications")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInOtherNotifications"));
+
+        try {
+            try (ActivityScenario<SettingsActivity> ignored = ActivityScenario.launch(SettingsActivity.class)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.notificationPreferencesHeader)).perform(click());
+                onView(withId(R.id.optInCoorganizerInvitesSwitch)).perform(click());
+                onView(withId(R.id.optInPrivateInvitesSwitch)).perform(click());
+                onView(withId(R.id.optInWinningNotificationsSwitch)).perform(click());
+                onView(withId(R.id.optInOtherNotificationsSwitch)).perform(click());
+                onView(withId(R.id.saveNotificationPreferencesButton)).perform(click());
+                SystemClock.sleep(4000);
+            }
+
+            DocumentSnapshot updatedProfile = Tasks.await(
+                    FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).get(),
+                    15,
+                    TimeUnit.SECONDS
+            );
+
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInCoorganizerInvites"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInPrivateInvites"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInWinningNotifications"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInOtherNotifications"));
+        } finally {
+            restoreNotificationPreferences(
+                    currentUser.getUid(),
+                    originalCoorganizer,
+                    originalPrivate,
+                    originalWinning,
+                    originalOther
+            );
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
@@ -143,6 +200,38 @@ public class SettingsActivityTest {
             payload.put("phoneNumber", phoneNumber);
         }
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(payload, SetOptions.merge()), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * restores the saved notification preferences for the shared test account
+     * @param uid
+     * uid of the shared test account
+     * @param optInCoorganizerInvites
+     * original coorganizer invitation preference
+     * @param optInPrivateInvites
+     * original private invitation preference
+     * @param optInWinningNotifications
+     * original winning notification preference
+     * @param optInOtherNotifications
+     * original other notification preference
+     */
+    private void restoreNotificationPreferences(
+            String uid,
+            boolean optInCoorganizerInvites,
+            boolean optInPrivateInvites,
+            boolean optInWinningNotifications,
+            boolean optInOtherNotifications
+    ) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("optInCoorganizerInvites", optInCoorganizerInvites);
+        payload.put("optInPrivateInvites", optInPrivateInvites);
+        payload.put("optInWinningNotifications", optInWinningNotifications);
+        payload.put("optInOtherNotifications", optInOtherNotifications);
+        Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(uid).set(payload, SetOptions.merge()),
+                15,
+                TimeUnit.SECONDS
+        );
     }
 
     /**

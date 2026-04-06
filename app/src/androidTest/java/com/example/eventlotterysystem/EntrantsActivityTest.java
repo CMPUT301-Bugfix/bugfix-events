@@ -46,14 +46,20 @@ import java.util.concurrent.TimeUnit;
  * it also can notify entrants and manages acceptance of entrants
  */
 @RunWith(AndroidJUnit4.class)
-@LargeTest
+    @LargeTest
 public class EntrantsActivityTest {
 
+    /**
+     * sets up Espresso intents before each test
+     */
     @Before
     public void setUp() {
         Intents.init();
     }
 
+    /**
+     * releases Espresso intents after each test
+     */
     @After
     public void tearDown() {
         Intents.release();

@@ -104,16 +104,27 @@ public class EntrantsActivity extends AppCompatActivity {
 
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
-                        Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
-                        finish();
-                        return;
-                    }
-                    eventTitle = event.getTitle();
-                    totalEntrants = event.getTotalEntrants();
-                    maxEntrants = event.getMaxEntrants();
-                    updateButtons();
-                    loadEntrantCounts();
+                    repository.canUserManageEvent(event, currentUser.getUid())
+                            .addOnSuccessListener(canManage -> {
+                                if (!canManage) {
+                                    Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+                                    finish();
+                                    return;
+                                }
+                                eventTitle = event.getTitle();
+                                totalEntrants = event.getTotalEntrants();
+                                maxEntrants = event.getMaxEntrants();
+                                updateButtons();
+                                loadEntrantCounts();
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify entrant permissions", exception);
+                                Toast.makeText(
+                                        EntrantsActivity.this,
+                                        getString(R.string.failed_to_load_entrants),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to refresh entrant totals", e);

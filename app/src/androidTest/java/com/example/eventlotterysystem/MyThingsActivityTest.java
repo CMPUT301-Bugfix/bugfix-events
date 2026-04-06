@@ -87,6 +87,9 @@ public class MyThingsActivityTest {
         }
     }
 
+    /**
+     * signs in the shared admin account
+     */
     private void signInAdmin() throws Exception {
         FirebaseAuth.getInstance().signOut();
         Tasks.await(
@@ -96,6 +99,13 @@ public class MyThingsActivityTest {
         );
     }
 
+    /**
+     * signs in with the supplied credentials
+     * @param email
+     * email of the account to sign in
+     * @param password
+     * password of the account to sign in
+     */
     private void signInUser(String email, String password) throws Exception {
         FirebaseAuth.getInstance().signOut();
         Tasks.await(
@@ -105,6 +115,19 @@ public class MyThingsActivityTest {
         );
     }
 
+    /**
+     * creates a temporary UserProfile used by the suspended user tests
+     * @param email
+     * email of the temporary user
+     * @param password
+     * password of the temporary user
+     * @param username
+     * username of the temporary user
+     * @param fullName
+     * full name of the temporary user
+     * @return
+     * the uid of the created temporary user
+     */
     private String createTemporaryUserProfile(String email, String password, String username, String fullName) throws Exception {
         FirebaseAuth auth = FirebaseAuth.getInstance();
         Tasks.await(auth.createUserWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);
@@ -124,6 +147,11 @@ public class MyThingsActivityTest {
         return created.getUid();
     }
 
+    /**
+     * marks the supplied user as suspended through the admin account
+     * @param uid
+     * uid of the user to suspend
+     */
     private void setSuspendedByAdmin(String uid) throws Exception {
         signInAdmin();
         Map<String, Object> updates = new HashMap<>();
@@ -132,6 +160,15 @@ public class MyThingsActivityTest {
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).update(updates), 15, TimeUnit.SECONDS);
     }
 
+    /**
+     * removes the temporary auth account and matching profile document
+     * @param uid
+     * uid of the temporary user
+     * @param email
+     * email used to sign back into the temporary user
+     * @param password
+     * password used to sign back into the temporary user
+     */
     private void deleteTemporaryAuthAndProfile(String uid, String email, String password) throws Exception {
         FirebaseAuth.getInstance().signOut();
         Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);

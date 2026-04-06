@@ -244,6 +244,7 @@
     <string name="comments_delete_action">Delete</string>
     <string name="comments_replying_to">Replying to %1$s</string>
     <string name="comments_vote_failed">Failed to vote</string>
+    <string name="admin_view_comments_action">View Comments</string>
     <string name="scan_qr_code">Scan QR Code</string>
     <string name="max_participants">max participants</string>
     <string name="max_participants_invalid">Enter a valid number greater than 0.</string>

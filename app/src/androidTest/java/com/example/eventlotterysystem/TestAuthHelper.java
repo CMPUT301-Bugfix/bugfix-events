@@ -18,6 +18,9 @@ public final class TestAuthHelper {
     private static final String SHARED_TEST_EMAIL = "test@gmail.com";
     private static final String SHARED_TEST_PASSWORD = "test123";
 
+    /**
+     * prevents instantiation of the shared authentication helper
+     */
     private TestAuthHelper() {
     }
 

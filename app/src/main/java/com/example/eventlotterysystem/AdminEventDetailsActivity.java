@@ -1,5 +1,6 @@
 package com.example.eventlotterysystem;
 
+import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -50,6 +51,7 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
     private TextView waitlistCountTextView;
     private TextView geolocationTextView;
     private TextView descriptionTextView;
+    private Button viewCommentsButton;
     private Button deleteEventButton;
 
     private String eventId;
@@ -87,6 +89,7 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
         waitlistCountTextView = findViewById(R.id.adminEventWaitlistCount);
         geolocationTextView = findViewById(R.id.adminEventGeolocation);
         descriptionTextView = findViewById(R.id.adminEventDescription);
+        viewCommentsButton = findViewById(R.id.adminViewCommentsButton);
         deleteEventButton = findViewById(R.id.adminDeleteEventButton);
 
         backButton.setOnClickListener(v -> finish());
@@ -97,6 +100,7 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
         titleValue.setText(TextUtils.isEmpty(eventTitle) ? getString(R.string.unknown_event_title) : eventTitle);
 
         deleteEventButton.setOnClickListener(v -> confirmDelete());
+        viewCommentsButton.setOnClickListener(v -> openCommentsScreen());
     }
 
     /**
@@ -257,6 +261,20 @@ public class AdminEventDetailsActivity extends AppCompatActivity {
         waitlistCountTextView.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
+    }
+
+    /**
+     * opens the comments screen for the current event so an admin can review or moderate comments
+     */
+    private void openCommentsScreen() {
+        if (!hasText(eventId)) {
+            Toast.makeText(this, R.string.missing_event_id, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, CommentsActivity.class);
+        intent.putExtra(CommentsActivity.EVENT_ID, eventId);
+        startActivity(intent);
     }
 
     /**

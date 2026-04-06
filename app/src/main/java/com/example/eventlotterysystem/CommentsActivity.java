@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,7 @@ public class CommentsActivity extends AppCompatActivity {
     public static final String EVENT_ID = "EVENT_ID";
 
     private FirebaseAuth auth;
+    private FirebaseFirestore firestore;
     private EventRepository repository;
 
     private String eventId;
@@ -55,6 +57,7 @@ public class CommentsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_comments);
 
         auth = FirebaseAuth.getInstance();
+        firestore = FirebaseFirestore.getInstance();
         repository = new EventRepository();
 
         eventId = getIntent().getStringExtra(EVENT_ID);
@@ -71,6 +74,11 @@ public class CommentsActivity extends AppCompatActivity {
         Button postCommentButton = findViewById(R.id.commentsPostButton);
 
         commentAdapter = new CommentAdapter(this, comments, new CommentAdapter.CommentActionListener() {
+            /**
+             * this updates the comment composer to reply to the selected Comment
+             * @param comment
+             * the Comment that the user is replying to
+             */
             @Override
             public void onReplyClicked(@NonNull CommentItem comment) {
                 selectedParentCommentId = comment.getCommentId();
@@ -80,11 +88,21 @@ public class CommentsActivity extends AppCompatActivity {
                 commentInput.requestFocus();
             }
 
+            /**
+             * this runs the upvote controller on the selected Comment
+             * @param comment
+             * the Comment that is being upvoted
+             */
             @Override
             public void onUpvoteClicked(@NonNull CommentItem comment) {
                 voteOnComment(comment, 1);
             }
 
+            /**
+             * this runs the downvote controller on the selected Comment
+             * @param comment
+             * the Comment that is being downvoted
+             */
             @Override
             public void onDownvoteClicked(@NonNull CommentItem comment) {
                 voteOnComment(comment, -1);
@@ -123,17 +141,93 @@ public class CommentsActivity extends AppCompatActivity {
                 .addOnSuccessListener(event -> {
                     FirebaseUser currentUser = auth.getCurrentUser();
                     String currentUid = currentUser == null ? null : currentUser.getUid();
+                    if (currentUser == null) {
+                        Toast.makeText(
+                                CommentsActivity.this,
+                                R.string.private_event_access_denied,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                        finish();
+                        return;
+                    }
 
-                    repository.canUserAccessEvent(event, eventId, currentUid)
-                            .addOnSuccessListener(canAccess -> {
-                                if (canAccess) {
-                                    canDeleteComments = currentUser != null
-                                            && EventRepository.canManageEvent(event, currentUid);
+                    loadModeratorStateAndComments(event, currentUser, currentUid);
+                })
+                .addOnFailureListener(exception -> {
+                    Log.e(TAG, "Failed to load event for comments", exception);
+                    Toast.makeText(
+                            CommentsActivity.this,
+                            buildLoadErrorMessage(exception),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                });
+    }
+
+    /**
+     * loads the current user role so admins can moderate comments for any event
+     * @param event the event whose comments are being viewed
+     * @param currentUser the signed-in user for the current session
+     * @param currentUid the signed-in user id
+     */
+    private void loadModeratorStateAndComments(
+            @NonNull EventItem event,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String currentUid
+    ) {
+        firestore.collection("users")
+                .document(currentUid)
+                .get()
+                .addOnSuccessListener(userSnapshot -> {
+                    boolean isAdmin = "admin".equalsIgnoreCase(userSnapshot.getString("accountType"));
+                    if (isAdmin) {
+                        canDeleteComments = true;
+                        loadComments();
+                        return;
+                    }
+
+                    loadRegularUserComments(event, currentUid);
+                })
+                .addOnFailureListener(exception -> {
+                    Log.e(TAG, "Failed to verify moderator role", exception);
+                    Toast.makeText(
+                            CommentsActivity.this,
+                            buildLoadErrorMessage(exception),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                });
+    }
+
+    /**
+     * applies the normal event-access rules for non-admin users
+     * @param event the event whose comments are being loaded
+     * @param currentUid the signed-in user id
+     */
+    private void loadRegularUserComments(@NonNull EventItem event, @NonNull String currentUid) {
+        repository.canUserAccessEvent(event, eventId, currentUid)
+                .addOnSuccessListener(canAccess -> {
+                    if (canAccess) {
+                        repository.canUserManageEvent(event, currentUid)
+                                .addOnSuccessListener(canManage -> {
+                                    canDeleteComments = canManage;
                                     loadComments();
-                                    return;
-                                }
+                                })
+                                .addOnFailureListener(exception -> {
+                                    Log.e(TAG, "Failed to verify comment moderation access", exception);
+                                    Toast.makeText(
+                                            CommentsActivity.this,
+                                            buildLoadErrorMessage(exception),
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                    finish();
+                                });
+                        return;
+                    }
 
-                                if (currentUser == null) {
+                    repository.hasUserCommentedOnEvent(eventId, currentUid)
+                            .addOnSuccessListener(hasCommented -> {
+                                if (!hasCommented) {
                                     Toast.makeText(
                                             CommentsActivity.this,
                                             R.string.private_event_access_denied,
@@ -143,23 +237,13 @@ public class CommentsActivity extends AppCompatActivity {
                                     return;
                                 }
 
-                                repository.hasUserCommentedOnEvent(eventId, currentUid)
-                                        .addOnSuccessListener(hasCommented -> {
-                                            if (!hasCommented) {
-                                                Toast.makeText(
-                                                        CommentsActivity.this,
-                                                        R.string.private_event_access_denied,
-                                                        Toast.LENGTH_SHORT
-                                                ).show();
-                                                finish();
-                                                return;
-                                            }
-
-                                            canDeleteComments = EventRepository.canManageEvent(event, currentUid);
+                                repository.canUserManageEvent(event, currentUid)
+                                        .addOnSuccessListener(canManage -> {
+                                            canDeleteComments = canManage;
                                             loadComments();
                                         })
                                         .addOnFailureListener(exception -> {
-                                            Log.e(TAG, "Failed to verify comment access", exception);
+                                            Log.e(TAG, "Failed to verify comment moderation access", exception);
                                             Toast.makeText(
                                                     CommentsActivity.this,
                                                     buildLoadErrorMessage(exception),
@@ -169,7 +253,7 @@ public class CommentsActivity extends AppCompatActivity {
                                         });
                             })
                             .addOnFailureListener(exception -> {
-                                Log.e(TAG, "Failed to verify event access", exception);
+                                Log.e(TAG, "Failed to verify comment access", exception);
                                 Toast.makeText(
                                         CommentsActivity.this,
                                         buildLoadErrorMessage(exception),
@@ -179,7 +263,7 @@ public class CommentsActivity extends AppCompatActivity {
                             });
                 })
                 .addOnFailureListener(exception -> {
-                    Log.e(TAG, "Failed to load event for comments", exception);
+                    Log.e(TAG, "Failed to verify event access", exception);
                     Toast.makeText(
                             CommentsActivity.this,
                             buildLoadErrorMessage(exception),
