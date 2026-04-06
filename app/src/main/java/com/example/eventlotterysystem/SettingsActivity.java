@@ -62,6 +62,7 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText newPasswordInput;
     private EditText confirmNewPasswordInput;
     private Button saveProfileChangesButton;
+    private Button termsOfServiceButton;
     private Button deleteAccountButton;
     private ProgressBar loadingIndicator;
 
@@ -110,6 +111,7 @@ public class SettingsActivity extends AppCompatActivity {
         newPasswordInput = findViewById(R.id.newPasswordInput);
         confirmNewPasswordInput = findViewById(R.id.confirmNewPasswordInput);
         saveProfileChangesButton = findViewById(R.id.saveProfileChangesButton);
+        termsOfServiceButton = findViewById(R.id.termsOfServiceButton);
         deleteAccountButton = findViewById(R.id.deleteAccountButton);
         loadingIndicator = findViewById(R.id.settingsLoadingIndicator);
 
@@ -140,6 +142,10 @@ public class SettingsActivity extends AppCompatActivity {
 
         saveProfileChangesButton.setOnClickListener(v -> onSaveClicked());
         saveNotificationPreferencesButton.setOnClickListener(v -> onSaveNotifPreferencesClicked());
+        termsOfServiceButton.setOnClickListener(v -> {
+            Intent intent = new Intent(SettingsActivity.this, TermsActivity.class);
+            startActivity(intent);
+        });
         deleteAccountButton.setOnClickListener(v -> onDeleteAccountClicked());
 
         loadCurrentProfile();
@@ -978,7 +984,7 @@ public class SettingsActivity extends AppCompatActivity {
         if (saveNotificationPreferencesButton != null) {
             saveNotificationPreferencesButton.setEnabled(!saving);
         }
-
+        termsOfServiceButton.setEnabled(!saving);
         deleteAccountButton.setEnabled(!saving);
     }
 
