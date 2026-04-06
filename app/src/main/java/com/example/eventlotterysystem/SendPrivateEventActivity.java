@@ -97,15 +97,16 @@ public class SendPrivateEventActivity extends AppCompatActivity {
             return;
         }
 
-        // Search by email, username, or name
+        // Search by name, email, phone number, or username
         Query nameQuery = firestore.collection("users").whereEqualTo("fullName", queryText);
         Query emailQuery = firestore.collection("users").whereEqualTo("email", queryText.toLowerCase());
+        Query phoneQuery = firestore.collection("users").whereEqualTo("phoneNumber", queryText);
         Query usernameQuery = firestore.collection("users").whereEqualTo("username", queryText);
 
         searchResults.clear();
         adapter.notifyDataSetChanged();
 
-        Tasks.whenAllSuccess(nameQuery.get(), emailQuery.get(), usernameQuery.get())
+        Tasks.whenAllSuccess(nameQuery.get(), emailQuery.get(), phoneQuery.get(), usernameQuery.get())
                 .addOnSuccessListener(results -> {
                     for (Object result : results) {
                         com.google.firebase.firestore.QuerySnapshot snapshot = (com.google.firebase.firestore.QuerySnapshot) result;

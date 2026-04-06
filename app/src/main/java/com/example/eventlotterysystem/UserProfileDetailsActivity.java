@@ -228,6 +228,11 @@ public class UserProfileDetailsActivity extends AppCompatActivity {
                     removeOrganizerButton.setVisibility(View.GONE);
                 })
                 .addOnFailureListener(new OnFailureListener() {
+                    /**
+                     * handles a failure while removing organizer privileges
+                     * @param e
+                     * the exception raised while updating the profile
+                     */
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         showMessage(getString(R.string.admin_remove_organizer_failed));

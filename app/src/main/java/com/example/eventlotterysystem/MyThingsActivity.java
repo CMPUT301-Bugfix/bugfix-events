@@ -353,7 +353,7 @@ public class MyThingsActivity extends AppCompatActivity implements NotificationA
 
         notificationRepository.updateNotificationStatus(uid, notification.getId(), "ACCEPTED")
                 .addOnSuccessListener(aVoid -> {
-                    notificationRepository.updateInvitationTrackingStatus(eventId, uid, "ACCEPTED")
+                    notificationRepository.updateCoorganiserTrackingStatus(eventId, uid, "ACCEPTED")
                             .addOnSuccessListener(v -> loadNotifications(uid));
                 });
     }

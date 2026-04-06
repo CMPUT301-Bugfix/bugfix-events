@@ -308,11 +308,23 @@ public class HomeActivityTest {
      */
     private Matcher<Object> withEventTitle(String title) {
         return new TypeSafeMatcher<>() {
+            /**
+             * describes the expected event title for assertion failures
+             * @param description
+             * the Description to update
+             */
             @Override
             public void describeTo(Description description) {
                 description.appendText("event title ").appendValue(title);
             }
 
+            /**
+             * checks whether the adapter item is the event with the requested title
+             * @param item
+             * the adapter-backed item under inspection
+             * @return
+             * true if the item title matches
+             */
             @Override
             protected boolean matchesSafely(Object item) {
                 return item instanceof EventItem && title.equals(((EventItem) item).getTitle());

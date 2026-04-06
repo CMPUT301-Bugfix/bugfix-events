@@ -34,6 +34,9 @@ public class InvitationIntegrationTest {
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private final FirebaseAuth auth = FirebaseAuth.getInstance();
 
+    /**
+     * signs in the shared test account before each invitation integration test
+     */
     @Before
     public void setUp() throws Exception {
         TestAuthHelper.ensureSharedTestUser();

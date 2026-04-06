@@ -226,6 +226,22 @@
         </ScrollView>
 
         <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/adminViewCommentsButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_teal"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="22dp"
+            android:text="@string/admin_view_comments_action"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/adminDeleteEventButton"
             android:layout_width="match_parent"
             android:layout_height="84dp"

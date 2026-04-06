@@ -23,7 +23,11 @@ public class CommentItemTest {
                 "user123",
                 "Bilal",
                 "This is a test comment",
-                createdAt
+                createdAt,
+                "",
+                0,
+                0,
+                false
         );
 
         assertEquals("comment123", comment.getCommentId());

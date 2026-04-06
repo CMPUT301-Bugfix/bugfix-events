@@ -100,12 +100,24 @@ public class AllEntrantsActivity extends AppCompatActivity {
 
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
-                        Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
-                        finish();
-                        return;
-                    }
-                    loadEntrants();
+                    repository.canUserManageEvent(event, currentUser.getUid())
+                            .addOnSuccessListener(canManage -> {
+                                if (!canManage) {
+                                    Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+                                    finish();
+                                    return;
+                                }
+                                loadEntrants();
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify entrant access", exception);
+                                Toast.makeText(
+                                        AllEntrantsActivity.this,
+                                        buildLoadErrorMessage(exception),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                                finish();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to verify entrant access", e);
