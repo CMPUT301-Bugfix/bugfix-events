@@ -500,6 +500,23 @@
             android:background="#C8D1D1" />
 
         <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/termsOfServiceButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_green"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="14dp"
+            android:text="Terms of Service"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/deleteAccountButton"
             android:layout_width="match_parent"
             android:layout_height="84dp"

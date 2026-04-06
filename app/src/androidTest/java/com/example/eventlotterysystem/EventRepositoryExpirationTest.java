@@ -29,6 +29,9 @@ public class EventRepositoryExpirationTest {
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private final FirebaseAuth auth = FirebaseAuth.getInstance();
 
+    /**
+     * signs in the shared test user before each expiration test
+     */
     @Before
     public void setUp() throws Exception {
         TestAuthHelper.ensureSharedTestUser();

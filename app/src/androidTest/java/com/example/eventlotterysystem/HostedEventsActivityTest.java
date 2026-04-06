@@ -141,11 +141,23 @@ public class HostedEventsActivityTest {
      */
     private org.hamcrest.Matcher<Object> withEventTitle(String title) {
         return new org.hamcrest.TypeSafeMatcher<>() {
+            /**
+             * checks whether the adapter item is the hosted event with the requested title
+             * @param item
+             * the adapter item to inspect
+             * @return
+             * true if the event title matches
+             */
             @Override
             protected boolean matchesSafely(Object item) {
                 return item instanceof EventItem && title.equals(((EventItem) item).getTitle());
             }
 
+            /**
+             * describes the expected hosted event title for assertion failures
+             * @param description
+             * the Description to update
+             */
             @Override
             public void describeTo(org.hamcrest.Description description) {
                 description.appendText("EventItem with title ").appendValue(title);

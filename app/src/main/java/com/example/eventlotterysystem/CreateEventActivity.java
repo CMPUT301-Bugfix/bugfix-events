@@ -403,18 +403,31 @@ public class CreateEventActivity extends AppCompatActivity {
         }
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    if (!EventRepository.canManageEvent(event, currentUser.getUid())) {
-                        setLoading(false);
-                        Toast.makeText(
-                                CreateEventActivity.this,
-                                R.string.event_manage_permission_denied,
-                                Toast.LENGTH_LONG
-                        ).show();
-                        finish();
-                        return;
-                    }
-                    setLoading(false);
-                    populateForm(event);
+                    repository.canUserManageEvent(event, currentUser.getUid())
+                            .addOnSuccessListener(canManage -> {
+                                if (!canManage) {
+                                    setLoading(false);
+                                    Toast.makeText(
+                                            CreateEventActivity.this,
+                                            R.string.event_manage_permission_denied,
+                                            Toast.LENGTH_LONG
+                                    ).show();
+                                    finish();
+                                    return;
+                                }
+                                setLoading(false);
+                                populateForm(event);
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify event management access", exception);
+                                setLoading(false);
+                                Toast.makeText(
+                                        CreateEventActivity.this,
+                                        buildLoadErrorMessage(exception),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                                finish();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to load event for editing", e);
@@ -610,6 +623,8 @@ public class CreateEventActivity extends AppCompatActivity {
 
     /**
      * method that coverts a raised exception during an event load into a error message to be displayed
+     * @param exception
+     * the exception that happened during the event load
      * @return
      * a String message describing what the error was
      */

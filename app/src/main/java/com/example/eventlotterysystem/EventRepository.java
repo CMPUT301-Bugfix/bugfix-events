@@ -178,6 +178,9 @@ public class EventRepository {
                                 : new IllegalStateException("Failed to load user profile");
                     }
                     DocumentSnapshot userSnapshot = userTask.getResult();
+                    if (!canManageOrganizerFeatures(userSnapshot)) {
+                        throw new IllegalStateException("You do not have permission to manage this event");
+                    }
                     String accountType = normalize(userSnapshot.getString("accountType"));
                     String hostDisplayName = getHostDisplayName(userSnapshot, currentUser);
                     if (posterUri == null) {
@@ -279,22 +282,89 @@ public class EventRepository {
             return Tasks.forResult(canUserAccessEvent(event.isPublic(), false, false));
         }
 
-        boolean canManage = canManageEvent(event, uid);
-        if (canUserAccessEvent(event.isPublic(), canManage, false)) {
-            return Tasks.forResult(true);
+        return canUserManageEvent(event, uid)
+                .continueWithTask(manageTask -> {
+                    if (!manageTask.isSuccessful()) {
+                        throw manageTask.getException() != null
+                                ? manageTask.getException()
+                                : new IllegalStateException("Failed to verify event access");
+                    }
+
+                    boolean canManage = Boolean.TRUE.equals(manageTask.getResult());
+                    if (canUserAccessEvent(event.isPublic(), canManage, false)) {
+                        return Tasks.forResult(true);
+                    }
+
+                    return eventWaitlistEntry(eventId, uid)
+                            .get()
+                            .continueWith(task -> {
+                                if (!task.isSuccessful()) {
+                                    throw task.getException() != null
+                                            ? task.getException()
+                                            : new IllegalStateException("Failed to verify event access");
+                                }
+                                DocumentSnapshot doc = task.getResult();
+                                boolean hasWaitlistEntry = doc != null && doc.exists();
+                                return canUserAccessEvent(event.isPublic(), canManage, hasWaitlistEntry);
+                            });
+                });
+    }
+
+    /**
+     * determines whether a user can manage an event and organizer-only features
+     * @param event
+     * event being managed
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user can manage the event
+     */
+    public Task<Boolean> canUserManageEvent(
+            @NonNull EventItem event,
+            @Nullable String uid
+    ) {
+        if (!hasText(uid) || !canManageEvent(event, uid)) {
+            return Tasks.forResult(false);
         }
 
-        return eventWaitlistEntry(eventId, uid)
+        return firestore.collection("users")
+                .document(uid)
                 .get()
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
                         throw task.getException() != null
                                 ? task.getException()
-                                : new IllegalStateException("Failed to verify event access");
+                                : new IllegalStateException("Failed to load user profile");
                     }
-                    DocumentSnapshot doc = task.getResult();
-                    boolean hasWaitlistEntry = doc != null && doc.exists();
-                    return canUserAccessEvent(event.isPublic(), canManage, hasWaitlistEntry);
+
+                    DocumentSnapshot userSnapshot = task.getResult();
+                    return canManageOrganizerFeatures(userSnapshot);
+                });
+    }
+
+    /**
+     * checks whether the user can use organizer-only screens and actions
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user is active for organizer features
+     */
+    public Task<Boolean> canUserManageOrganizerFeatures(@Nullable String uid) {
+        if (!hasText(uid)) {
+            return Tasks.forResult(false);
+        }
+
+        return firestore.collection("users")
+                .document(uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load user profile");
+                    }
+
+                    return canManageOrganizerFeatures(task.getResult());
                 });
     }
 
@@ -321,11 +391,16 @@ public class EventRepository {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
         DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, targetUid);
         DocumentReference userWaitlistRef = userWaitlistEntry(targetUid, eventId);
+        DocumentReference actingUserRef = firestore.collection("users").document(actingUid);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
+            DocumentSnapshot actingUserDoc = transaction.get(actingUserRef);
             if (!eventDoc.exists() || Boolean.TRUE.equals(eventDoc.getBoolean("deleted"))) {
                 throw new IllegalStateException("Event not found");
+            }
+            if (!canManageOrganizerFeatures(actingUserDoc)) {
+                throw new IllegalStateException("You do not have permission to manage this event");
             }
 
             EventItem event = readEventItem(eventDoc);
@@ -965,48 +1040,58 @@ public class EventRepository {
                 throw new IllegalStateException("Event not found");
             }
 
-            if (!canManageEvent(readEventItem(eventDoc), currentUser.getUid())) {
-                throw new IllegalStateException("You do not have permission to edit this event");
-            }
-
-            if (posterUri == null) {
-                return eventRef.update(buildUpdatedEventPayload(event, null))
-                        .continueWith(updateTask -> {
-                            if (!updateTask.isSuccessful()) {
-                                throw updateTask.getException() != null
-                                        ? updateTask.getException()
-                                        : new IllegalStateException("Failed to update event");
-                            }
-                            return eventId;
-                        });
-            }
-
-            StorageReference posterRef = storage.getReference()
-                    .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
-
-            return posterRef.putFile(posterUri)
-                    .continueWithTask(uploadTask -> {
-                        if (!uploadTask.isSuccessful()) {
-                            throw uploadTask.getException() != null
-                                    ? uploadTask.getException()
-                                    : new IllegalStateException("Poster upload failed");
+            EventItem loadedEvent = readEventItem(eventDoc);
+            return canUserManageEvent(loadedEvent, currentUser.getUid())
+                    .continueWithTask(manageTask -> {
+                        if (!manageTask.isSuccessful()) {
+                            throw manageTask.getException() != null
+                                    ? manageTask.getException()
+                                    : new IllegalStateException("Failed to verify event permissions");
                         }
-                        return posterRef.getDownloadUrl();
-                    })
-                    .continueWithTask(downloadTask -> {
-                        if (!downloadTask.isSuccessful()) {
-                            throw downloadTask.getException() != null
-                                    ? downloadTask.getException()
-                                    : new IllegalStateException("Poster upload failed");
+
+                        if (!Boolean.TRUE.equals(manageTask.getResult())) {
+                            throw new IllegalStateException("You do not have permission to edit this event");
                         }
-                        return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
-                                .continueWith(updateTask -> {
-                                    if (!updateTask.isSuccessful()) {
-                                        throw updateTask.getException() != null
-                                                ? updateTask.getException()
-                                                : new IllegalStateException("Failed to update event");
+
+                        if (posterUri == null) {
+                            return eventRef.update(buildUpdatedEventPayload(event, null))
+                                    .continueWith(updateTask -> {
+                                        if (!updateTask.isSuccessful()) {
+                                            throw updateTask.getException() != null
+                                                    ? updateTask.getException()
+                                                    : new IllegalStateException("Failed to update event");
+                                        }
+                                        return eventId;
+                                    });
+                        }
+
+                        StorageReference posterRef = storage.getReference()
+                                .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
+
+                        return posterRef.putFile(posterUri)
+                                .continueWithTask(uploadTask -> {
+                                    if (!uploadTask.isSuccessful()) {
+                                        throw uploadTask.getException() != null
+                                                ? uploadTask.getException()
+                                                : new IllegalStateException("Poster upload failed");
                                     }
-                                    return eventId;
+                                    return posterRef.getDownloadUrl();
+                                })
+                                .continueWithTask(downloadTask -> {
+                                    if (!downloadTask.isSuccessful()) {
+                                        throw downloadTask.getException() != null
+                                                ? downloadTask.getException()
+                                                : new IllegalStateException("Poster upload failed");
+                                    }
+                                    return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
+                                            .continueWith(updateTask -> {
+                                                if (!updateTask.isSuccessful()) {
+                                                    throw updateTask.getException() != null
+                                                            ? updateTask.getException()
+                                                            : new IllegalStateException("Failed to update event");
+                                                }
+                                                return eventId;
+                                            });
                                 });
                     });
         });
@@ -1282,7 +1367,22 @@ public class EventRepository {
         if (createdAt != null) {
             userProfile.setCreatedAt(createdAt);
         }
+        userProfile.setSuspended(Boolean.TRUE.equals(doc.getBoolean("suspended")));
         return userProfile;
+    }
+
+    /**
+     * checks whether a user profile is allowed to use organizer-only features
+     * @param userSnapshot
+     * user document snapshot being checked
+     * @return
+     * true if the user is active, otherwise false
+     */
+    private boolean canManageOrganizerFeatures(@Nullable DocumentSnapshot userSnapshot) {
+        return userSnapshot != null
+                && userSnapshot.exists()
+                && !Boolean.TRUE.equals(userSnapshot.getBoolean("deleted"))
+                && !Boolean.TRUE.equals(userSnapshot.getBoolean("suspended"));
     }
 
     /**

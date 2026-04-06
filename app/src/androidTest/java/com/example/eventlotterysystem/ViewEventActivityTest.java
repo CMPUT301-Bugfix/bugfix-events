@@ -12,6 +12,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -392,10 +393,72 @@ public class ViewEventActivityTest {
     }
 
     /**
+     * tests that a removed organizer can no longer open an old hosted event in edit mode
+     */
+    @Test
+    public void removedOrganizerCannotEditHostedEventTest() throws Exception {
+        FirebaseAuth.getInstance().signOut();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String email = "removedorganizer" + timestamp + "@gmail.com";
+        String password = "test123";
+        String username = "removedorganizer" + timestamp;
+        String uid = createTemporaryUser(email, password, username, "Removed Organizer", "organizer");
+        String eventId = createViewEventTestEvent(
+                "Removed Organizer Event " + timestamp,
+                "Removed organizer regression test.",
+                "SUB Edmonton",
+                true,
+                5,
+                6,
+                0,
+                10,
+                uid,
+                ""
+        );
+
+        try {
+            markUserSuspended(uid);
+            signInUser(email, password);
+
+            Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+            intent.putExtra("EVENT_ID", eventId);
+            intent.putExtra("CAN_EDIT_EVENT", true);
+
+            try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.viewEventEditButton))
+                        .check(matches(withEffectiveVisibility(GONE)));
+                onView(withId(R.id.viewEventScreenTitle))
+                        .check(matches(withEffectiveVisibility(GONE)));
+            }
+        } finally {
+            deleteEventOnly(eventId);
+            deleteTemporaryUser(uid, email, password);
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
         TestAuthHelper.ensureSharedTestUser();
+    }
+
+    /**
+     * signs in with the supplied credentials
+     * @param email
+     * email of the account to sign in
+     * @param password
+     * password of the account to sign in
+     */
+    private void signInUser(String email, String password) throws Exception {
+        FirebaseAuth.getInstance().signOut();
+        Tasks.await(
+                FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password),
+                15,
+                TimeUnit.SECONDS
+        );
     }
 
     /**
@@ -494,6 +557,70 @@ public class ViewEventActivityTest {
     }
 
     /**
+     * creates a temporary auth user and profile for the suspended organizer test
+     * @param email
+     * email of the temporary user
+     * @param password
+     * password of the temporary user
+     * @param username
+     * username of the temporary user
+     * @param fullName
+     * full name of the temporary user
+     * @param accountType
+     * account type stored on the temporary profile
+     * @return
+     * uid of the created temporary user
+     */
+    private String createTemporaryUser(
+            String email,
+            String password,
+            String username,
+            String fullName,
+            String accountType
+    ) throws Exception {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        FirebaseUser created = Tasks.await(
+                auth.createUserWithEmailAndPassword(email, password),
+                15,
+                TimeUnit.SECONDS
+        ).getUser();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("fullName", fullName);
+        payload.put("email", email);
+        payload.put("username", username);
+        payload.put("usernameKey", username.toLowerCase());
+        payload.put("phoneNumber", "888 888 8888");
+        payload.put("accountType", accountType);
+        payload.put("createdAt", Timestamp.now());
+        payload.put("deleted", false);
+        payload.put("pendingEmail", "");
+
+        Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(created.getUid()).set(payload),
+                15,
+                TimeUnit.SECONDS
+        );
+        return created.getUid();
+    }
+
+    /**
+     * marks a user profile as suspended and removes organizer status
+     * @param uid
+     * uid of the user to update
+     */
+    private void markUserSuspended(String uid) throws Exception {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("accountType", "user");
+        updates.put("suspended", true);
+        Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(uid).update(updates),
+                15,
+                TimeUnit.SECONDS
+        );
+    }
+
+    /**
      * removes all waitlist records and the event document created for a view event test
      * @param eventId
      * document id of the event to remove
@@ -505,5 +632,56 @@ public class ViewEventActivityTest {
         Tasks.await(firestore.collection("users").document(currentUser.getUid()).collection("waitlists").document(eventId).delete(), 15, TimeUnit.SECONDS);
         Tasks.await(firestore.collection("events").document(eventId).collection("waitlist").document(currentUser.getUid()).delete(), 15, TimeUnit.SECONDS);
         Tasks.await(firestore.collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * deletes only the event document for tests that do not create waitlist entries
+     * @param eventId
+     * id of the event to delete
+     */
+    private void deleteEventOnly(String eventId) throws Exception {
+        Tasks.await(
+                FirebaseFirestore.getInstance().collection("events").document(eventId).delete(),
+                15,
+                TimeUnit.SECONDS
+        );
+    }
+
+    /**
+     * deletes a temporary auth user and profile document
+     * @param uid
+     * uid of the temporary user
+     * @param email
+     * email of the temporary user
+     * @param password
+     * password of the temporary user
+     */
+    private void deleteTemporaryUser(String uid, String email, String password) throws Exception {
+        FirebaseAuth.getInstance().signOut();
+        try {
+            Tasks.await(
+                    FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password),
+                    15,
+                    TimeUnit.SECONDS
+            );
+            try {
+                Tasks.await(
+                        FirebaseFirestore.getInstance().collection("users").document(uid).delete(),
+                        15,
+                        TimeUnit.SECONDS
+                );
+            } catch (Exception ignored) {
+            }
+
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                try {
+                    Tasks.await(currentUser.delete(), 15, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                }
+            }
+        } finally {
+            FirebaseAuth.getInstance().signOut();
+        }
     }
 }

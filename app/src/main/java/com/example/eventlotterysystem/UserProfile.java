@@ -24,6 +24,10 @@ public class UserProfile {
     private boolean optInWinningNotifications = true;
     private boolean optInOtherNotifications = true;
 
+    /**
+     * creates an empty user profile
+     * used for Firebase reads and default initialization
+     */
     public UserProfile() {}
 
     /**
@@ -219,42 +223,92 @@ public class UserProfile {
         this.createdAt = createdAt;
     }
 
+    /**
+     * gets whether the profile is suspended
+     * @return
+     * true if the profile is suspended
+     */
     public boolean getSuspended() {
         return suspended;
     }
 
+    /**
+     * sets whether the profile is suspended
+     * @param suspended
+     * true if the profile should be suspended
+     */
     public void setSuspended(boolean suspended) {
         this.suspended = suspended;
     }
 
+    /**
+     * gets whether coorganizer invite notifications are enabled
+     * @return
+     * true if coorganizer invites are enabled
+     */
     public boolean isOptInCoorganizerInvites() {
         return optInCoorganizerInvites;
     }
 
+    /**
+     * sets whether coorganizer invite notifications are enabled
+     * @param optInCoorganizerInvites
+     * true if coorganizer invites should be enabled
+     */
     public void setOptInCoorganizerInvites(boolean optInCoorganizerInvites) {
         this.optInCoorganizerInvites = optInCoorganizerInvites;
     }
 
+    /**
+     * gets whether private event invite notifications are enabled
+     * @return
+     * true if private invites are enabled
+     */
     public boolean isOptInPrivateInvites() {
         return optInPrivateInvites;
     }
 
+    /**
+     * sets whether private event invite notifications are enabled
+     * @param optInPrivateInvites
+     * true if private invites should be enabled
+     */
     public void setOptInPrivateInvites(boolean optInPrivateInvites) {
         this.optInPrivateInvites = optInPrivateInvites;
     }
 
+    /**
+     * gets whether winning notifications are enabled
+     * @return
+     * true if winning notifications are enabled
+     */
     public boolean isOptInWinningNotifications() {
         return optInWinningNotifications;
     }
 
+    /**
+     * sets whether winning notifications are enabled
+     * @param optInWinningNotifications
+     * true if winning notifications should be enabled
+     */
     public void setOptInWinningNotifications(boolean optInWinningNotifications) {
         this.optInWinningNotifications = optInWinningNotifications;
     }
 
+    /**
+     * gets whether other notifications are enabled
+     * @return
+     * true if other notifications are enabled
+     */
     public boolean isOptInOtherNotifications() {
         return optInOtherNotifications;
     }
 
+    /**
+     * sets whether other notifications are enabled
+     * @param optInOtherNotifications
+     * true if other notifications should be enabled
+     */
     public void setOptInOtherNotifications(boolean optInOtherNotifications) {
         this.optInOtherNotifications = optInOtherNotifications;
     }

@@ -564,6 +564,8 @@ public class CreateEventActivityTest {
 
     /**
      * copies the local Athabasca Hall image asset into cache and returns a file uri for upload
+     * @param assetName
+     * name of the asset file to copy into cache
      * @return
      * a uri that can be passed to the poster upload flow
      */
@@ -589,11 +591,23 @@ public class CreateEventActivityTest {
      */
     private Matcher<View> posterPreviewLoaded() {
         return new TypeSafeMatcher<>() {
+            /**
+             * checks whether the supplied view is an ImageView with a loaded drawable
+             * @param view
+             * the View under inspection
+             * @return
+             * true if the poster preview image is loaded
+             */
             @Override
             protected boolean matchesSafely(View view) {
                 return view instanceof ImageView && ((ImageView) view).getDrawable() != null;
             }
 
+            /**
+             * describes the matcher for assertion failures
+             * @param description
+             * the Description to update
+             */
             @Override
             public void describeTo(Description description) {
                 description.appendText("ImageView with drawable");

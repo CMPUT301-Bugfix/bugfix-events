@@ -170,6 +170,54 @@ public class UserProfileDetailsActivityTest {
     }
 
     /**
+     * Test if the admin can remove organizer privileges and suspend the organizer
+     */
+    @Test
+    public void removeOrganizerPrivilegesTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String password = "test123";
+        String fullName = "Organizer Remove Test " + timestamp;
+        String username = "organizer" + timestamp;
+        String email = "organizer" + timestamp + "@gmail.com";
+        String uid = createTemporaryProfileUser(email, password, username, fullName, "organizer");
+        signInTestUser();
+
+        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), UserProfileDetailsActivity.class);
+        intent.putExtra(UserProfileDetailsActivity.NAME, fullName);
+        intent.putExtra(UserProfileDetailsActivity.ACCOUNT_TYPE, "organizer");
+        intent.putExtra(UserProfileDetailsActivity.USERNAME, username);
+        intent.putExtra(UserProfileDetailsActivity.EMAIL, email);
+        intent.putExtra(UserProfileDetailsActivity.PHONE, "888 888 8888");
+        intent.putExtra(UserProfileDetailsActivity.UID, uid);
+        intent.putExtra(UserProfileDetailsActivity.TIME_MILLIS, System.currentTimeMillis());
+        intent.putExtra(UserProfileDetailsActivity.ALLOW_DELETE, true);
+
+        try {
+            try (ActivityScenario<UserProfileDetailsActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(3000);
+
+                onView(withId(R.id.userProfileRemoveOrganizerButton)).check(matches(isDisplayed()));
+                onView(withId(R.id.userProfileRemoveOrganizerButton)).perform(click());
+                onView(withText(R.string.admin_remove_organizer_confirm_action)).perform(click());
+
+                SystemClock.sleep(3000);
+            }
+
+            DocumentSnapshot snapshot = Tasks.await(
+                    FirebaseFirestore.getInstance().collection("users").document(uid).get(),
+                    15,
+                    TimeUnit.SECONDS
+            );
+            assertTrue(snapshot.exists());
+            assertEquals("user", snapshot.getString("accountType"));
+            assertEquals(Boolean.TRUE, snapshot.getBoolean("suspended"));
+        } finally {
+            deleteTemporaryProfileUser(uid, email, password);
+        }
+    }
+
+    /**
      * Test if adding Coorganizer Creates a notification to the correct User
      */
     @Test
@@ -279,6 +327,31 @@ public class UserProfileDetailsActivityTest {
      * uid of the created temporary user
      */
     private String createTemporaryCoorganizerUser(String email, String password, String username, String fullName) throws Exception {
+        return createTemporaryProfileUser(email, password, username, fullName, "entrant");
+    }
+
+    /**
+     * creates a temporary auth user with the requested account type
+     * @param email
+     * email stored on the viewed profile
+     * @param password
+     * password used for the temporary auth account
+     * @param username
+     * username stored on the viewed profile
+     * @param fullName
+     * name stored on the viewed profile
+     * @param accountType
+     * account type stored on the viewed profile
+     * @return
+     * uid of the created temporary user
+     */
+    private String createTemporaryProfileUser(
+            String email,
+            String password,
+            String username,
+            String fullName,
+            String accountType
+    ) throws Exception {
         FirebaseAuth auth = FirebaseAuth.getInstance();
         Tasks.await(auth.createUserWithEmailAndPassword(email, password), 15, TimeUnit.SECONDS);
         FirebaseUser currentUser = auth.getCurrentUser();
@@ -288,7 +361,7 @@ public class UserProfileDetailsActivityTest {
         userPayload.put("fullName", fullName);
         userPayload.put("email", email);
         userPayload.put("phoneNumber", "888 888 8888");
-        userPayload.put("accountType", "entrant");
+        userPayload.put("accountType", accountType);
         userPayload.put("createdAt", Timestamp.now());
         userPayload.put("deleted", false);
 

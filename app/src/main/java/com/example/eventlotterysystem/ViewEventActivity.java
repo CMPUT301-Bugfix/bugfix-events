@@ -221,12 +221,6 @@ public class ViewEventActivity extends AppCompatActivity {
         try {
             currentEvent = event;
             FirebaseUser currentUser = auth.getCurrentUser();
-            canEditEvent = currentUser != null && EventRepository.canManageEvent(event, currentUser.getUid());
-            screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-            editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-            qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
-            showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-            sendPrivateButton.setVisibility((!event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
             titleTextView.setText(event.getTitle());
             renderKeywordChips(event.getKeywords());
             showPoster(event.getPosterUrl());
@@ -234,8 +228,28 @@ public class ViewEventActivity extends AppCompatActivity {
             descriptionTextView.setText(hasText(event.getDescription())
                     ? event.getDescription()
                     : getString(R.string.event_card_missing_description));
-            updateMessageButton(event, currentUser);
-            loadWaitlistState(event);
+            if (currentUser == null) {
+                canEditEvent = false;
+                applyManagementVisibility(event);
+                updateMessageButton(currentUser);
+                loadWaitlistState(event);
+                return;
+            }
+
+            repository.canUserManageEvent(event, currentUser.getUid())
+                    .addOnSuccessListener(canManage -> {
+                        canEditEvent = canManage;
+                        applyManagementVisibility(event);
+                        updateMessageButton(currentUser);
+                        loadWaitlistState(event);
+                    })
+                    .addOnFailureListener(exception -> {
+                        Log.e(TAG, "Failed to verify event management access", exception);
+                        canEditEvent = false;
+                        applyManagementVisibility(event);
+                        updateMessageButton(currentUser);
+                        loadWaitlistState(event);
+                    });
         } catch (Exception exception) {
             Log.e(TAG, "Failed to render event details", exception);
             Toast.makeText(
@@ -301,7 +315,7 @@ public class ViewEventActivity extends AppCompatActivity {
      */
     private void openMessageScreen() {
         FirebaseUser currentUser = auth.getCurrentUser();
-        if (currentEvent == null || currentUser == null || EventRepository.canManageEvent(currentEvent, currentUser.getUid())) {
+        if (currentEvent == null || currentUser == null || canEditEvent) {
             return;
         }
 
@@ -712,8 +726,7 @@ public class ViewEventActivity extends AppCompatActivity {
      */
 
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
-        boolean organizer = EventRepository.canManageEvent(event, currentUserUid);
-        if (organizer) {
+        if (EventRepository.canManageEvent(event, currentUserUid)) {
             updateWaitlistFlags(false, false, false, false);
             return;
         }
@@ -932,23 +945,34 @@ public class ViewEventActivity extends AppCompatActivity {
      * true if the current user can manage the current Event
      */
     private boolean shouldShowEntrantsButton() {
-        FirebaseUser currentUser = auth.getCurrentUser();
-        return currentEvent != null
-                && currentUser != null
-                && EventRepository.canManageEvent(currentEvent, currentUser.getUid());
+        return currentEvent != null && canEditEvent;
     }
 
     /**
      * updates the message organizer button based on whether the current user can message the organizer
-     * @param event
-     * the current Event being displayed
      * @param currentUser
      * the currently signed in FirebaseUser
      */
-    private void updateMessageButton(EventItem event, FirebaseUser currentUser) {
-        boolean canMessage = currentUser != null && !EventRepository.canManageEvent(event, currentUser.getUid());
+    private void updateMessageButton(FirebaseUser currentUser) {
+        boolean canMessage = currentUser != null
+                && !canEditEvent
+                && currentEvent != null
+                && !currentUser.getUid().equals(currentEvent.getHostUid());
         messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);
         messageOrganizerButton.setEnabled(canMessage);
+    }
+
+    /**
+     * applies organizer-only button visibility for the current session
+     * @param event
+     * the current Event being displayed
+     */
+    private void applyManagementVisibility(EventItem event) {
+        screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
+        showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        sendPrivateButton.setVisibility((!event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
     }
 
     /**

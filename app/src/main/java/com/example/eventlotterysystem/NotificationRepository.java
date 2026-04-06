@@ -250,36 +250,53 @@ public class NotificationRepository {
     ) {
         if (users.isEmpty()) return Tasks.forResult(null);
 
-        WriteBatch batch = firestore.batch();
-
+        List<Task<DocumentSnapshot>> userTasks = new ArrayList<>();
         for (UserProfile user : users) {
-            // 1. Add to user's inbox
-            DocumentReference userNotifyRef = firestore.collection("users")
-                    .document(user.getUid())
-                    .collection("notifications")
-                    .document();
-            NotificationItem userItem = new NotificationItem(eventId, title, message, "ASSIGN");
-            userItem.setId(userNotifyRef.getId());
-            batch.set(userNotifyRef, userItem);
-
-            // 2. Add to event's invitations tracking
-            DocumentReference inviteRef = firestore.collection("events")
-                    .document(eventId)
-                    .collection("coorganizerinvites")
-                    .document(user.getUid());
-
-            Map<String, Object> inviteData = new HashMap<>();
-            inviteData.put("uid", user.getUid());
-            inviteData.put("name", user.getName());
-            inviteData.put("email", user.getEmail());
-            inviteData.put("username", user.getUsername());
-            inviteData.put("status", "PENDING");
-            inviteData.put("timestamp", FieldValue.serverTimestamp());
-
-            batch.set(inviteRef, inviteData);
+            userTasks.add(firestore.collection("users").document(user.getUid()).get());
         }
 
-        return batch.commit();
+        return Tasks.whenAllComplete(userTasks).continueWithTask(task -> {
+            WriteBatch batch = firestore.batch();
+
+            for (int i = 0; i < userTasks.size(); i++) {
+                Task<DocumentSnapshot> userTask = userTasks.get(i);
+                if (!userTask.isSuccessful()) {
+                    continue;
+                }
+
+                DocumentSnapshot userDoc = userTask.getResult();
+                if (!checkPreference(userDoc, "COORGANIZER")) {
+                    continue;
+                }
+
+                UserProfile user = users.get(i);
+
+                DocumentReference userNotifyRef = firestore.collection("users")
+                        .document(user.getUid())
+                        .collection("notifications")
+                        .document();
+                NotificationItem userItem = new NotificationItem(eventId, title, message, "ASSIGN");
+                userItem.setId(userNotifyRef.getId());
+                batch.set(userNotifyRef, userItem);
+
+                DocumentReference inviteRef = firestore.collection("events")
+                        .document(eventId)
+                        .collection("coorganizerinvites")
+                        .document(user.getUid());
+
+                Map<String, Object> inviteData = new HashMap<>();
+                inviteData.put("uid", user.getUid());
+                inviteData.put("name", user.getName());
+                inviteData.put("email", user.getEmail());
+                inviteData.put("username", user.getUsername());
+                inviteData.put("status", "PENDING");
+                inviteData.put("timestamp", FieldValue.serverTimestamp());
+
+                batch.set(inviteRef, inviteData);
+            }
+
+            return batch.commit();
+        });
     }
 
     /**
