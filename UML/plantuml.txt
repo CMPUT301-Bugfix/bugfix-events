@@ -189,6 +189,7 @@ package "Event Flow" {
     -newPasswordInput: EditText
     -confirmNewPasswordInput: EditText
     -saveProfileChangesButton: Button
+    -termsOfServiceButton: Button
     -deleteAccountButton: Button
     -loadingIndicator: ProgressBar
     -notificationPreferencesHeader: LinearLayout
@@ -237,6 +238,10 @@ package "Event Flow" {
     -showMessage(message: String): void
     -navigateToAuthMenu(): void
     -normalize(value: String): String
+  }
+
+  class TermsActivity {
+    #onCreate(savedInstanceState: Bundle): void
   }
 
   class HostedEventsActivity {
@@ -380,6 +385,7 @@ package "Event Flow" {
     -loadWaitlistState(event: EventItem): void
     -applyWaitlistViewState(): void
     -setWaitlistActionLoading(loading: boolean): void
+    -applyManagementVisibility(event: EventItem): void
     -updateWaitlistControls(event: EventItem, currentUserUid: String, status: String): void
     -updateWaitlistFlags(showJoinButton: boolean, joinEnabled: boolean, showJoinedLabel: boolean, showLeaveButton: boolean): void
     -showPoster(posterUrl: String): void
@@ -491,6 +497,7 @@ package "Communication" {
     -{static} TAG: String
     +{static} EVENT_ID: String
     -auth: FirebaseAuth
+    -firestore: FirebaseFirestore
     -repository: EventRepository
     -eventId: String
     -canDeleteComments: boolean
@@ -505,6 +512,8 @@ package "Communication" {
     #onCreate(savedInstanceState: Bundle): void
     #onStart(): void
     -loadEventState(): void
+    -loadModeratorStateAndComments(event: EventItem, currentUser: FirebaseUser, currentUid: String): void
+    -loadRegularUserComments(event: EventItem, currentUid: String): void
     -postComment(): void
     -loadComments(): void
     -voteOnComment(comment: CommentItem, voteValue: int): void
@@ -714,6 +723,7 @@ package "Administration" {
     -geolocationTextView: TextView
     -descriptionTextView: TextView
     -deleteEventButton: Button
+    -viewCommentsButton: Button
     -eventId: String
     -eventTitle: String
     -isDeleting: boolean
@@ -729,6 +739,7 @@ package "Administration" {
     -formatDate(date: Date): String
     -confirmDelete(): void
     -deleteEvent(): void
+    -openCommentsScreen(): void
     -handleDeleteFailure(exception: Exception): void
     -setDeleting(deleting: boolean): void
     -normalize(value: String): String
@@ -804,6 +815,8 @@ package "Domain and Services" {
     +createEvent(currentUser: FirebaseUser, draftEvent: EventItem, posterUri: Uri): Task<String>
     +getWaitlistStatus(eventId: String, uid: String): Task<String>
     +canUserAccessEvent(event: EventItem, eventId: String, uid: String): Task<Boolean>
+    +canUserManageEvent(event: EventItem, uid: String): Task<Boolean>
+    +canUserManageOrganizerFeatures(uid: String): Task<Boolean>
     +assignCoorganizer(eventId: String, targetUid: String, actingUid: String): Task<Void>
     +updateWaitlistStatus(eventId: String, uid: String, status: String): Task<Void>
     +joinWaitlist(eventId: String, currentUser: FirebaseUser): Task<Void>
@@ -842,6 +855,7 @@ package "Domain and Services" {
     +{static} normalizeCoorganizers(rawCoorganizers: Object): List<String>
     +{static} normalizeIsPublic(isPublicValue: Boolean): boolean
     -{static} containsKeywordIgnoreCase(keywords: List<String>, candidate: String): boolean
+    -canManageOrganizerFeatures(userSnapshot: DocumentSnapshot): boolean
     -{static} normalize(value: String): String
     -firstNonEmpty(candidates: String): String
     -{static} hasText(value: String): boolean
@@ -1247,6 +1261,7 @@ HomeActivity ..> CaptureActivity
 HomeActivity ..> AuthMenuActivity
 HomeActivity ..> ProfileRemovedActivity
 MyThingsActivity --> SettingsActivity
+SettingsActivity --> TermsActivity
 MyThingsActivity --> HostedEventsActivity
 MyThingsActivity --> MyWaitlistActivity
 MyThingsActivity --> InboxActivity
@@ -1275,6 +1290,7 @@ AdminZoneActivity ..> AuthMenuActivity
 UserProfilesActivity --> UserProfileDetailsActivity
 UserProfilesActivity ..> AuthMenuActivity
 AdminBrowseEventsActivity --> AdminEventDetailsActivity
+AdminEventDetailsActivity --> CommentsActivity
 AdminBrowseEventsActivity ..> AuthMenuActivity
 AdminPhotosActivity ..> AuthMenuActivity
 AdminNotificationsLogActivity ..> AuthMenuActivity
@@ -1378,6 +1394,7 @@ MyThingsActivity -[hidden]right-> HostedEventsActivity
 HomeActivity -[hidden]down-> ViewEventActivity
 ViewEventActivity -[hidden]right-> CreateEventActivity
 CreateEventActivity -[hidden]right-> SettingsActivity
+SettingsActivity -[hidden]down-> TermsActivity
 ViewEventActivity -[hidden]down-> MyWaitlistActivity
 MyWaitlistActivity -[hidden]right-> EntrantsActivity
 EntrantsActivity -[hidden]right-> AllEntrantsActivity
