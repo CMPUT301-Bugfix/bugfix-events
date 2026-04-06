@@ -1,175 +1,486 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The following code is from OpenAI, ChatGPT, "UI Fix Assistance", 2026-03-25 -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground"
+    android:background="#ECEAEA"
     tools:context=".SettingsActivity">
 
-    <ScrollView
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/settingsHeaderGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.26" />
+
+    <LinearLayout
+        android:id="@+id/settingsTopSection"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:background="#3E86AD"
+        android:orientation="vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="22dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="18dp"
+        app:layout_constraintBottom_toTopOf="@id/settingsHeaderGuide"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/settingsBackButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="serif"
+                android:padding="4dp"
+                android:text="@string/back"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/settingsTopTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="serif"
+                android:text="@string/my_things"
+                android:textColor="#F4F1F1"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+            android:id="@+id/settingsScreenTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="20dp"
+            android:layout_marginTop="62dp"
+            android:fontFamily="serif"
+            android:gravity="center"
+            android:text="@string/settings"
+            android:textColor="#F4F1F1"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/settingsBottomSection"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#C8D1D1"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/settingsHeaderGuide">
+
+        <LinearLayout
+            android:id="@+id/notificationPreferencesAccordion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
             android:orientation="vertical">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
+            <LinearLayout
+                android:id="@+id/notificationPreferencesHeader"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:minHeight="48dp">
-
-                <TextView
-                    android:id="@+id/settingsBackButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="@string/back"
-                    android:textColor="?attr/colorPrimary"
-                    android:textStyle="bold"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                android:layout_height="88dp"
+                android:background="#F4F1F1"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="10dp">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="@string/settings"
-                    android:textColor="?android:textColorPrimary"
-                    android:textSize="22sp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="Notification Preferences"
+                    android:textColor="#111111"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"/>
+
+                <TextView
+                    android:id="@+id/notificationPreferencesIndicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="5dp"
+                    android:text="▼"
+                    android:textColor="#7A7A7A"
+                    android:textSize="26sp"
                     android:textStyle="bold"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/notificationPreferencesContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/optInCoorganizerInvitesSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Opt in to co-organizer invites"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:textSize="18sp"
+                    app:thumbTint="#689F38"
+                    app:trackTint="#5A5A5A"
+                    android:fontFamily="serif"
+                    android:textStyle="bold"
+                    />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/optInPrivateInvitesSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Opt in to private invites"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:textSize="18sp"
+                    app:thumbTint="#689F38"
+                    app:trackTint="#5A5A5A"
+                    android:fontFamily="serif"
+                    android:textStyle="bold"/>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/optInWinningNotificationsSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Opt in to winning notifications"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:textSize="18sp"
+                    app:thumbTint="#689F38"
+                    app:trackTint="#5A5A5A"
+                    android:fontFamily="serif"
+                    android:textStyle="bold"/>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/optInOtherNotificationsSwitch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="Opt in to other notifications"
+                    android:layout_marginStart="15dp"
+                    android:layout_marginEnd="15dp"
+                    android:textSize="18sp"
+                    app:thumbTint="#689F38"
+                    app:trackTint="#5A5A5A"
+                    android:fontFamily="serif"
+                    android:textStyle="bold"/>
+
+                <Button
+                    android:id="@+id/saveNotificationPreferencesButton"
+                    android:layout_width="180dp"
+                    android:layout_height="62dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/square_button_green"
+                    android:fontFamily="serif"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/save_changes"
+                    android:textAllCaps="false"
+                    android:textColor="#F4F1F1"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@null" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/updateInformationAccordion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/updateInformationHeader"
+                android:layout_width="match_parent"
+                android:layout_height="88dp"
+                android:background="#F4F1F1"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:id="@+id/updateInformationTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:fontFamily="serif"
+                    android:text="@string/update_information"
+                    android:textColor="#111111"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/updateInformationIndicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="18dp"
+                    android:text="▼"
+                    android:textColor="#7A7A7A"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <LinearLayout
-                android:id="@+id/updateInformationAccordion"
+            <ScrollView
+                android:id="@+id/updateInformationContentScroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/updateInformationHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/colorSurfaceContainerHigh"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="10dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/update_information"
-                        android:textColor="?android:textColorPrimary"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/updateInformationIndicator"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/show"
-                        android:textColor="?attr/colorPrimary"
-                        android:textStyle="bold" />
-                </LinearLayout>
+                android:background="#C8D1D1"
+                android:fillViewport="true"
+                android:visibility="gone">
 
                 <LinearLayout
                     android:id="@+id/updateInformationContent"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
                     android:orientation="vertical"
-                    android:visibility="gone">
+                    android:paddingStart="28dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="28dp"
+                    android:paddingBottom="20dp">
+
+                    <TextView
+                        android:id="@+id/updateNameLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/name"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/updateNameInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/name"
-                        android:inputType="textPersonName" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textPersonName"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/updateEmailLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/email"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/updateEmailInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/email"
-                        android:inputType="textEmailAddress" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textEmailAddress"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/updateUsernameLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/username"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/updateUsernameInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/username"
-                        android:inputType="textNoSuggestions" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textNoSuggestions"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/updatePhoneLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/phone_number_optional"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/updatePhoneInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/phone_number_optional"
-                        android:inputType="phone" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="phone"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textColorHint="#9A9A9A"
+                        tools:text="780 555 5555" />
+
+                    <TextView
+                        android:id="@+id/currentPasswordLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/current_password"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/currentPasswordInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/current_password"
-                        android:inputType="textPassword" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textPassword"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/newPasswordLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/new_password"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/newPasswordInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="10dp"
-                        android:hint="@string/new_password"
-                        android:inputType="textPassword" />
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textPassword"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/confirmNewPasswordLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="serif"
+                        android:text="@string/confirm_new_password"
+                        android:textColor="#111111"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
                     <EditText
                         android:id="@+id/confirmNewPasswordInput"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:hint="@string/confirm_new_password"
-                        android:inputType="textPassword" />
+                        android:layout_height="52dp"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="12dp"
+                        android:background="@drawable/input_box_outline"
+                        android:gravity="center_vertical"
+                        android:hint=""
+                        android:inputType="textPassword"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:textColor="#111111"
+                        android:textSize="18sp" />
 
                     <TextView
+                        android:id="@+id/passwordOptionalHint"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
+                        android:layout_marginBottom="16dp"
                         android:text="@string/password_change_optional_hint"
-                        android:textColor="?android:textColorSecondary"
-                        android:textSize="13sp" />
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:visibility="gone"
+                        tools:visibility="gone" />
 
-                    <Button
+                    <androidx.appcompat.widget.AppCompatButton
                         android:id="@+id/saveProfileChangesButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/save_changes" />
+                        android:layout_width="180dp"
+                        android:layout_height="62dp"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="10dp"
+                        android:background="@drawable/square_button_green"
+                        android:fontFamily="serif"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:text="@string/save_changes"
+                        android:textAllCaps="false"
+                        android:textColor="#F4F1F1"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@null" />
 
                     <ProgressBar
                         android:id="@+id/settingsLoadingIndicator"
@@ -179,15 +490,48 @@
                         android:layout_marginTop="12dp"
                         android:visibility="gone" />
                 </LinearLayout>
-            </LinearLayout>
-
-            <Button
-                android:id="@+id/deleteAccountButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="@string/delete_account" />
+            </ScrollView>
         </LinearLayout>
-    </ScrollView>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#C8D1D1" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/termsOfServiceButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_green"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="14dp"
+            android:text="Terms of Service"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/deleteAccountButton"
+            android:layout_width="match_parent"
+            android:layout_height="84dp"
+            android:background="@drawable/square_button_red"
+            android:fontFamily="serif"
+            android:gravity="start|center_vertical"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="14dp"
+            android:text="@string/delete_account"
+            android:textAllCaps="false"
+            android:textColor="#F4F1F1"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

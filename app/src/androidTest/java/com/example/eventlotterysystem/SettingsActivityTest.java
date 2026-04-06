@@ -5,6 +5,7 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
+import static androidx.test.espresso.action.ViewActions.swipeUp;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withHint;
@@ -63,10 +64,11 @@ public class SettingsActivityTest {
                 SystemClock.sleep(4000);
 
                 onView(withId(R.id.updateInformationHeader)).perform(click());
-                onView(withId(R.id.updateInformationContent)).check(matches(isDisplayed()));
-                onView(withId(R.id.updateNameInput)).perform(scrollTo(), replaceText(updatedName), closeSoftKeyboard());
-                onView(withId(R.id.updatePhoneInput)).perform(scrollTo(), replaceText(updatedPhone), closeSoftKeyboard());
-                onView(withId(R.id.saveProfileChangesButton)).perform(scrollTo(), click());
+                onView(withId(R.id.updateNameInput)).check(matches(isDisplayed()));
+                onView(withId(R.id.updateNameInput)).perform(replaceText(updatedName), closeSoftKeyboard());
+                onView(withId(R.id.updatePhoneInput)).perform(replaceText(updatedPhone), closeSoftKeyboard());
+                onView(withId(R.id.updateInformationContentScroll)).perform(swipeUp(), swipeUp());
+                onView(withId(R.id.saveProfileChangesButton)).perform(click());
                 SystemClock.sleep(4000);
 
                 onView(withId(R.id.updateNameInput)).check(matches(withText(updatedName)));
@@ -97,7 +99,7 @@ public class SettingsActivityTest {
             try (ActivityScenario<SettingsActivity> ignored = ActivityScenario.launch(SettingsActivity.class)) {
                 SystemClock.sleep(4000);
 
-                onView(withId(R.id.deleteAccountButton)).perform(scrollTo(), click());
+                onView(withId(R.id.deleteAccountButton)).perform(click());
                 onView(withHint(R.string.current_password)).perform(replaceText(password), closeSoftKeyboard());
                 onView(withText(R.string.delete_account_confirm_action)).perform(click());
                 SystemClock.sleep(5000);
@@ -117,13 +119,67 @@ public class SettingsActivityTest {
     }
 
     /**
+     * test to see if a user can opt out of notification categories and have the
+     * preferences persisted on their profile
+     */
+    @Test
+    public void saveNotificationPreferencesTest() throws Exception {
+        signInTestUser();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        DocumentSnapshot originalProfile = Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).get(),
+                15,
+                TimeUnit.SECONDS
+        );
+
+        boolean originalCoorganizer = !originalProfile.contains("optInCoorganizerInvites")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInCoorganizerInvites"));
+        boolean originalPrivate = !originalProfile.contains("optInPrivateInvites")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInPrivateInvites"));
+        boolean originalWinning = !originalProfile.contains("optInWinningNotifications")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInWinningNotifications"));
+        boolean originalOther = !originalProfile.contains("optInOtherNotifications")
+                || Boolean.TRUE.equals(originalProfile.getBoolean("optInOtherNotifications"));
+
+        try {
+            try (ActivityScenario<SettingsActivity> ignored = ActivityScenario.launch(SettingsActivity.class)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.notificationPreferencesHeader)).perform(click());
+                onView(withId(R.id.optInCoorganizerInvitesSwitch)).perform(click());
+                onView(withId(R.id.optInPrivateInvitesSwitch)).perform(click());
+                onView(withId(R.id.optInWinningNotificationsSwitch)).perform(click());
+                onView(withId(R.id.optInOtherNotificationsSwitch)).perform(click());
+                onView(withId(R.id.saveNotificationPreferencesButton)).perform(click());
+                SystemClock.sleep(4000);
+            }
+
+            DocumentSnapshot updatedProfile = Tasks.await(
+                    FirebaseFirestore.getInstance().collection("users").document(currentUser.getUid()).get(),
+                    15,
+                    TimeUnit.SECONDS
+            );
+
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInCoorganizerInvites"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInPrivateInvites"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInWinningNotifications"));
+            assertEquals(Boolean.FALSE, updatedProfile.getBoolean("optInOtherNotifications"));
+        } finally {
+            restoreNotificationPreferences(
+                    currentUser.getUid(),
+                    originalCoorganizer,
+                    originalPrivate,
+                    originalWinning,
+                    originalOther
+            );
+        }
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -144,6 +200,38 @@ public class SettingsActivityTest {
             payload.put("phoneNumber", phoneNumber);
         }
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(payload, SetOptions.merge()), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * restores the saved notification preferences for the shared test account
+     * @param uid
+     * uid of the shared test account
+     * @param optInCoorganizerInvites
+     * original coorganizer invitation preference
+     * @param optInPrivateInvites
+     * original private invitation preference
+     * @param optInWinningNotifications
+     * original winning notification preference
+     * @param optInOtherNotifications
+     * original other notification preference
+     */
+    private void restoreNotificationPreferences(
+            String uid,
+            boolean optInCoorganizerInvites,
+            boolean optInPrivateInvites,
+            boolean optInWinningNotifications,
+            boolean optInOtherNotifications
+    ) throws Exception {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("optInCoorganizerInvites", optInCoorganizerInvites);
+        payload.put("optInPrivateInvites", optInPrivateInvites);
+        payload.put("optInWinningNotifications", optInWinningNotifications);
+        payload.put("optInOtherNotifications", optInOtherNotifications);
+        Tasks.await(
+                FirebaseFirestore.getInstance().collection("users").document(uid).set(payload, SetOptions.merge()),
+                15,
+                TimeUnit.SECONDS
+        );
     }
 
     /**

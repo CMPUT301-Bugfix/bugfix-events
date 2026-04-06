@@ -10,12 +10,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.EmailAuthProvider;
@@ -49,9 +51,9 @@ public class SettingsActivity extends AppCompatActivity {
     private FirebaseFirestore firestore;
 
     private TextView backButton;
-    private LinearLayout updateInformationHeader;
+    private View updateInformationHeader;
     private TextView updateInformationIndicator;
-    private LinearLayout updateInformationContent;
+    private ScrollView updateInformationContent;
     private EditText updateNameInput;
     private EditText updateEmailInput;
     private EditText updateUsernameInput;
@@ -60,10 +62,22 @@ public class SettingsActivity extends AppCompatActivity {
     private EditText newPasswordInput;
     private EditText confirmNewPasswordInput;
     private Button saveProfileChangesButton;
+    private Button termsOfServiceButton;
     private Button deleteAccountButton;
     private ProgressBar loadingIndicator;
 
+    // Notification Preferences
+    private LinearLayout notificationPreferencesHeader;
+    private TextView notificationPreferencesIndicator;
+    private LinearLayout notificationPreferencesContent;
+    private SwitchCompat optInCoorganizerInvitesSwitch;
+    private SwitchCompat optInPrivateInvitesSwitch;
+    private SwitchCompat optInWinningNotificationsSwitch;
+    private SwitchCompat optInOtherNotificationsSwitch;
+    private Button saveNotificationPreferencesButton;
+
     private boolean isAccordionExpanded;
+    private boolean isNotifAccordionExpanded;
     private boolean isSaving;
     private boolean pendingSignOutAfterSave;
     private boolean profileLoaded;
@@ -88,7 +102,7 @@ public class SettingsActivity extends AppCompatActivity {
         backButton = findViewById(R.id.settingsBackButton);
         updateInformationHeader = findViewById(R.id.updateInformationHeader);
         updateInformationIndicator = findViewById(R.id.updateInformationIndicator);
-        updateInformationContent = findViewById(R.id.updateInformationContent);
+        updateInformationContent = findViewById(R.id.updateInformationContentScroll);
         updateNameInput = findViewById(R.id.updateNameInput);
         updateEmailInput = findViewById(R.id.updateEmailInput);
         updateUsernameInput = findViewById(R.id.updateUsernameInput);
@@ -97,9 +111,22 @@ public class SettingsActivity extends AppCompatActivity {
         newPasswordInput = findViewById(R.id.newPasswordInput);
         confirmNewPasswordInput = findViewById(R.id.confirmNewPasswordInput);
         saveProfileChangesButton = findViewById(R.id.saveProfileChangesButton);
+        termsOfServiceButton = findViewById(R.id.termsOfServiceButton);
         deleteAccountButton = findViewById(R.id.deleteAccountButton);
         loadingIndicator = findViewById(R.id.settingsLoadingIndicator);
+
+        // Notification Preference Views
+        notificationPreferencesHeader = findViewById(R.id.notificationPreferencesHeader);
+        notificationPreferencesIndicator = findViewById(R.id.notificationPreferencesIndicator);
+        notificationPreferencesContent = findViewById(R.id.notificationPreferencesContent);
+        optInCoorganizerInvitesSwitch = findViewById(R.id.optInCoorganizerInvitesSwitch);
+        optInPrivateInvitesSwitch = findViewById(R.id.optInPrivateInvitesSwitch);
+        optInWinningNotificationsSwitch = findViewById(R.id.optInWinningNotificationsSwitch);
+        optInOtherNotificationsSwitch = findViewById(R.id.optInOtherNotificationsSwitch);
+        saveNotificationPreferencesButton = findViewById(R.id.saveNotificationPreferencesButton);
+
         setAccordionExpanded(false);
+        setNotifAccordionExpanded(false);
 
         backButton.setOnClickListener(v -> finish());
         updateInformationHeader.setOnClickListener(v -> {
@@ -107,7 +134,18 @@ public class SettingsActivity extends AppCompatActivity {
                 setAccordionExpanded(!isAccordionExpanded);
             }
         });
+        notificationPreferencesHeader.setOnClickListener(v -> {
+            if (!isSaving) {
+                setNotifAccordionExpanded(!isNotifAccordionExpanded);
+            }
+        });
+
         saveProfileChangesButton.setOnClickListener(v -> onSaveClicked());
+        saveNotificationPreferencesButton.setOnClickListener(v -> onSaveNotifPreferencesClicked());
+        termsOfServiceButton.setOnClickListener(v -> {
+            Intent intent = new Intent(SettingsActivity.this, TermsActivity.class);
+            startActivity(intent);
+        });
         deleteAccountButton.setOnClickListener(v -> onDeleteAccountClicked());
 
         loadCurrentProfile();
@@ -132,6 +170,16 @@ public class SettingsActivity extends AppCompatActivity {
         isAccordionExpanded = expanded;
         updateInformationContent.setVisibility(expanded ? View.VISIBLE : View.GONE);
         updateInformationIndicator.setText(getString(expanded ? R.string.hide : R.string.show));
+    }
+
+    /**
+     * manages the visibility of the notification preferences accordion
+     * @param expanded true to show, false to hide
+     */
+    private void setNotifAccordionExpanded(boolean expanded) {
+        isNotifAccordionExpanded = expanded;
+        notificationPreferencesContent.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        notificationPreferencesIndicator.setText(getString(expanded ? R.string.hide : R.string.show));
     }
 
     /**
@@ -188,12 +236,55 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         originalProfile = new UserProfile(loadedName, loadedEmail, loadedUsername, loadedUsernameKey, loadedPhone, loadedAccountType);
+        
+        // Load notification preferences
+        originalProfile.setOptInCoorganizerInvites(snapshot.contains("optInCoorganizerInvites") ? Boolean.TRUE.equals(snapshot.getBoolean("optInCoorganizerInvites")) : true);
+        originalProfile.setOptInPrivateInvites(snapshot.contains("optInPrivateInvites") ? Boolean.TRUE.equals(snapshot.getBoolean("optInPrivateInvites")) : true);
+        originalProfile.setOptInWinningNotifications(snapshot.contains("optInWinningNotifications") ? Boolean.TRUE.equals(snapshot.getBoolean("optInWinningNotifications")) : true);
+        originalProfile.setOptInOtherNotifications(snapshot.contains("optInOtherNotifications") ? Boolean.TRUE.equals(snapshot.getBoolean("optInOtherNotifications")) : true);
+
         profileLoaded = true;
 
         updateNameInput.setText(loadedName);
         updateEmailInput.setText(loadedEmail);
         updateUsernameInput.setText(loadedUsername);
         updatePhoneInput.setText(loadedPhone);
+
+        // Apply notification preference switches
+        optInCoorganizerInvitesSwitch.setChecked(originalProfile.isOptInCoorganizerInvites());
+        optInPrivateInvitesSwitch.setChecked(originalProfile.isOptInPrivateInvites());
+        optInWinningNotificationsSwitch.setChecked(originalProfile.isOptInWinningNotifications());
+        optInOtherNotificationsSwitch.setChecked(originalProfile.isOptInOtherNotifications());
+    }
+
+    /**
+     * saves the user's notification opt-in preferences to Firestore
+     */
+    private void onSaveNotifPreferencesClicked() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser == null) return;
+
+        setSaving(true);
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("optInCoorganizerInvites", optInCoorganizerInvitesSwitch.isChecked());
+        updates.put("optInPrivateInvites", optInPrivateInvitesSwitch.isChecked());
+        updates.put("optInWinningNotifications", optInWinningNotificationsSwitch.isChecked());
+        updates.put("optInOtherNotifications", optInOtherNotificationsSwitch.isChecked());
+
+        firestore.collection("users").document(currentUser.getUid())
+                .update(updates)
+                .addOnSuccessListener(unused -> {
+                    setSaving(false);
+                    originalProfile.setOptInCoorganizerInvites(optInCoorganizerInvitesSwitch.isChecked());
+                    originalProfile.setOptInPrivateInvites(optInPrivateInvitesSwitch.isChecked());
+                    originalProfile.setOptInWinningNotifications(optInWinningNotificationsSwitch.isChecked());
+                    originalProfile.setOptInOtherNotifications(optInOtherNotificationsSwitch.isChecked());
+                    showMessage("Notification preferences updated");
+                })
+                .addOnFailureListener(e -> {
+                    setSaving(false);
+                    showMessage("Failed to update preferences");
+                });
     }
 
     /**
@@ -874,6 +965,12 @@ public class SettingsActivity extends AppCompatActivity {
         loadingIndicator.setVisibility(saving ? ProgressBar.VISIBLE : ProgressBar.GONE);
         backButton.setEnabled(!saving);
         updateInformationHeader.setEnabled(!saving);
+        
+        // Ensure header is not null before using
+        if (notificationPreferencesHeader != null) {
+            notificationPreferencesHeader.setEnabled(!saving);
+        }
+        
         updateNameInput.setEnabled(!saving);
         updateEmailInput.setEnabled(!saving);
         updateUsernameInput.setEnabled(!saving);
@@ -882,6 +979,12 @@ public class SettingsActivity extends AppCompatActivity {
         newPasswordInput.setEnabled(!saving);
         confirmNewPasswordInput.setEnabled(!saving);
         saveProfileChangesButton.setEnabled(!saving);
+        
+        // Ensure save button is not null before using
+        if (saveNotificationPreferencesButton != null) {
+            saveNotificationPreferencesButton.setEnabled(!saving);
+        }
+        termsOfServiceButton.setEnabled(!saving);
         deleteAccountButton.setEnabled(!saving);
     }
 

@@ -74,7 +74,28 @@ public class HostedEventsActivity extends AppCompatActivity {
             navigateToAuthMenu();
             return;
         }
-        loadHostedEvents(currentUser.getUid());
+        repository.canUserManageOrganizerFeatures(currentUser.getUid())
+                .addOnSuccessListener(canManage -> {
+                    if (!canManage) {
+                        Toast.makeText(
+                                HostedEventsActivity.this,
+                                R.string.event_manage_permission_denied,
+                                Toast.LENGTH_LONG
+                        ).show();
+                        finish();
+                        return;
+                    }
+                    loadHostedEvents(currentUser.getUid());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to verify organizer access", e);
+                    Toast.makeText(
+                            HostedEventsActivity.this,
+                            buildLoadErrorMessage(e),
+                            Toast.LENGTH_LONG
+                    ).show();
+                    finish();
+                });
     }
 
     /**

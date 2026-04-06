@@ -1,10 +1,18 @@
 package com.example.eventlotterysystem;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.Task;
 import com.google.android.gms.tasks.TaskCompletionSource;
 import com.google.android.gms.tasks.Tasks;
@@ -14,6 +22,8 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 import com.google.firebase.storage.FirebaseStorage;
@@ -25,6 +35,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +48,8 @@ public class EventRepository {
     public static final String WAITLIST_STATUS_CONFIRMED = "CONFIRMED";
     public static final String WAITLIST_STATUS_DECLINED = "DECLINED";
     public static final String WAITLIST_STATUS_SNOOZED = "SNOOZED";
+    static final String LOCATION_REQUIRED_ERROR = "LOCATION_REQUIRED_TO_JOIN";
+    static final String LOCATION_PERMISSION_REQUIRED_ERROR = "LOCATION_PERMISSION_REQUIRED_TO_JOIN";
 
     private final FirebaseFirestore firestore;
     private final FirebaseStorage storage;
@@ -80,16 +93,24 @@ public class EventRepository {
     }
 
     /**
-     * Load the a list event from the database for all events creator matching user ID and creates a respective event object list
+     * Load the a list event from the database for all events creator matching user ID
+     * and all events that the user coorganizes and creates a respective event object list
      * @param hostUid
-     * ID of the user that created the event
+     * ID of the user that manages the event
      * @return
-     * task that gets all the events that the user created as a list of event objects raises an exception of failure
+     * task that gets all the events that the user manages as a list of event objects raises an exception of failure
      */
     public Task<List<EventItem>> getHostedEvents(@NonNull String hostUid) {
-        return firestore.collection("events")
-                .whereEqualTo("hostUid", hostUid)
-                .get()
+        Task<List<EventItem>> hostedTask = loadManagedEvents(
+                firestore.collection("events").whereEqualTo("hostUid", hostUid),
+                "Failed to load hosted events"
+        );
+        Task<List<EventItem>> coorganizersTask = loadManagedEvents(
+                firestore.collection("events").whereArrayContains("coOrganizerUids", hostUid),
+                "Failed to load co-organized events"
+        );
+
+        return Tasks.whenAllSuccess(hostedTask, coorganizersTask)
                 .continueWith(task -> {
                     if (!task.isSuccessful()) {
                         throw task.getException() != null
@@ -97,15 +118,11 @@ public class EventRepository {
                                 : new IllegalStateException("Failed to load hosted events");
                     }
 
-                    List<EventItem> results = new ArrayList<>();
-                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
-                        if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
-                            continue;
-                        }
-                        results.add(readEventItem(doc));
-                    }
-                    sortByEventDate(results);
-                    return results;
+                    @SuppressWarnings("unchecked")
+                    List<EventItem> hostedEvents = (List<EventItem>) task.getResult().get(0);
+                    @SuppressWarnings("unchecked")
+                    List<EventItem> coorganizedEvents = (List<EventItem>) task.getResult().get(1);
+                    return mergeManagedEvents(hostedEvents, coorganizedEvents);
                 });
     }
 
@@ -161,6 +178,9 @@ public class EventRepository {
                                 : new IllegalStateException("Failed to load user profile");
                     }
                     DocumentSnapshot userSnapshot = userTask.getResult();
+                    if (!canManageOrganizerFeatures(userSnapshot)) {
+                        throw new IllegalStateException("You do not have permission to manage this event");
+                    }
                     String accountType = normalize(userSnapshot.getString("accountType"));
                     String hostDisplayName = getHostDisplayName(userSnapshot, currentUser);
                     if (posterUri == null) {
@@ -241,7 +261,182 @@ public class EventRepository {
     }
 
     /**
-     * updates a waitlist entry object for a user signed up for an event status' into a new one
+     * determines whether a user can access an event detail screen
+     * for private events, access is granted to the host and to anyone
+     * who already has a waitlist record for the event
+     * @param event
+     * event being accessed
+     * @param eventId
+     * id of the event
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user can view the event
+     */
+    public Task<Boolean> canUserAccessEvent(
+            @NonNull EventItem event,
+            @NonNull String eventId,
+            @Nullable String uid
+    ) {
+        if (!hasText(uid)) {
+            return Tasks.forResult(canUserAccessEvent(event.isPublic(), false, false));
+        }
+
+        return canUserManageEvent(event, uid)
+                .continueWithTask(manageTask -> {
+                    if (!manageTask.isSuccessful()) {
+                        throw manageTask.getException() != null
+                                ? manageTask.getException()
+                                : new IllegalStateException("Failed to verify event access");
+                    }
+
+                    boolean canManage = Boolean.TRUE.equals(manageTask.getResult());
+                    if (canUserAccessEvent(event.isPublic(), canManage, false)) {
+                        return Tasks.forResult(true);
+                    }
+
+                    return eventWaitlistEntry(eventId, uid)
+                            .get()
+                            .continueWith(task -> {
+                                if (!task.isSuccessful()) {
+                                    throw task.getException() != null
+                                            ? task.getException()
+                                            : new IllegalStateException("Failed to verify event access");
+                                }
+                                DocumentSnapshot doc = task.getResult();
+                                boolean hasWaitlistEntry = doc != null && doc.exists();
+                                return canUserAccessEvent(event.isPublic(), canManage, hasWaitlistEntry);
+                            });
+                });
+    }
+
+    /**
+     * determines whether a user can manage an event and organizer-only features
+     * @param event
+     * event being managed
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user can manage the event
+     */
+    public Task<Boolean> canUserManageEvent(
+            @NonNull EventItem event,
+            @Nullable String uid
+    ) {
+        if (!hasText(uid) || !canManageEvent(event, uid)) {
+            return Tasks.forResult(false);
+        }
+
+        return firestore.collection("users")
+                .document(uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load user profile");
+                    }
+
+                    DocumentSnapshot userSnapshot = task.getResult();
+                    return canManageOrganizerFeatures(userSnapshot);
+                });
+    }
+
+    /**
+     * checks whether the user can use organizer-only screens and actions
+     * @param uid
+     * current user id
+     * @return
+     * task resolving to whether the user is active for organizer features
+     */
+    public Task<Boolean> canUserManageOrganizerFeatures(@Nullable String uid) {
+        if (!hasText(uid)) {
+            return Tasks.forResult(false);
+        }
+
+        return firestore.collection("users")
+                .document(uid)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load user profile");
+                    }
+
+                    return canManageOrganizerFeatures(task.getResult());
+                });
+    }
+
+    /**
+     * assigns a user as a coorganizer for an Event and removes any waitlist entry they had for it
+     * @param eventId
+     * the String id of the Event
+     * @param targetUid
+     * the String uid of the user being assigned
+     * @param actingUid
+     * the String uid of the host assigning the coorganizer
+     * @return
+     * a Task that updates the Event and removes matching waitlist entries
+     */
+    public Task<Void> assignCoorganizer(
+            @NonNull String eventId,
+            @NonNull String targetUid,
+            @NonNull String actingUid
+    ) {
+        if (!hasText(eventId) || !hasText(targetUid) || !hasText(actingUid)) {
+            return Tasks.forException(new IllegalArgumentException("Missing co-organizer assignment details"));
+        }
+
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
+        DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, targetUid);
+        DocumentReference userWaitlistRef = userWaitlistEntry(targetUid, eventId);
+        DocumentReference actingUserRef = firestore.collection("users").document(actingUid);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot eventDoc = transaction.get(eventRef);
+            DocumentSnapshot actingUserDoc = transaction.get(actingUserRef);
+            if (!eventDoc.exists() || Boolean.TRUE.equals(eventDoc.getBoolean("deleted"))) {
+                throw new IllegalStateException("Event not found");
+            }
+            if (!canManageOrganizerFeatures(actingUserDoc)) {
+                throw new IllegalStateException("You do not have permission to manage this event");
+            }
+
+            EventItem event = readEventItem(eventDoc);
+            if (!isHost(event, actingUid)) {
+                throw new IllegalStateException("Only the host can assign co-organizers");
+            }
+            if (isHost(event, targetUid)) {
+                return null;
+            }
+
+            List<String> coorganizers = new ArrayList<>(event.getCoorganizers());
+            if (!coorganizers.contains(targetUid)) {
+                coorganizers.add(targetUid);
+            }
+
+            DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
+            DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+            if (eventMembershipDoc.exists()) {
+                transaction.delete(eventWaitlistRef);
+            }
+            if (userMembershipDoc.exists()) {
+                transaction.delete(userWaitlistRef);
+            }
+
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("coOrganizerUids", normalizeCoorganizers(coorganizers));
+            if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
+                updates.put("totalEntrants", decrementWaitlistCount(event.getTotalEntrants()));
+            }
+            transaction.update(eventRef, updates);
+            return null;
+        });
+    }
+
+    /**
+     * updates a waitlist entry object for a user signed up for an event status' into a new one.
      * @param eventId
      * Id of the Event
      * @param uid
@@ -293,17 +488,65 @@ public class EventRepository {
             @NonNull FirebaseUser currentUser
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
+
+        return eventRef.get().continueWithTask(eventTask -> {
+            if (!eventTask.isSuccessful()) {
+                throw eventTask.getException() != null
+                        ? eventTask.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
+            DocumentSnapshot eventDoc = eventTask.getResult();
+            if (eventDoc == null || !eventDoc.exists()) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (!geolocationRequired) {
+                return joinWaitlist(eventId, currentUser, null);
+            }
+
+            Context context = com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+            boolean hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!hasPermission) {
+                return Tasks.forException(new SecurityException(LOCATION_PERMISSION_REQUIRED_ERROR));
+            }
+
+            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(context);
+            return fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .continueWithTask(locationTask -> joinWaitlist(
+                            eventId,
+                            currentUser,
+                            locationTask.isSuccessful() ? locationTask.getResult() : null
+                    ));
+        });
+    }
+
+    /**
+     * Updates the database to add a user to an event waitlist using the supplied location
+     * @param eventId
+     * Id of event that was signed up
+     * @param currentUser
+     * current User document from database
+     * @param location
+     * The Geolocation of user when signed up
+     * @return
+     * Task that updates the waitlist document from the user and event documents
+     */
+    Task<Void> joinWaitlist(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @Nullable Location location
+    ) {
+        DocumentReference eventRef = firestore.collection("events").document(eventId);
         DocumentReference eventWaitlistRef = eventWaitlistEntry(eventId, currentUser.getUid());
         DocumentReference userWaitlistRef = userWaitlistEntry(currentUser.getUid(), eventId);
 
         return firestore.runTransaction(transaction -> {
             DocumentSnapshot eventDoc = transaction.get(eventRef);
-            if (!eventDoc.exists()) {
-                throw new IllegalStateException("Event not found");
-            }
-
             DocumentSnapshot eventMembershipDoc = transaction.get(eventWaitlistRef);
             DocumentSnapshot userMembershipDoc = transaction.get(userWaitlistRef);
+
             if (eventMembershipDoc.exists() || userMembershipDoc.exists()) {
                 return null;
             }
@@ -312,8 +555,14 @@ public class EventRepository {
                 throw new IllegalStateException("Event not found");
             }
 
+            boolean geolocationRequired = Boolean.TRUE.equals(eventDoc.getBoolean("requiresGeolocation"));
+            if (geolocationRequired && location == null) {
+                throw new IllegalStateException(LOCATION_REQUIRED_ERROR);
+            }
+
             String hostUid = normalize(eventDoc.getString("hostUid"));
-            if (hostUid.equals(currentUser.getUid())) {
+            List<String> coorganizers = normalizeCoorganizers(eventDoc.get("coOrganizerUids"));
+            if (hostUid.equals(currentUser.getUid()) || coorganizers.contains(currentUser.getUid())) {
                 throw new IllegalStateException("Organizers cannot join their own waitlist");
             }
 
@@ -332,6 +581,10 @@ public class EventRepository {
             membershipPayload.put("status", WAITLIST_STATUS_IN);
             membershipPayload.put("joinedAt", FieldValue.serverTimestamp());
             membershipPayload.put("uid", currentUser.getUid());
+            if (location != null) {
+                GeoPoint geoPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
+                membershipPayload.put("location", geoPoint);
+            }
 
             transaction.set(eventWaitlistRef, membershipPayload);
             transaction.set(userWaitlistRef, membershipPayload);
@@ -586,6 +839,17 @@ public class EventRepository {
     }
 
     /**
+     * gets all confirmed Entrants for a given Event
+     * @param eventId
+     * the String id of the Event
+     * @return
+     * a Task containing the list of confirmed UserProfiles for the Event
+     */
+    public Task<List<UserProfile>> getConfirmedEntrantsForEvent(@NonNull String eventId) {
+        return getEntrantsForEvent(eventId, WAITLIST_STATUS_CONFIRMED);
+    }
+
+    /**
      * Performs lottery draw by moving random users from IN_WAITLIST to CHOSEN.
      * Selects up to maxParticipants winners from the pool of users who are IN_WAITLIST.
      * Updates status in both event and user records and notifies the selected users
@@ -626,17 +890,23 @@ public class EventRepository {
                                     if (drawCount <= 0) return Tasks.forResult(null);
 
                                     List<String> chosenUids = new ArrayList<>();
+                                    List<String> notChosenUids = new ArrayList<>();
                                     WriteBatch batch = firestore.batch();
-                                    for (int i = 0; i < drawCount; i++) {
+                                    
+                                    for (int i = 0; i < candidates.size(); i++) {
                                         String uid = candidates.get(i).getId();
-                                        chosenUids.add(uid);
-                                        DocumentReference eRef = eventWaitlistEntry(eventId, uid);
-                                        DocumentReference uRef = userWaitlistEntry(uid, eventId);
-                                        
-                                        batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
-                                        batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
-                                        batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        if (i < drawCount) {
+                                            chosenUids.add(uid);
+                                            DocumentReference eRef = eventWaitlistEntry(eventId, uid);
+                                            DocumentReference uRef = userWaitlistEntry(uid, eventId);
+                                            
+                                            batch.update(eRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(eRef, "chosenAt", FieldValue.serverTimestamp());
+                                            batch.update(uRef, "status", WAITLIST_STATUS_CHOSEN);
+                                            batch.update(uRef, "chosenAt", FieldValue.serverTimestamp());
+                                        } else {
+                                            notChosenUids.add(uid);
+                                        }
                                     }
 
                                     // set waitlistOpen to false in the event doc when a draw is performed
@@ -644,8 +914,22 @@ public class EventRepository {
 
                                     return batch.commit().continueWithTask(ignored -> {
                                         NotificationRepository notifRepo = new NotificationRepository();
-                                        // Pass the chosenUids directly to avoid re-querying!
-                                        return notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids);
+                                        List<Task<Void>> tasks = new ArrayList<>();
+                                        
+                                        // Send Winning Notifications
+                                        if (!chosenUids.isEmpty()) {
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), winningMessage, "WIN", chosenUids));
+                                        }
+                                        
+                                        // Send Loser/Waiting Notifications to the rest
+                                        if (!notChosenUids.isEmpty()) {
+                                            String loseMessage = "The draw for " + event.getTitle() + " has been performed. " +
+                                                    "You were not selected this time, but keep an eye on your inbox! " +
+                                                    "If someone declines their spot, it will be automatically redrawn.";
+                                            tasks.add(notifRepo.sendToSpecificUsers(eventId, event.getTitle(), loseMessage, "GENERAL", notChosenUids));
+                                        }
+                                        
+                                        return Tasks.whenAll(tasks);
                                     });
                                 });
                     });
@@ -670,9 +954,8 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them. Keeps track of timing
-     * and calls perform lottery draw
-     * NOT QUITE WORKING
+     * Removes all chosen or snoozed entrants and replaces them.
+     * Triggers a redraw to fill vacated spots.
      * @param eventId
      * The ID of the event to process expired winners from
      * @param winningMessage
@@ -681,19 +964,35 @@ public class EventRepository {
      * task that completes after expired winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage) {
-        long threeDaysAgo = System.currentTimeMillis() - (3L * 24 * 60 * 60 * 1000);
-        Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
+        return processExpiredWinners(eventId, winningMessage, System.currentTimeMillis());
+    }
 
+    /**
+     * Helper method for processExpiredWinners kept for testing compatibility.
+     * @param eventId
+     * The ID of the event to process chosen or snoozed winners from
+     * @param winningMessage
+     * The message to be sent to users selected in the lottery.
+     * @param currentTimeMillis
+     * The current time in milliseconds.
+     * @return
+     * task that completes after chosen or snoozed winners are processed and any replacement draws finish
+     */
+    public Task<Void> processExpiredWinners(String eventId, String winningMessage, long currentTimeMillis) {
         return firestore.collection("events").document(eventId).collection("waitlist")
                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
-                .whereLessThan("chosenAt", threshold)
                 .get().continueWithTask(task -> {
-                    List<DocumentSnapshot> expired = task.getResult().getDocuments();
-                    if (expired.isEmpty()) return performLotteryDraw(eventId, winningMessage);
+                    List<DocumentSnapshot> allPending = task.getResult().getDocuments();
+                    List<String> toRemove = new ArrayList<>();
+                    
+                    for (DocumentSnapshot doc : allPending) {
+                        toRemove.add(doc.getId());
+                    }
+                    
+                    if (toRemove.isEmpty()) return performLotteryDraw(eventId, winningMessage);
 
                     WriteBatch batch = firestore.batch();
-                    for (DocumentSnapshot doc : expired) {
-                        String uid = doc.getId();
+                    for (String uid : toRemove) {
                         batch.update(eventWaitlistEntry(eventId, uid), "status", WAITLIST_STATUS_DECLINED);
                         batch.update(userWaitlistEntry(uid, eventId), "status", WAITLIST_STATUS_DECLINED);
                     }
@@ -723,46 +1022,73 @@ public class EventRepository {
             @Nullable Uri posterUri
     ) {
         DocumentReference eventRef = firestore.collection("events").document(eventId);
-        if (posterUri == null) {
-            return eventRef.update(buildUpdatedEventPayload(event, null))
-                    .continueWith(task -> {
-                        if (!task.isSuccessful()) {
-                            throw task.getException() != null
-                                    ? task.getException()
-                                    : new IllegalStateException("Failed to update event");
+        return eventRef.get().continueWithTask(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException("Failed to load event");
+            }
+
+            DocumentSnapshot eventDoc = task.getResult();
+            if (eventDoc == null || !eventDoc.exists()) {
+                throw new IllegalStateException("Event not found");
+            }
+
+            EventItem loadedEvent = readEventItem(eventDoc);
+            return canUserManageEvent(loadedEvent, currentUser.getUid())
+                    .continueWithTask(manageTask -> {
+                        if (!manageTask.isSuccessful()) {
+                            throw manageTask.getException() != null
+                                    ? manageTask.getException()
+                                    : new IllegalStateException("Failed to verify event permissions");
                         }
-                        return eventId;
+
+                        if (!Boolean.TRUE.equals(manageTask.getResult())) {
+                            throw new IllegalStateException("You do not have permission to edit this event");
+                        }
+
+                        if (posterUri == null) {
+                            return eventRef.update(buildUpdatedEventPayload(event, null))
+                                    .continueWith(updateTask -> {
+                                        if (!updateTask.isSuccessful()) {
+                                            throw updateTask.getException() != null
+                                                    ? updateTask.getException()
+                                                    : new IllegalStateException("Failed to update event");
+                                        }
+                                        return eventId;
+                                    });
+                        }
+
+                        StorageReference posterRef = storage.getReference()
+                                .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
+
+                        return posterRef.putFile(posterUri)
+                                .continueWithTask(uploadTask -> {
+                                    if (!uploadTask.isSuccessful()) {
+                                        throw uploadTask.getException() != null
+                                                ? uploadTask.getException()
+                                                : new IllegalStateException("Poster upload failed");
+                                    }
+                                    return posterRef.getDownloadUrl();
+                                })
+                                .continueWithTask(downloadTask -> {
+                                    if (!downloadTask.isSuccessful()) {
+                                        throw downloadTask.getException() != null
+                                                ? downloadTask.getException()
+                                                : new IllegalStateException("Poster upload failed");
+                                    }
+                                    return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
+                                            .continueWith(updateTask -> {
+                                                if (!updateTask.isSuccessful()) {
+                                                    throw updateTask.getException() != null
+                                                            ? updateTask.getException()
+                                                            : new IllegalStateException("Failed to update event");
+                                                }
+                                                return eventId;
+                                            });
+                                });
                     });
-        }
-
-        StorageReference posterRef = storage.getReference()
-                .child("event-posters/" + currentUser.getUid() + "/" + eventId + ".jpg");
-
-        return posterRef.putFile(posterUri)
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful()) {
-                        throw task.getException() != null
-                                ? task.getException()
-                                : new IllegalStateException("Poster upload failed");
-                    }
-                    return posterRef.getDownloadUrl();
-                })
-                .continueWithTask(downloadTask -> {
-                    if (!downloadTask.isSuccessful()) {
-                        throw downloadTask.getException() != null
-                                ? downloadTask.getException()
-                                : new IllegalStateException("Poster upload failed");
-                    }
-                    return eventRef.update(buildUpdatedEventPayload(event, downloadTask.getResult().toString()))
-                            .continueWith(updateTask -> {
-                                if (!updateTask.isSuccessful()) {
-                                    throw updateTask.getException() != null
-                                            ? updateTask.getException()
-                                            : new IllegalStateException("Failed to update event");
-                                }
-                                return eventId;
-                            });
-                });
+        });
     }
 
     /**
@@ -828,27 +1154,16 @@ public class EventRepository {
      * whether an event is able to have sign-ups
      */
     private boolean isJoinableEvent(DocumentSnapshot doc, Date now) {
-        Boolean waitlistOpen = doc.getBoolean("waitlistOpen");
-        Boolean deleted = doc.getBoolean("deleted");
         Timestamp eventDateTimestamp = doc.getTimestamp("eventDate");
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
-
-        if (Boolean.TRUE.equals(deleted)) {
-            return false;
-        }
-
-        boolean upcomingByEventDate = false;
-        if (eventDateTimestamp != null) {
-            upcomingByEventDate = eventDateTimestamp.toDate().after(now);
-        }
-
-        boolean beforeDeadline = isWaitlistJoinOpen(
-                Boolean.TRUE.equals(waitlistOpen),
+        return isCurrentEventVisible(
+                Boolean.TRUE.equals(doc.getBoolean("waitlistOpen")),
+                Boolean.TRUE.equals(doc.getBoolean("deleted")),
+                normalizeIsPublic(doc.getBoolean("isPublic")),
+                eventDateTimestamp == null ? null : eventDateTimestamp.toDate(),
                 registrationDeadlineTimestamp == null ? null : registrationDeadlineTimestamp.toDate(),
                 now
         );
-
-        return Boolean.TRUE.equals(waitlistOpen) && (upcomingByEventDate || beforeDeadline);
     }
 
     /**
@@ -873,6 +1188,9 @@ public class EventRepository {
         Timestamp registrationDeadlineTimestamp = doc.getTimestamp("registrationDeadline");
         Boolean waitlistOpenValue = doc.getBoolean("waitlistOpen");
         String winningMessage = doc.getString("winningMessage");
+        List<String> coorganizers = normalizeCoorganizers(doc.get("coOrganizerUids"));
+        List<String> keywords = normalizeKeywords(doc.get("keywords"));
+        boolean isPublic = normalizeIsPublic(doc.getBoolean("isPublic"));
 
         if (!hasText(title)) {
             title = "Untitled Event";
@@ -907,8 +1225,11 @@ public class EventRepository {
                 Boolean.TRUE.equals(doc.getBoolean("requiresGeolocation")),
                 hostUid,
                 hostDisplayName,
+                coorganizers,
                 Boolean.TRUE.equals(waitlistOpenValue),
-                winningMessage != null ? winningMessage : ""
+                winningMessage != null ? winningMessage : "",
+                keywords,
+                isPublic
         );
     }
 
@@ -945,7 +1266,10 @@ public class EventRepository {
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
         payload.put("hostUid", hostUid);
         payload.put("hostDisplayName", hostDisplayName);
+        payload.put("coOrganizerUids", normalizeCoorganizers(event.getCoorganizers()));
         payload.put("waitlistOpen", true);
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         payload.put("deleted", false);
         payload.put("createdAt", Timestamp.now());
         payload.put("winningMessage", event.getWinningMessage());
@@ -976,6 +1300,9 @@ public class EventRepository {
         payload.put("eventDate", event.getEventDate());
         payload.put("requiresGeolocation", event.isRequiresGeolocation());
         payload.put("winningMessage", event.getWinningMessage());
+        payload.put("coOrganizerUids", normalizeCoorganizers(event.getCoorganizers()));
+        payload.put("keywords", normalizeKeywords(event.getKeywords()));
+        payload.put("isPublic", event.isPublic());
         if (posterUrl != null) {
             payload.put("posterUrl", posterUrl);
         }
@@ -1034,7 +1361,53 @@ public class EventRepository {
         if (createdAt != null) {
             userProfile.setCreatedAt(createdAt);
         }
+        userProfile.setSuspended(Boolean.TRUE.equals(doc.getBoolean("suspended")));
         return userProfile;
+    }
+
+    /**
+     * checks whether a user profile is allowed to use organizer-only features
+     * @param userSnapshot
+     * user document snapshot being checked
+     * @return
+     * true if the user is active, otherwise false
+     */
+    private boolean canManageOrganizerFeatures(@Nullable DocumentSnapshot userSnapshot) {
+        return userSnapshot != null
+                && userSnapshot.exists()
+                && !Boolean.TRUE.equals(userSnapshot.getBoolean("deleted"))
+                && !Boolean.TRUE.equals(userSnapshot.getBoolean("suspended"));
+    }
+
+    /**
+     * loads a list of Events from the database for a query used in managed Event screens
+     * @param query
+     * the firestore query used to load the Events
+     * @param failureMessage
+     * the error message used if loading fails
+     * @return
+     * a Task containing the list of loaded Event objects
+     */
+    private Task<List<EventItem>> loadManagedEvents(
+            @NonNull Query query,
+            @NonNull String failureMessage
+    ) {
+        return query.get().continueWith(task -> {
+            if (!task.isSuccessful()) {
+                throw task.getException() != null
+                        ? task.getException()
+                        : new IllegalStateException(failureMessage);
+            }
+
+            List<EventItem> results = new ArrayList<>();
+            for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                if (Boolean.TRUE.equals(doc.getBoolean("deleted"))) {
+                    continue;
+                }
+                results.add(readEventItem(doc));
+            }
+            return results;
+        });
     }
 
     /**
@@ -1128,13 +1501,128 @@ public class EventRepository {
     }
 
     /**
+     * returns whether an event should be visible on the current events screen
+     * @param waitlistOpen
+     * whether the waitlist is allowing sign-ups
+     * @param deleted
+     * whether the event is deleted
+     * @param isPublic
+     * whether the event is public
+     * @param eventDate
+     * when the event occurs
+     * @param registrationDeadline
+     * when sign-ups close
+     * @param now
+     * current time
+     * @return
+     * whether the event belongs on the current public events list
+     */
+    public static boolean isCurrentEventVisible(
+            boolean waitlistOpen,
+            boolean deleted,
+            boolean isPublic,
+            @Nullable Date eventDate,
+            @Nullable Date registrationDeadline,
+            @NonNull Date now
+    ) {
+        if (deleted || !isPublic || !waitlistOpen) {
+            return false;
+        }
+
+        boolean upcomingByEventDate = eventDate != null && eventDate.after(now);
+        boolean beforeDeadline = isWaitlistJoinOpen(waitlistOpen, registrationDeadline, now);
+        return upcomingByEventDate || beforeDeadline;
+    }
+
+    /**
+     * determines event access for the current user
+     * @param isPublic
+     * whether the event is public
+     * @param canManage
+     * whether the current user can manage the event
+     * @param hasWaitlistEntry
+     * whether the current user already has an event waitlist record
+     * @return
+     * whether the user can view the event
+     */
+    public static boolean canUserAccessEvent(
+            boolean isPublic,
+            boolean canManage,
+            boolean hasWaitlistEntry
+    ) {
+        return isPublic || canManage || hasWaitlistEntry;
+    }
+
+    /**
+     * checks if the given user is the host of a Event
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user is the host of the Event
+     */
+    public static boolean isHost(@NonNull EventItem event, @Nullable String uid) {
+        return hasText(uid) && uid.equals(event.getHostUid());
+    }
+
+    /**
+     * checks if the given user can manage a Event as the host or a coorganizer
+     * @param event
+     * the Event being checked
+     * @param uid
+     * the String uid of the user
+     * @return
+     * true if the user can manage the Event
+     */
+    public static boolean canManageEvent(@NonNull EventItem event, @Nullable String uid) {
+        if (isHost(event, uid)) {
+            return true;
+        }
+        if (!hasText(uid)) {
+            return false;
+        }
+        return event.getCoorganizers().contains(uid);
+    }
+
+    /**
+     * merges hosted Events and coorganized Events into one list without duplicates
+     * @param hostedEvents
+     * the list of Events hosted by the user
+     * @param coorganizedEvents
+     * the list of Events coorganized by the user
+     * @return
+     * a sorted list of managed Events without duplicates
+     */
+    @NonNull
+    public static List<EventItem> mergeManagedEvents(
+            @NonNull List<EventItem> hostedEvents,
+            @NonNull List<EventItem> coorganizedEvents
+    ) {
+        Map<String, EventItem> merged = new LinkedHashMap<>();
+        for (EventItem event : hostedEvents) {
+            merged.put(event.getId(), event);
+        }
+        for (EventItem event : coorganizedEvents) {
+            merged.put(event.getId(), event);
+        }
+
+        List<EventItem> results = new ArrayList<>(merged.values());
+        Collections.sort(results, Comparator.comparing(
+                EventItem::getEventDate,
+                Comparator.nullsLast(Date::compareTo)
+        ));
+        return results;
+    }
+
+    /**
      * return a number 1 more than the argument
      * @param currentCount
      * int to be incremented
      * @return
      * int currentCount incremented by 1
      */
-    static int incrementWaitlistCount(int currentCount) {
+    public static int incrementWaitlistCount(int currentCount) {
         return currentCount + 1;
     }
 
@@ -1145,8 +1633,91 @@ public class EventRepository {
      * @return
      * int currentCount after decrementing by 1
      */
-    static int decrementWaitlistCount(int currentCount) {
+    public static int decrementWaitlistCount(int currentCount) {
         return Math.max(0, currentCount - 1);
+    }
+
+    /**
+     * normalizes keywords read from user input or firestore
+     * @param rawKeywords
+     * raw keyword list
+     * @return
+     * trimmed keyword list without duplicates or blanks
+     */
+    @NonNull
+    public static List<String> normalizeKeywords(@Nullable Object rawKeywords) {
+        if (!(rawKeywords instanceof List<?>)) {
+            return new ArrayList<>();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (Object rawKeyword : (List<?>) rawKeywords) {
+            if (!(rawKeyword instanceof String)) {
+                continue;
+            }
+            String keyword = ((String) rawKeyword).trim();
+            if (keyword.isEmpty() || containsKeywordIgnoreCase(normalized, keyword)) {
+                continue;
+            }
+            normalized.add(keyword);
+        }
+        return normalized;
+    }
+
+    /**
+     * normalizes coorganizer user ids read from user input or firestore
+     * @param rawCoorganizers
+     * raw coorganizer user id list
+     * @return
+     * trimmed coorganizer user ids without duplicates or blanks
+     */
+    @NonNull
+    public static List<String> normalizeCoorganizers(@Nullable Object rawCoorganizers) {
+        if (!(rawCoorganizers instanceof List<?>)) {
+            return new ArrayList<>();
+        }
+
+        List<String> normalized = new ArrayList<>();
+        for (Object rawUid : (List<?>) rawCoorganizers) {
+            if (!(rawUid instanceof String)) {
+                continue;
+            }
+            String uid = normalize((String) rawUid);
+            if (uid.isEmpty() || normalized.contains(uid)) {
+                continue;
+            }
+            normalized.add(uid);
+        }
+        return normalized;
+    }
+
+    /**
+     * normalizes the stored public flag for legacy events without the field
+     * @param isPublicValue
+     * stored public flag
+     * @return
+     * true when the field is missing, otherwise the stored value
+     */
+    public static boolean normalizeIsPublic(@Nullable Boolean isPublicValue) {
+        return isPublicValue == null || Boolean.TRUE.equals(isPublicValue);
+    }
+
+    /**
+     * checks if a keyword already exists in a list of keywords ignoring case
+     * @param keywords
+     * the list of keywords being checked
+     * @param candidate
+     * the keyword being searched for
+     * @return
+     * true if the keyword already exists in the list
+     */
+    private static boolean containsKeywordIgnoreCase(@NonNull List<String> keywords, @NonNull String candidate) {
+        for (String keyword : keywords) {
+            if (keyword.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1157,7 +1728,7 @@ public class EventRepository {
      * cleaned String
      */
     @NonNull
-    private String normalize(String value) {
+    private static String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
@@ -1185,7 +1756,340 @@ public class EventRepository {
      * @return
      * true if there was actual text in the string
      */
-    private boolean hasText(String value) {
+    private static boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    /**
+     * Adds a new comment to the specified event.
+     *
+     * <p>This method supports both top-level comments and replies.</p>
+     *
+     * @param eventId the ID of the event receiving the comment
+     * @param currentUser the signed-in user posting the comment
+     * @param text the comment text to post
+     * @param parentCommentId the parent comment ID, or an empty string for a top-level comment
+     * @param depth the nesting depth for the comment
+     * @return a task representing the result of the comment write operation
+     */
+    public Task<Void> addComment(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String text,
+            @Nullable String parentCommentId,
+            int depth
+    ) {
+        String trimmedText = text.trim();
+        if (trimmedText.isEmpty()) {
+            return Tasks.forException(new IllegalArgumentException("Comment cannot be empty"));
+        }
+
+        DocumentReference commentRef = firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document();
+
+        return getCommentDisplayName(currentUser)
+                .continueWithTask(task -> {
+                    String displayName = task.isSuccessful() ? normalize(task.getResult()) : "";
+
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("uid", currentUser.getUid());
+                    payload.put("text", trimmedText);
+                    payload.put("username", displayName);
+                    payload.put("createdAt", FieldValue.serverTimestamp());
+                    payload.put("parentCommentId", parentCommentId == null ? "" : parentCommentId.trim());
+                    payload.put("depth", Math.max(0, depth));
+                    payload.put("score", 0);
+                    payload.put("deleted", false);
+
+                    return commentRef.set(payload);
+                });
+    }
+
+    /**
+     * Adds a new top-level comment to the specified event.
+     *
+     * @param eventId the ID of the event receiving the comment
+     * @param currentUser the signed-in user posting the comment
+     * @param text the comment text to post
+     * @return a task representing the result of the comment write operation
+     */
+    public Task<Void> addComment(
+            @NonNull String eventId,
+            @NonNull FirebaseUser currentUser,
+            @NonNull String text
+    ) {
+        return addComment(eventId, currentUser, text, "", 0);
+    }
+
+    /**
+     * Resolves the name shown for a comment author.
+     *
+     * @param currentUser the signed-in user posting the comment
+     * @return a task resolving to the preferred display name for comments
+     */
+    private Task<String> getCommentDisplayName(@NonNull FirebaseUser currentUser) {
+        return firestore.collection("users")
+                .document(currentUser.getUid())
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        return "";
+                    }
+
+                    DocumentSnapshot userDoc = task.getResult();
+                    if (userDoc == null || !userDoc.exists()) {
+                        return "";
+                    }
+
+                    return normalize(userDoc.getString("fullName"));
+                });
+    }
+
+    /**
+     * Soft-deletes a comment from an event while preserving the thread structure.
+     *
+     * @param eventId the ID of the event containing the comment
+     * @param commentId the ID of the comment to delete
+     * @return a task representing the update operation
+     */
+    public Task<Void> deleteComment(
+            @NonNull String eventId,
+            @NonNull String commentId
+    ) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("text", "[deleted]");
+        updates.put("deleted", true);
+
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document(commentId)
+                .update(updates);
+    }
+
+    /**
+     * Loads all comments for the specified event and returns them in a flattened
+     * threaded order sorted by score.
+     *
+     * @param eventId the ID of the event whose comments should be loaded
+     * @return a task containing the threaded list of comments for the event
+     */
+    public Task<List<CommentItem>> getComments(@NonNull String eventId) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to load comments");
+                    }
+
+                    List<CommentItem> allComments = new ArrayList<>();
+                    for (DocumentSnapshot doc : task.getResult().getDocuments()) {
+                        String uid = normalize(doc.getString("uid"));
+                        String username = normalize(doc.getString("username"));
+                        String text = normalize(doc.getString("text"));
+                        Timestamp createdAtTimestamp = doc.getTimestamp("createdAt");
+                        String parentCommentId = normalize(doc.getString("parentCommentId"));
+
+                        Long depthLong = doc.getLong("depth");
+                        int depth = depthLong == null ? 0 : depthLong.intValue();
+
+                        Long scoreLong = doc.getLong("score");
+                        int score = scoreLong == null ? 0 : scoreLong.intValue();
+
+                        Boolean deletedValue = doc.getBoolean("deleted");
+                        boolean deleted = Boolean.TRUE.equals(deletedValue);
+
+                        allComments.add(new CommentItem(
+                                doc.getId(),
+                                uid,
+                                username,
+                                text,
+                                createdAtTimestamp == null ? null : createdAtTimestamp.toDate(),
+                                parentCommentId,
+                                depth,
+                                score,
+                                deleted
+                        ));
+                    }
+
+                    return buildThreadedComments(allComments);
+                });
+    }
+
+    /**
+     * Applies an upvote or downvote to a comment for the specified user.
+     *
+     * <p>If the same vote is applied twice, the vote is removed.</p>
+     *
+     * @param eventId the ID of the event containing the comment
+     * @param commentId the ID of the comment being voted on
+     * @param uid the user ID of the voter
+     * @param newVoteValue the requested vote value, either 1 or -1
+     * @return a task representing the transaction result
+     */
+    public Task<Void> voteOnComment(
+            @NonNull String eventId,
+            @NonNull String commentId,
+            @NonNull String uid,
+            int newVoteValue
+    ) {
+        if (newVoteValue != 1 && newVoteValue != -1) {
+            return Tasks.forException(new IllegalArgumentException("Vote must be 1 or -1"));
+        }
+
+        DocumentReference commentRef = firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .document(commentId);
+
+        DocumentReference voteRef = commentRef
+                .collection("votes")
+                .document(uid);
+
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot commentSnapshot = transaction.get(commentRef);
+            if (!commentSnapshot.exists()) {
+                throw new IllegalStateException("Comment not found");
+            }
+
+            DocumentSnapshot voteSnapshot = transaction.get(voteRef);
+
+            long currentScore = 0;
+            Long currentScoreLong = commentSnapshot.getLong("score");
+            if (currentScoreLong != null) {
+                currentScore = currentScoreLong;
+            }
+
+            int oldVote = 0;
+            if (voteSnapshot.exists()) {
+                Long oldVoteLong = voteSnapshot.getLong("value");
+                if (oldVoteLong != null) {
+                    oldVote = oldVoteLong.intValue();
+                }
+            }
+
+            int finalVote = (oldVote == newVoteValue) ? 0 : newVoteValue;
+            long newScore = currentScore - oldVote + finalVote;
+
+            transaction.update(commentRef, "score", newScore);
+
+            if (finalVote == 0) {
+                transaction.delete(voteRef);
+            } else {
+                Map<String, Object> voteData = new HashMap<>();
+                voteData.put("value", finalVote);
+                transaction.set(voteRef, voteData);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * Builds a flattened Reddit-style comment list from a raw collection of comments.
+     *
+     * @param allComments the raw list of comments loaded from Firestore
+     * @return a flattened threaded list suitable for display
+     */
+    @NonNull
+    private List<CommentItem> buildThreadedComments(@NonNull List<CommentItem> allComments) {
+        Map<String, List<CommentItem>> childrenMap = new HashMap<>();
+        List<CommentItem> topLevel = new ArrayList<>();
+
+        for (CommentItem comment : allComments) {
+            if (comment.isTopLevel()) {
+                topLevel.add(comment);
+            } else {
+                childrenMap.computeIfAbsent(comment.getParentCommentId(), key -> new ArrayList<>())
+                        .add(comment);
+            }
+        }
+
+        Comparator<CommentItem> rankingComparator = (a, b) -> {
+            if (b.getScore() != a.getScore()) {
+                return Integer.compare(b.getScore(), a.getScore());
+            }
+
+            Date aDate = a.getCreatedAt();
+            Date bDate = b.getCreatedAt();
+            if (aDate == null && bDate == null) {
+                return 0;
+            }
+            if (aDate == null) {
+                return 1;
+            }
+            if (bDate == null) {
+                return -1;
+            }
+            return aDate.compareTo(bDate);
+        };
+
+        topLevel.sort(rankingComparator);
+        for (List<CommentItem> childList : childrenMap.values()) {
+            childList.sort(rankingComparator);
+        }
+
+        List<CommentItem> flattened = new ArrayList<>();
+        for (CommentItem top : topLevel) {
+            addCommentWithReplies(top, childrenMap, flattened);
+        }
+
+        return flattened;
+    }
+
+    /**
+     * Recursively appends a parent comment and all of its descendants to the result list.
+     *
+     * @param parent the parent comment to append
+     * @param childrenMap a map from parent comment IDs to reply lists
+     * @param result the flattened output list
+     */
+    private void addCommentWithReplies(
+            @NonNull CommentItem parent,
+            @NonNull Map<String, List<CommentItem>> childrenMap,
+            @NonNull List<CommentItem> result
+    ) {
+        result.add(parent);
+        List<CommentItem> children = childrenMap.get(parent.getCommentId());
+        if (children == null) {
+            return;
+        }
+
+        for (CommentItem child : children) {
+            addCommentWithReplies(child, childrenMap, result);
+        }
+    }
+
+    /**
+     * Determines whether the specified user has previously commented on an event.
+     *
+     * @param eventId the ID of the event
+     * @param uid the ID of the user
+     * @return a task resolving to true if the user has at least one comment on the event
+     */
+    public Task<Boolean> hasUserCommentedOnEvent(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return firestore.collection("events")
+                .document(eventId)
+                .collection("comments")
+                .whereEqualTo("uid", uid)
+                .limit(1)
+                .get()
+                .continueWith(task -> {
+                    if (!task.isSuccessful()) {
+                        throw task.getException() != null
+                                ? task.getException()
+                                : new IllegalStateException("Failed to verify comment access");
+                    }
+                    return !task.getResult().isEmpty();
+                });
     }
 }

@@ -1,25 +1,44 @@
 package com.example.eventlotterysystem;
 
+import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.storage.FirebaseStorage;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
+
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import org.osmdroid.api.IMapController;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
 
 /**
  * This is a class that is the controller of the activity_view_event screen
@@ -33,6 +52,7 @@ public class ViewEventActivity extends AppCompatActivity {
     private ImageView posterImageView;
     private TextView screenTitleTextView;
     private TextView titleTextView;
+    private ChipGroup keywordsChipGroup;
     private TextView hostTextView;
     private TextView locationTextView;
     private TextView dateTextView;
@@ -42,17 +62,20 @@ public class ViewEventActivity extends AppCompatActivity {
     private TextView geolocationTextView;
     private TextView descriptionTextView;
     private TextView waitlistJoinedTextView;
+    private TextView qrCodeButton;
     private Button entrantsButton;
     private Button editEventButton;
+    private Button commentsButton;
+    private Button messageOrganizerButton;
     private Button joinWaitlistButton;
     private Button leaveWaitlistButton;
-
     private Button acceptInvitationButton;
     private Button rejectInvitationButton;
+    private Button showMapButton;
+    private Button sendPrivateButton;
     private String currentWaitlistStatus = "";
     private FirebaseAuth auth;
     private EventRepository repository;
-
     private String eventId;
     private boolean canEditEvent;
     private EventItem currentEvent;
@@ -77,6 +100,7 @@ public class ViewEventActivity extends AppCompatActivity {
         posterImageView = findViewById(R.id.viewEventPoster);
         screenTitleTextView = findViewById(R.id.viewEventScreenTitle);
         titleTextView = findViewById(R.id.viewEventTitle);
+        keywordsChipGroup = findViewById(R.id.viewEventKeywords);
         hostTextView = findViewById(R.id.viewEventHost);
         locationTextView = findViewById(R.id.viewEventLocation);
         dateTextView = findViewById(R.id.viewEventDate);
@@ -88,10 +112,15 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView = findViewById(R.id.viewEventWaitlistJoinedLabel);
         entrantsButton = findViewById(R.id.viewEventEntrantsButton);
         editEventButton = findViewById(R.id.viewEventEditButton);
+        commentsButton = findViewById(R.id.viewEventCommentsButton);
+        messageOrganizerButton = findViewById(R.id.viewEventMessageOrganizerButton);
         joinWaitlistButton = findViewById(R.id.viewEventJoinWaitlistButton);
         leaveWaitlistButton = findViewById(R.id.viewEventLeaveWaitlistButton);
+        qrCodeButton = findViewById(R.id.createQRCode);
         acceptInvitationButton = findViewById(R.id.viewEventAcceptInvitationButton);
         rejectInvitationButton = findViewById(R.id.viewEventRejectInvitationButton);
+        showMapButton = findViewById(R.id.viewEventShowMapButton);
+        sendPrivateButton = findViewById(R.id.viewEventSendPrivateButton);
 
         auth = FirebaseAuth.getInstance();
         repository = new EventRepository();
@@ -99,10 +128,15 @@ public class ViewEventActivity extends AppCompatActivity {
         findViewById(R.id.viewEventBackButton).setOnClickListener(v -> finish());
         entrantsButton.setOnClickListener(v -> openEntrantsScreen());
         editEventButton.setOnClickListener(v -> openEventEditor());
+        commentsButton.setOnClickListener(v -> openCommentsScreen());
+        messageOrganizerButton.setOnClickListener(v -> openMessageScreen());
         joinWaitlistButton.setOnClickListener(v -> showJoinWaitlistDialog());
         leaveWaitlistButton.setOnClickListener(v -> leaveWaitlist());
+        qrCodeButton.setOnClickListener(v -> openQrCodeScreen());
         acceptInvitationButton.setOnClickListener(v -> acceptInvitation());
         rejectInvitationButton.setOnClickListener(v -> showRejectInvitationDialog());
+        showMapButton.setOnClickListener(v -> showMap());
+        sendPrivateButton.setOnClickListener(v -> openSendPrivateScreen());
 
         eventId = getIntent().getStringExtra("EVENT_ID");
         if (eventId == null || eventId.isEmpty()) {
@@ -113,12 +147,8 @@ public class ViewEventActivity extends AppCompatActivity {
         canEditEvent = getIntent().getBooleanExtra("CAN_EDIT_EVENT", false);
         screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
         editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
-
-        findViewById(R.id.createQRCode).setOnClickListener(v -> {
-            Intent intent = new Intent(this, QRCode.class);
-            intent.putExtra("Event_ID", eventId);
-            startActivity(intent);
-        });
+        showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        qrCodeButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
     }
 
     /**
@@ -134,6 +164,7 @@ public class ViewEventActivity extends AppCompatActivity {
     /**
      * This loads the information of the selected event into this activity
      * This gets the event from the repository
+     * for private Events it checks if the current user is allowed to access the Event
      * if the event is unable to be loaded renderLoadFailureState() is run
      * if the event info was loaded but unable to be displayed renderLoadFailureState() is run
      * otherwise it  edits the text of the view to display event information
@@ -141,24 +172,33 @@ public class ViewEventActivity extends AppCompatActivity {
     private void loadEvent() {
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    try {
-                        currentEvent = event;
-                        titleTextView.setText(event.getTitle());
-                        showPoster(event.getPosterUrl());
-                        showMetadata(event);
-                        descriptionTextView.setText(hasText(event.getDescription())
-                                ? event.getDescription()
-                                : getString(R.string.event_card_missing_description));
-                        loadWaitlistState(event);
-                    } catch (Exception exception) {
-                        Log.e(TAG, "Failed to render event details", exception);
-                        Toast.makeText(
-                                ViewEventActivity.this,
-                                getString(R.string.failed_to_render_event),
-                                Toast.LENGTH_LONG
-                        ).show();
-                        renderLoadFailureState();
-                    }
+                    FirebaseUser currentUser = auth.getCurrentUser();
+                    repository.canUserAccessEvent(
+                                    event,
+                                    eventId,
+                                    currentUser == null ? null : currentUser.getUid()
+                            )
+                            .addOnSuccessListener(canAccess -> {
+                                if (!canAccess) {
+                                    Toast.makeText(
+                                            ViewEventActivity.this,
+                                            R.string.private_event_access_denied,
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                    return;
+                                }
+                                renderEvent(event);
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify event access", exception);
+                                Toast.makeText(
+                                        ViewEventActivity.this,
+                                        buildLoadErrorMessage(exception),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                                renderLoadFailureState();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to load event details", e);
@@ -172,23 +212,129 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
+     * displays the loaded Event information on the screen
+     * if the Event has keywords they are shown as chips on the screen
+     * @param event
+     * the Event being displayed
+     */
+    private void renderEvent(EventItem event) {
+        try {
+            currentEvent = event;
+            FirebaseUser currentUser = auth.getCurrentUser();
+            titleTextView.setText(event.getTitle());
+            renderKeywordChips(event.getKeywords());
+            showPoster(event.getPosterUrl());
+            showMetadata(event);
+            descriptionTextView.setText(hasText(event.getDescription())
+                    ? event.getDescription()
+                    : getString(R.string.event_card_missing_description));
+            if (currentUser == null) {
+                canEditEvent = false;
+                applyManagementVisibility(event);
+                updateMessageButton(currentUser);
+                loadWaitlistState(event);
+                return;
+            }
+
+            repository.canUserManageEvent(event, currentUser.getUid())
+                    .addOnSuccessListener(canManage -> {
+                        canEditEvent = canManage;
+                        applyManagementVisibility(event);
+                        updateMessageButton(currentUser);
+                        loadWaitlistState(event);
+                    })
+                    .addOnFailureListener(exception -> {
+                        Log.e(TAG, "Failed to verify event management access", exception);
+                        canEditEvent = false;
+                        applyManagementVisibility(event);
+                        updateMessageButton(currentUser);
+                        loadWaitlistState(event);
+                    });
+        } catch (Exception exception) {
+            Log.e(TAG, "Failed to render event details", exception);
+            Toast.makeText(
+                    ViewEventActivity.this,
+                    getString(R.string.failed_to_render_event),
+                    Toast.LENGTH_LONG
+            ).show();
+            renderLoadFailureState();
+        }
+    }
+
+    /**
      * This is a controller for when editEventButton is press
      * it starts the CreateEventActivity Activity with the EVENT_ID as an argument
      */
     private void openEventEditor() {
+        if (!canEditEvent) {
+            return;
+        }
         Intent intent = new Intent(this, CreateEventActivity.class);
         intent.putExtra("EVENT_ID", eventId);
         startActivity(intent);
     }
 
+    /**
+     * opens the generated promotional QR code for public events that the current user can manage
+     */
+    private void openQrCodeScreen() {
+        if (!canEditEvent || currentEvent == null || !currentEvent.isPublic()) {
+            return;
+        }
+        Intent intent = new Intent(this, QRCode.class);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("Event_ID", eventId);
+        startActivity(intent);
+    }
+
+    /**
+     * opens the EntrantsActivity for the current Event when the user can manage it
+     */
     private void openEntrantsScreen() {
-        if (currentEvent == null) {
+        if (currentEvent == null || !canEditEvent) {
             return;
         }
         Intent intent = new Intent(this, EntrantsActivity.class);
         intent.putExtra(EntrantsActivity.EVENT_ID, currentEvent.getId());
         intent.putExtra(EntrantsActivity.TOTAL_ENTRANTS, currentEvent.getTotalEntrants());
         intent.putExtra(EntrantsActivity.MAX_ENTRANTS, currentEvent.getMaxEntrants());
+        startActivity(intent);
+    }
+
+    /**
+     * Opens the dedicated comments screen for the current event.
+     */
+    private void openCommentsScreen() {
+        Intent intent = new Intent(this, CommentsActivity.class);
+        intent.putExtra(CommentsActivity.EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
+    /**
+     * opens the direct message screen for the organizer of the current Event
+     */
+    private void openMessageScreen() {
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentEvent == null || currentUser == null || canEditEvent) {
+            return;
+        }
+
+        Intent intent = new Intent(this, MessageActivity.class);
+        intent.putExtra(MessageActivity.OTHER_UID, currentEvent.getHostUid());
+        intent.putExtra(MessageActivity.OTHER_NAME, currentEvent.getHostDisplayName());
+        startActivity(intent);
+    }
+
+    /**
+     * opens the screen used for sending a private Event invitation
+     */
+    private void openSendPrivateScreen() {
+        if (currentEvent == null || !canEditEvent) {
+            return;
+        }
+        Intent intent = new Intent(this, SendPrivateEventActivity.class);
+        intent.putExtra("EVENT_ID", eventId);
+        intent.putExtra("EVENT_TITLE", currentEvent.getTitle());
         startActivity(intent);
     }
 
@@ -216,17 +362,46 @@ public class ViewEventActivity extends AppCompatActivity {
                 .show();
     }
 
+
+    /**
+     * This ask the user for permission of using GPS to location current location
+     */
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (!isGranted) {
+                    Toast.makeText(this, R.string.location_permission_required_to_join, Toast.LENGTH_LONG).show();
+                    setWaitlistActionLoading(false);
+                } else {
+                    executeJoinWaitlist();
+                }
+            });
+
+    /**
+     * This method check the Geolocation requirement of the event before join the waitlist
+     * if required, and have no permission of GPS, it will ask for permission
+     * if not required or has permission, it will proceed to join the waitlist and save to database
+     */
+    private void joinWaitlist() {
+        if (currentEvent == null) {
+            return;
+        }
+        setWaitlistActionLoading(true);
+        if(currentEvent.isRequiresGeolocation() &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+        } else {
+            executeJoinWaitlist();
+        }
+    }
+
     /**
      * This is method that get the user to join the waitlist of the event
      * if successful it saves the waitlist item to the database
      * on failure notifies the user that it was unable to do so
      */
-    private void joinWaitlist() {
+    private void executeJoinWaitlist(){
         FirebaseUser currentUser = auth.getCurrentUser();
-        if (currentUser == null || currentEvent == null) {
-            return;
-        }
-        setWaitlistActionLoading(true);
+        if(currentUser == null) return;
         repository.joinWaitlist(eventId, currentUser)
                 .addOnSuccessListener(ignored -> {
                     Toast.makeText(
@@ -283,11 +458,83 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
+     * This function get a list of geolocation of participant from the waitlist
+     * Create a pop up window, and pin point the participant's location on map
+     */
+    private void showMap(){
+        if (currentEvent == null || !canEditEvent) return;
+
+        if (!currentEvent.isRequiresGeolocation()){
+            Toast.makeText(ViewEventActivity.this, "This event do not requires geolocation", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        FirebaseFirestore.getInstance()
+                .collection("events")
+                .document(eventId)
+                .collection("waitlist")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<GeoPoint> points = new ArrayList<>();
+                    for (DocumentSnapshot doc : querySnapshot){
+                        com.google.firebase.firestore.GeoPoint location = doc.getGeoPoint("location");
+                        if (location != null){
+                            points.add(new GeoPoint(location.getLatitude(), location.getLongitude()));
+                        }
+                    }
+
+                    if(points.isEmpty()){
+                        Toast.makeText(ViewEventActivity.this, "No entrant locations are available", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Context context = getApplicationContext();
+                    org.osmdroid.config.Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid_prefs", Context.MODE_PRIVATE));
+                    org.osmdroid.config.Configuration.getInstance().setUserAgentValue(getPackageName());
+
+                    MapView mapView = new MapView(ViewEventActivity.this);
+
+                    mapView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 800));
+
+                    mapView.setTileSource(TileSourceFactory.MAPNIK);
+                    mapView.setMultiTouchControls(true);
+                    IMapController controller = mapView.getController();
+                    controller.setZoom(5.0);
+
+                    for(GeoPoint point : points){
+                        Marker marker = new Marker(mapView);
+                        marker.setPosition(point);
+                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+                        marker.setTitle("Entrant");
+                        mapView.getOverlays().add(marker);
+                    }
+
+                    controller.setCenter(points.get(0));
+
+                    mapView.onResume();
+                    new AlertDialog.Builder(ViewEventActivity.this)
+                            .setTitle("Entrant Locations")
+                            .setView(mapView)
+                            .setPositiveButton("Close", (dialog, which) -> {
+                                mapView.onPause();
+                            }).show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load entrant locations", e);
+                    Toast.makeText(ViewEventActivity.this, "Failed to load map data", Toast.LENGTH_SHORT).show();
+                });
+
+    }
+
+    /**
      * Accepts an invitation for the current user by updating the waitlist status
-     * to {@code CONFIRMED}.
+     * to CONFIRMED.
      *
      * On success, the event is reloaded so the confirmed state is reflected in the UI.
      */
+
+
+
     private void acceptInvitation() {
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null || currentEvent == null) {
@@ -322,6 +569,9 @@ public class ViewEventActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * opens a popup asking the user to confirm rejecting the current invitation
+     */
     private void showRejectInvitationDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Reject invitation")
@@ -333,7 +583,7 @@ public class ViewEventActivity extends AppCompatActivity {
 
     /**
      * Rejects an invitation for the current user by updating the waitlist status
-     * to {@code DECLINED}.
+     * to DECLINED.
      *
      * On success, the event is reloaded so the declined state is reflected in the UI.
      */
@@ -476,8 +726,7 @@ public class ViewEventActivity extends AppCompatActivity {
      */
 
     private void updateWaitlistControls(EventItem event, String currentUserUid, String status) {
-        boolean organizer = currentUserUid != null && currentUserUid.equals(event.getHostUid());
-        if (organizer) {
+        if (EventRepository.canManageEvent(event, currentUserUid)) {
             updateWaitlistFlags(false, false, false, false);
             return;
         }
@@ -609,6 +858,28 @@ public class ViewEventActivity extends AppCompatActivity {
     }
 
     /**
+     * shows the Event keywords as chips on the screen
+     * @param keywords
+     * the list of keywords for the Event
+     */
+    private void renderKeywordChips(List<String> keywords) {
+        keywordsChipGroup.removeAllViews();
+        if (keywords == null || keywords.isEmpty()) {
+            keywordsChipGroup.setVisibility(View.GONE);
+            return;
+        }
+
+        keywordsChipGroup.setVisibility(View.VISIBLE);
+        for (String keyword : keywords) {
+            Chip chip = new Chip(this);
+            chip.setText(keyword);
+            chip.setClickable(false);
+            chip.setCheckable(false);
+            keywordsChipGroup.addView(chip);
+        }
+    }
+
+    /**
      * hides all the views on the screen shows error message of what cause the failure
      * is used when there is a problem in loading the data of the current event
      */
@@ -616,6 +887,8 @@ public class ViewEventActivity extends AppCompatActivity {
         posterImageView.setVisibility(View.GONE);
         posterImageView.setImageDrawable(null);
         titleTextView.setText(R.string.failed_to_load_event);
+        keywordsChipGroup.removeAllViews();
+        keywordsChipGroup.setVisibility(View.GONE);
         hostTextView.setText("");
         locationTextView.setText("");
         dateTextView.setText("");
@@ -626,6 +899,8 @@ public class ViewEventActivity extends AppCompatActivity {
         waitlistJoinedTextView.setVisibility(View.GONE);
         joinWaitlistButton.setVisibility(View.GONE);
         leaveWaitlistButton.setVisibility(View.GONE);
+        messageOrganizerButton.setVisibility(View.GONE);
+        qrCodeButton.setVisibility(View.GONE);
         geolocationTextView.setText("");
         descriptionTextView.setText(R.string.event_details_load_failed_message);
     }
@@ -652,22 +927,52 @@ public class ViewEventActivity extends AppCompatActivity {
      */
     private String buildWaitlistErrorMessage(Exception exception) {
         if (exception != null && exception.getMessage() != null && !exception.getMessage().trim().isEmpty()) {
-            return getString(R.string.waitlist_action_failed) + ": " + exception.getMessage().trim();
+            String message = exception.getMessage().trim();
+            if (EventRepository.LOCATION_PERMISSION_REQUIRED_ERROR.equals(message)) {
+                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_permission_required_to_join);
+            }
+            if (EventRepository.LOCATION_REQUIRED_ERROR.equals(message)) {
+                return getString(R.string.waitlist_action_failed) + ": " + getString(R.string.location_required_to_join);
+            }
+            return getString(R.string.waitlist_action_failed) + ": " + message;
         }
         return getString(R.string.waitlist_action_failed);
     }
 
     /**
-     * Determines whether the entrants button should be shown for the current user.
-     *
-     * @return true if the signed-in user is the host of the current event, otherwise false
+     * checks if the entrants button should be shown for the current user
+     * @return
+     * true if the current user can manage the current Event
      */
-
     private boolean shouldShowEntrantsButton() {
-        FirebaseUser currentUser = auth.getCurrentUser();
-        return currentEvent != null
-                && currentUser != null
-                && currentUser.getUid().equals(currentEvent.getHostUid());
+        return currentEvent != null && canEditEvent;
+    }
+
+    /**
+     * updates the message organizer button based on whether the current user can message the organizer
+     * @param currentUser
+     * the currently signed in FirebaseUser
+     */
+    private void updateMessageButton(FirebaseUser currentUser) {
+        boolean canMessage = currentUser != null
+                && !canEditEvent
+                && currentEvent != null
+                && !currentUser.getUid().equals(currentEvent.getHostUid());
+        messageOrganizerButton.setVisibility(canMessage ? View.VISIBLE : View.GONE);
+        messageOrganizerButton.setEnabled(canMessage);
+    }
+
+    /**
+     * applies organizer-only button visibility for the current session
+     * @param event
+     * the current Event being displayed
+     */
+    private void applyManagementVisibility(EventItem event) {
+        screenTitleTextView.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        editEventButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        qrCodeButton.setVisibility((event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
+        showMapButton.setVisibility(canEditEvent ? View.VISIBLE : View.GONE);
+        sendPrivateButton.setVisibility((!event.isPublic() && canEditEvent) ? View.VISIBLE : View.GONE);
     }
 
     /**

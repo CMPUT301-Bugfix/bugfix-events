@@ -7,6 +7,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
     <application
         android:allowBackup="true"
@@ -30,7 +32,13 @@
             android:name=".AdminZoneActivity"
             android:exported="false" />
         <activity
+            android:name=".AdminPhotosActivity"
+            android:exported="false" />
+        <activity
             android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TermsActivity"
             android:exported="false" />
         <activity
             android:name=".HostedEventsActivity"
@@ -46,6 +54,17 @@
             android:exported="false" />
         <activity
             android:name=".CreateEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CommentsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".MessageActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".InboxActivity"
             android:exported="false" />
         <activity
             android:name=".ViewEventActivity"
@@ -78,6 +97,15 @@
             android:exported="false" />
         <activity
             android:name=".AdminEventDetailsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminNotificationsLogActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SendPrivateEventActivity"
+            android:exported="false" />
+        <activity
+            android:name=".InvitationStatusActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

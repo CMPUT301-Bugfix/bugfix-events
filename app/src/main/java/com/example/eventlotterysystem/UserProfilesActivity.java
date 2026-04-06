@@ -51,10 +51,8 @@ public class UserProfilesActivity extends AppCompatActivity {
     /**
      * This method loads the UI, initializes the firebase and event repository instances,
      * and connects the java variables to the views in the XML
-     * @param savedInstanceState If the activity is being re-initialized after
-     *     previously being shut down then this Bundle contains the data it most
-     *     recently supplied in {@link #onSaveInstanceState}.  <b><i>Note: Otherwise it is null.</i></b>
-     *
+     * @param savedInstanceState
+     * the Bundle data from a previous state of the activity
      */
 
     @Override
@@ -112,6 +110,17 @@ public class UserProfilesActivity extends AppCompatActivity {
         userTypeFilterSpinner.setAdapter(adapter);
 
         userTypeFilterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            /**
+             * updates the selected filter when the admin chooses a filter option
+             * @param parent
+             * the AdapterView where the selection happened
+             * @param view
+             * the selected row view
+             * @param position
+             * the position of the selected filter
+             * @param id
+             * the row id of the selected filter
+             */
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String nextAccountType = position == 1 ? "organizer" : "all";
@@ -124,6 +133,11 @@ public class UserProfilesActivity extends AppCompatActivity {
                 }
             }
 
+            /**
+             * handles the case where no filter option is selected
+             * @param parent
+             * the AdapterView where the selection would have happened
+             */
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
@@ -254,6 +268,15 @@ public class UserProfilesActivity extends AppCompatActivity {
         return profile;
     }
 
+    /**
+     * returns a fallback string if the given value is empty
+     * @param value
+     * the String value being checked
+     * @param fallbackResId
+     * the string resource used if the value is empty
+     * @return
+     * the given value, or the fallback string if it is empty
+     */
     @NonNull
     private String safeValue(@NonNull String value, int fallbackResId) {
         if (TextUtils.isEmpty(value)) {
@@ -278,6 +301,11 @@ public class UserProfilesActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * shows a popup message to the user
+     * @param message
+     * the message that will be displayed
+     */
     private void showMessage(@NonNull String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }

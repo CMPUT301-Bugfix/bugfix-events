@@ -1,6 +1,8 @@
 package com.example.eventlotterysystem;
 
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.widget.Toast;
 import android.widget.ImageView;
 import android.graphics.Bitmap;
 import com.google.zxing.*;
@@ -15,13 +17,28 @@ import androidx.appcompat.app.AppCompatActivity;
  * and generate the QR code image using the {@link BarcodeEncoder}.
  */
 public class QRCode extends AppCompatActivity {
+    /**
+     * This is the creation of the Activity
+     * it creates and displays the QR code for the current Event
+     * @param saveInstanceState
+     * the saved state of the Activity so that the screen is not reset
+     */
     @Override
     protected void onCreate(Bundle saveInstanceState){
         super.onCreate(saveInstanceState);
         setContentView(R.layout.activity_qr_code);
 
         // Retrieves event ID passed from the previous activity and format it into URI
-        String eventID = "myapp://event?id=" + getIntent().getStringExtra("Event_ID");
+        String rawEventId = getIntent().getStringExtra("EVENT_ID");
+        if (TextUtils.isEmpty(rawEventId)) {
+            rawEventId = getIntent().getStringExtra("Event_ID");
+        }
+        if (TextUtils.isEmpty(rawEventId)) {
+            Toast.makeText(this, R.string.missing_event_id, Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        String eventID = "myapp://event?id=" + rawEventId;
 
         // Set up Back button to close the QR code generation page
         findViewById(R.id.qrCodeBack).setOnClickListener(v -> finish());

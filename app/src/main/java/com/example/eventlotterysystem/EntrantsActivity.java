@@ -10,6 +10,9 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 /**
  * This is a class that is the controller of the activity_entrants screen
  * it allows organiser to navigate to view lists of entrants
@@ -29,12 +32,14 @@ public class EntrantsActivity extends AppCompatActivity {
     private int totalEntrants;
     private int maxEntrants;
     private int chosenEntrants;
+    private int confirmedEntrants;
     private int cancelledEntrants;
     private Button allEntrantsButton;
     private Button notifyWaitlistButton;
     private Button performDrawButton;
     private Button processExpiredButton;
     private Button chosenEntrantsButton;
+    private Button confirmedEntrantsButton;
     private Button cancelledEntrantsButton;
 
     /**
@@ -64,6 +69,7 @@ public class EntrantsActivity extends AppCompatActivity {
 
         allEntrantsButton = findViewById(R.id.entrantsAllEntrantsButton);
         chosenEntrantsButton = findViewById(R.id.entrantsChosenButton);
+        confirmedEntrantsButton = findViewById(R.id.entrantsConfirmedButton);
         cancelledEntrantsButton = findViewById(R.id.entrantsCancelledButton);
         notifyWaitlistButton = findViewById(R.id.entrantsNotifyWaitlistButton);
         performDrawButton = findViewById(R.id.entrantsPerformDrawButton);
@@ -72,6 +78,7 @@ public class EntrantsActivity extends AppCompatActivity {
         findViewById(R.id.entrantsBackButton).setOnClickListener(v -> finish());
         allEntrantsButton.setOnClickListener(v -> openEntrantsList(null));
         chosenEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_CHOSEN));
+        confirmedEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_CONFIRMED));
         cancelledEntrantsButton.setOnClickListener(v -> openEntrantsList(EventRepository.WAITLIST_STATUS_DECLINED));
         notifyWaitlistButton.setOnClickListener(v -> showNotifyOptionsDialog());
         performDrawButton.setOnClickListener(v -> showDrawConfirmation());
@@ -88,17 +95,51 @@ public class EntrantsActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+
         repository.getEventById(eventId)
                 .addOnSuccessListener(event -> {
-                    eventTitle = event.getTitle();
-                    totalEntrants = event.getTotalEntrants();
-                    maxEntrants = event.getMaxEntrants();
-                    updateButtons();
+                    repository.canUserManageEvent(event, currentUser.getUid())
+                            .addOnSuccessListener(canManage -> {
+                                if (!canManage) {
+                                    Toast.makeText(this, R.string.event_manage_permission_denied, Toast.LENGTH_LONG).show();
+                                    finish();
+                                    return;
+                                }
+                                eventTitle = event.getTitle();
+                                totalEntrants = event.getTotalEntrants();
+                                maxEntrants = event.getMaxEntrants();
+                                updateButtons();
+                                loadEntrantCounts();
+                            })
+                            .addOnFailureListener(exception -> {
+                                Log.e(TAG, "Failed to verify entrant permissions", exception);
+                                Toast.makeText(
+                                        EntrantsActivity.this,
+                                        getString(R.string.failed_to_load_entrants),
+                                        Toast.LENGTH_LONG
+                                ).show();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to refresh entrant totals", e);
+                    Toast.makeText(
+                            EntrantsActivity.this,
+                            getString(R.string.failed_to_load_entrants),
+                            Toast.LENGTH_LONG
+                    ).show();
                 });
+    }
 
+    /**
+     * loads the number of Entrants in each status and updates the matching status buttons
+     */
+    private void loadEntrantCounts() {
         repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CHOSEN)
                 .addOnSuccessListener(count -> {
                     chosenEntrants = count;
@@ -126,6 +167,20 @@ public class EntrantsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG
                     ).show();
                 });
+
+        repository.getEntrantCount(eventId, EventRepository.WAITLIST_STATUS_CONFIRMED)
+                .addOnSuccessListener(count -> {
+                    confirmedEntrants = count;
+                    updateButtons();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to load confirmed entrant count", e);
+                    Toast.makeText(
+                            EntrantsActivity.this,
+                            getString(R.string.failed_to_load_entrants),
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
     }
 
     /**
@@ -139,6 +194,10 @@ public class EntrantsActivity extends AppCompatActivity {
         chosenEntrantsButton.setText(getString(
                 R.string.chosen_entrants_button_label,
                 chosenEntrants
+        ));
+        confirmedEntrantsButton.setText(getString(
+                R.string.confirmed_entrants_button_label,
+                confirmedEntrants
         ));
         cancelledEntrantsButton.setText(getString(
                 R.string.cancelled_entrants_button_label,

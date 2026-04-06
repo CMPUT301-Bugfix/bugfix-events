@@ -78,9 +78,8 @@ public class MyWaitlistActivityTest {
         try (ActivityScenario<MyWaitlistActivity> ignored = ActivityScenario.launch(MyWaitlistActivity.class)) {
             SystemClock.sleep(4000);
 
-            onData(anything())
+            onData(withEventTitle(title))
                     .inAdapterView(withId(R.id.myWaitlistListView))
-                    .atPosition(0)
                     .perform(click());
 
             SystemClock.sleep(4000);
@@ -94,13 +93,46 @@ public class MyWaitlistActivityTest {
     }
 
     /**
+     * Test that the waitlist history displays when a user was chosen for an event.
+     */
+    @Test
+    public void chosenHistoryStatusShownTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "Chosen Waitlist Event " + timestamp;
+        String eventId = createWaitlistTestEvent(title, EventRepository.WAITLIST_STATUS_CHOSEN);
+
+        try (ActivityScenario<MyWaitlistActivity> ignored = ActivityScenario.launch(MyWaitlistActivity.class)) {
+            SystemClock.sleep(4000);
+            onView(withText("Status: Chosen")).check(matches(isDisplayed()));
+        }
+
+        deleteWaitlistTestEvent(eventId);
+    }
+
+    /**
+     * Test that the waitlist history displays when a user was not selected or later declined.
+     */
+    @Test
+    public void declinedHistoryStatusShownTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "Declined Waitlist Event " + timestamp;
+        String eventId = createWaitlistTestEvent(title, EventRepository.WAITLIST_STATUS_DECLINED);
+
+        try (ActivityScenario<MyWaitlistActivity> ignored = ActivityScenario.launch(MyWaitlistActivity.class)) {
+            SystemClock.sleep(4000);
+            onView(withText("Status: Declined")).check(matches(isDisplayed()));
+        }
+
+        deleteWaitlistTestEvent(eventId);
+    }
+
+    /**
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -149,6 +181,37 @@ public class MyWaitlistActivityTest {
         Tasks.await(firestore.collection("users").document(currentUser.getUid()).collection("waitlists").document(eventId).set(waitlistPayload), 15, TimeUnit.SECONDS);
 
         return eventId;
+    }
+
+    /**
+     * matches a waitlist row by title
+     * @param title
+     * title value that the matcher should look for
+     */
+    private org.hamcrest.Matcher<Object> withEventTitle(String title) {
+        return new org.hamcrest.TypeSafeMatcher<>() {
+            /**
+             * checks whether the adapter item is the waitlist entry with the requested title
+             * @param item
+             * the adapter item to inspect
+             * @return
+             * true if the title matches
+             */
+            @Override
+            protected boolean matchesSafely(Object item) {
+                return item instanceof WaitlistEntryItem && title.equals(((WaitlistEntryItem) item).getTitle());
+            }
+
+            /**
+             * describes the expected waitlist title for assertion failures
+             * @param description
+             * the Description to update
+             */
+            @Override
+            public void describeTo(org.hamcrest.Description description) {
+                description.appendText("WaitlistEntryItem with title ").appendValue(title);
+            }
+        };
     }
 
     /**

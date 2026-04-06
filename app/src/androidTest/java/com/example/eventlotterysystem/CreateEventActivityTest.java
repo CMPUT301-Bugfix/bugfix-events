@@ -1,19 +1,25 @@
 package com.example.eventlotterysystem;
 
+import static androidx.test.espresso.Espresso.onData;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.hasErrorText;
+import static androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import static org.hamcrest.Matchers.anything;
 
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +39,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,12 +85,94 @@ public class CreateEventActivityTest {
             SystemClock.sleep(5000);
         }
 
-        try (ActivityScenario<HostedEventsActivity> ignored = ActivityScenario.launch(HostedEventsActivity.class)) {
-            SystemClock.sleep(4000);
-            onView(withText(title)).check(matches(isDisplayed()));
-        }
+        DocumentSnapshot event = findEventByTitle(title);
+        assertNotNull(event);
+        assertEquals(title, event.getString("title"));
 
         deleteEventsByTitle(title);
+    }
+
+    /**
+     * test to see if creating a public event allows the organiser to generate a promotional QR code
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void publicEventGeneratesQrCodeTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Public QR Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try {
+            try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+                fillRequiredFields(title, "Public QR event for University of Alberta students in Edmonton.", "CAB Edmonton", "5");
+                pickToday(R.id.createEventDeadlineButton);
+                pickToday(R.id.createEventDateButton);
+                onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+                SystemClock.sleep(5000);
+            }
+
+            DocumentSnapshot event = findEventByTitle(title);
+            assertNotNull(event);
+            assertTrue(EventRepository.normalizeIsPublic(event.getBoolean("isPublic")));
+
+            Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+            intent.putExtra("EVENT_ID", event.getId());
+
+            try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+
+                onView(withId(R.id.createQRCode)).check(matches(isDisplayed()));
+                onView(withId(R.id.createQRCode)).perform(click());
+                SystemClock.sleep(3000);
+
+                onView(withId(R.id.qrCode)).check(matches(isDisplayed()));
+            }
+        } finally {
+            deleteEventsByTitle(title);
+        }
+    }
+
+    /**
+     * test to see if creating a private event keeps it off the public listing and hides the promotional QR code
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void privateEventHiddenFromListingAndQrTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Private Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try {
+            try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+                fillRequiredFields(title, "Private event for University of Alberta students in Edmonton.", "ECHA Edmonton", "5");
+                pickToday(R.id.createEventDeadlineButton);
+                pickToday(R.id.createEventDateButton);
+                onView(withId(R.id.createEventPublicSwitch)).perform(scrollTo(), click());
+                onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+                SystemClock.sleep(5000);
+            }
+
+            DocumentSnapshot event = findEventByTitle(title);
+            assertNotNull(event);
+            assertFalse(EventRepository.normalizeIsPublic(event.getBoolean("isPublic")));
+
+            try (ActivityScenario<HomeActivity> ignored = ActivityScenario.launch(HomeActivity.class)) {
+                SystemClock.sleep(4000);
+                onView(withText(title)).check(doesNotExist());
+            }
+
+            Intent intent = new Intent(ApplicationProvider.getApplicationContext(), ViewEventActivity.class);
+            intent.putExtra("EVENT_ID", event.getId());
+
+            try (ActivityScenario<ViewEventActivity> ignored = ActivityScenario.launch(intent)) {
+                SystemClock.sleep(4000);
+                onView(withId(R.id.createQRCode)).check(matches(withEffectiveVisibility(GONE)));
+            }
+        } finally {
+            deleteEventsByTitle(title);
+        }
     }
 
     /**
@@ -135,6 +224,32 @@ public class CreateEventActivityTest {
         assertTrue(event.exists());
         assertEquals(title, event.getString("title"));
         assertEquals("SUB Edmonton", event.getString("location"));
+        deleteEventsByTitle(title);
+    }
+
+    /**
+     * test to see if creating an event with geolocation enabled saves the requirement in the database
+     * @throws Exception if authentication, UI setup, or Firestore operations fail
+     */
+    @Test
+    public void geolocationRequirementSavedTest() throws Exception {
+        signInTestUser();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String title = "UofA Geolocation Event " + timestamp;
+        deleteEventsByTitle(title);
+
+        try (ActivityScenario<CreateEventActivity> ignored = ActivityScenario.launch(CreateEventActivity.class)) {
+            fillRequiredFields(title, "Geolocation join test for an Edmonton campus event.", "CAB Edmonton", "5");
+            pickToday(R.id.createEventDeadlineButton);
+            pickToday(R.id.createEventDateButton);
+            onView(withId(R.id.createEventGeolocationSwitch)).perform(scrollTo(), click());
+            onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
+            SystemClock.sleep(5000);
+        }
+
+        DocumentSnapshot event = findEventByTitle(title);
+        assertNotNull(event);
+        assertTrue(Boolean.TRUE.equals(event.getBoolean("requiresGeolocation")));
         deleteEventsByTitle(title);
     }
 
@@ -282,11 +397,11 @@ public class CreateEventActivityTest {
             SystemClock.sleep(4000);
 
             onView(withId(R.id.createEventTitleInput))
-                    .perform(replaceText(updatedTitle), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText(updatedTitle), closeSoftKeyboard());
             onView(withId(R.id.createEventLocationInput))
-                    .perform(replaceText("CCIS Edmonton"), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("CCIS Edmonton"), closeSoftKeyboard());
             onView(withId(R.id.createEventDescriptionInput))
-                    .perform(replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
+                    .perform(scrollTo(), replaceText("After edit for a University of Alberta event."), closeSoftKeyboard());
             onView(withId(R.id.createEventSubmitButton)).perform(scrollTo(), click());
 
             SystemClock.sleep(5000);
@@ -312,11 +427,11 @@ public class CreateEventActivityTest {
      */
     private void fillRequiredFields(String title, String description, String location, String maxParticipants) {
         onView(withId(R.id.createEventTitleInput))
-                .perform(replaceText(title), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(title), closeSoftKeyboard());
         onView(withId(R.id.createEventDescriptionInput))
-                .perform(replaceText(description), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(description), closeSoftKeyboard());
         onView(withId(R.id.createEventLocationInput))
-                .perform(replaceText(location), closeSoftKeyboard());
+                .perform(scrollTo(), replaceText(location), closeSoftKeyboard());
         onView(withId(R.id.createEventMaxParticipantsInput))
                 .perform(scrollTo(), replaceText(maxParticipants), closeSoftKeyboard());
     }
@@ -335,10 +450,7 @@ public class CreateEventActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -371,7 +483,25 @@ public class CreateEventActivityTest {
      */
     private String createHostedTestEvent(String title, String description, String location, Uri posterUri) throws Exception {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        EventItem event = new EventItem("", title, description, location, "", 10, 5, 0, new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)), new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(2)), false, currentUser.getUid(), "");
+        EventItem event = new EventItem(
+                "",
+                title,
+                description,
+                location,
+                "",
+                10,
+                5,
+                0,
+                new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1)),
+                new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(2)),
+                false,
+                currentUser.getUid(),
+                "",
+                true,
+                "",
+                java.util.Collections.emptyList(),
+                true
+        );
         return Tasks.await(new EventRepository().createEvent(currentUser, event, posterUri), 15, TimeUnit.SECONDS);
     }
 
@@ -406,11 +536,36 @@ public class CreateEventActivityTest {
      * document id of the event that should be removed
      */
     private void deleteEvent(String eventId) throws Exception {
+        DocumentSnapshot event = Tasks.await(
+                FirebaseFirestore.getInstance().collection("events").document(eventId).get(),
+                15,
+                TimeUnit.SECONDS
+        );
+        String posterUrl = event.getString("posterUrl");
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+        deletePosterIfPresent(posterUrl);
+    }
+
+    /**
+     * deletes an uploaded poster file when the event references one
+     * @param posterUrl
+     * download url stored on the event document
+     */
+    private void deletePosterIfPresent(String posterUrl) {
+        if (posterUrl == null || posterUrl.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            Tasks.await(FirebaseStorage.getInstance().getReferenceFromUrl(posterUrl).delete(), 15, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+        }
     }
 
     /**
      * copies the local Athabasca Hall image asset into cache and returns a file uri for upload
+     * @param assetName
+     * name of the asset file to copy into cache
      * @return
      * a uri that can be passed to the poster upload flow
      */
@@ -436,11 +591,23 @@ public class CreateEventActivityTest {
      */
     private Matcher<View> posterPreviewLoaded() {
         return new TypeSafeMatcher<>() {
+            /**
+             * checks whether the supplied view is an ImageView with a loaded drawable
+             * @param view
+             * the View under inspection
+             * @return
+             * true if the poster preview image is loaded
+             */
             @Override
             protected boolean matchesSafely(View view) {
                 return view instanceof ImageView && ((ImageView) view).getDrawable() != null;
             }
 
+            /**
+             * describes the matcher for assertion failures
+             * @param description
+             * the Description to update
+             */
             @Override
             public void describeTo(Description description) {
                 description.appendText("ImageView with drawable");

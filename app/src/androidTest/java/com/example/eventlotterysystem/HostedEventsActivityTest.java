@@ -53,7 +53,9 @@ public class HostedEventsActivityTest {
         try (ActivityScenario<HostedEventsActivity> ignored = ActivityScenario.launch(HostedEventsActivity.class)) {
             SystemClock.sleep(4000);
 
-            onView(withText(title)).check(matches(isDisplayed()));
+            onData(withEventTitle(title))
+                    .inAdapterView(withId(R.id.hostedEventsListView))
+                    .check(matches(isDisplayed()));
             onView(withId(R.id.hostedEventsEmptyState))
                     .check(matches(withEffectiveVisibility(GONE)));
         }
@@ -74,15 +76,14 @@ public class HostedEventsActivityTest {
         try (ActivityScenario<HostedEventsActivity> ignored = ActivityScenario.launch(HostedEventsActivity.class)) {
             SystemClock.sleep(4000);
 
-            onData(anything())
+            onData(withEventTitle(title))
                     .inAdapterView(withId(R.id.hostedEventsListView))
-                    .atPosition(0)
                     .perform(click());
 
             SystemClock.sleep(4000);
 
-            onView(withId(R.id.viewEventEditButton)).check(matches(isDisplayed()));
-            onView(withId(R.id.viewEventScreenTitle)).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventEditButton)).perform(scrollTo()).check(matches(isDisplayed()));
+            onView(withId(R.id.viewEventScreenTitle)).perform(scrollTo()).check(matches(isDisplayed()));
         }
 
         deleteEvent(eventId);
@@ -108,10 +109,7 @@ public class HostedEventsActivityTest {
      * signs in the shared test account and ensures that remember-me is disabled
      */
     private void signInTestUser() throws Exception {
-        FirebaseAuth.getInstance().signOut();
-        Context context = ApplicationProvider.getApplicationContext();
-        AuthSessionPreference.setRemember(context, false);
-        Tasks.await(FirebaseAuth.getInstance().signInWithEmailAndPassword("test@gmail.com", "test123"), 15, TimeUnit.SECONDS);
+        TestAuthHelper.ensureSharedTestUser();
     }
 
     /**
@@ -134,5 +132,36 @@ public class HostedEventsActivityTest {
      */
     private void deleteEvent(String eventId) throws Exception {
         Tasks.await(FirebaseFirestore.getInstance().collection("events").document(eventId).delete(), 15, TimeUnit.SECONDS);
+    }
+
+    /**
+     * matches a hosted event row by title
+     * @param title
+     * title value that the matcher should look for
+     */
+    private org.hamcrest.Matcher<Object> withEventTitle(String title) {
+        return new org.hamcrest.TypeSafeMatcher<>() {
+            /**
+             * checks whether the adapter item is the hosted event with the requested title
+             * @param item
+             * the adapter item to inspect
+             * @return
+             * true if the event title matches
+             */
+            @Override
+            protected boolean matchesSafely(Object item) {
+                return item instanceof EventItem && title.equals(((EventItem) item).getTitle());
+            }
+
+            /**
+             * describes the expected hosted event title for assertion failures
+             * @param description
+             * the Description to update
+             */
+            @Override
+            public void describeTo(org.hamcrest.Description description) {
+                description.appendText("EventItem with title ").appendValue(title);
+            }
+        };
     }
 }
