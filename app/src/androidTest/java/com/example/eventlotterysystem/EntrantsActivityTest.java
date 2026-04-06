@@ -106,17 +106,17 @@ public class EntrantsActivityTest {
     }
 
     /**
-     * Test to see if Clean will remove expired chosen entrants and trigger a redraw
+     * Test to see if Clean will remove chosen entrants immediately and trigger a redraw
      */
     @Test
     public void cleanExpiredTest() throws Exception {
         signInTestUser();
         String timestamp = String.valueOf(System.currentTimeMillis());
         String eventId = createManagedEntrantsTestEvent("Entrants clean " + timestamp, 1, 0);
-        String firstEmail = "expired" + timestamp + "@gmail.com";
+        String firstEmail = "chosen" + timestamp + "@gmail.com";
         String secondEmail = "replacement" + timestamp + "@gmail.com";
         String password = "test123";
-        String firstUid = createTemporaryEntrant(firstEmail, password, "expired" + timestamp, "Expired Test");
+        String firstUid = createTemporaryEntrant(firstEmail, password, "chosen" + timestamp, "Chosen Test");
         joinWaitlistAsCurrentUser(eventId);
         String secondUid = createTemporaryEntrant(secondEmail, password, "replacement" + timestamp, "Replacement Test");
         joinWaitlistAsCurrentUser(eventId);
@@ -128,21 +128,10 @@ public class EntrantsActivityTest {
                 15,
                 TimeUnit.SECONDS
         );
-        String expiredUid = EventRepository.WAITLIST_STATUS_CHOSEN.equals(firstDocAfterDraw.getString("status"))
+        String cleanedUid = EventRepository.WAITLIST_STATUS_CHOSEN.equals(firstDocAfterDraw.getString("status"))
                 ? firstUid
                 : secondUid;
-        String replacementUid = expiredUid.equals(firstUid) ? secondUid : firstUid;
-        Date expiredChosenAt = new Date(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(4));
-        Tasks.await(
-                FirebaseFirestore.getInstance()
-                        .collection("events")
-                        .document(eventId)
-                        .collection("waitlist")
-                        .document(expiredUid)
-                        .update("chosenAt", expiredChosenAt),
-                15,
-                TimeUnit.SECONDS
-        );
+        String replacementUid = cleanedUid.equals(firstUid) ? secondUid : firstUid;
 
         try {
             try (ActivityScenario<EntrantsActivity> ignored = launchEntrantsActivity(eventId)) {
@@ -150,12 +139,12 @@ public class EntrantsActivityTest {
                 SystemClock.sleep(5000);
             }
 
-            DocumentSnapshot expiredDoc = Tasks.await(
+            DocumentSnapshot cleanedDoc = Tasks.await(
                     FirebaseFirestore.getInstance()
                             .collection("events")
                             .document(eventId)
                             .collection("waitlist")
-                            .document(expiredUid)
+                            .document(cleanedUid)
                             .get(),
                     15,
                     TimeUnit.SECONDS
@@ -170,7 +159,7 @@ public class EntrantsActivityTest {
                     15,
                     TimeUnit.SECONDS
             );
-            assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, expiredDoc.getString("status"));
+            assertEquals(EventRepository.WAITLIST_STATUS_DECLINED, cleanedDoc.getString("status"));
             assertEquals(EventRepository.WAITLIST_STATUS_CHOSEN, replacementDoc.getString("status"));
         } finally {
             deleteEntrantsTestData(eventId);

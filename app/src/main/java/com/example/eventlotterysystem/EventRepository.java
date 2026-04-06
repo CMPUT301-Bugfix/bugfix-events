@@ -954,7 +954,7 @@ public class EventRepository {
     }
 
     /**
-     * Finds users who haven't responded within 3 days and replaces them.
+     * Removes all chosen or snoozed entrants and replaces them.
      * Triggers a redraw to fill vacated spots.
      * @param eventId
      * The ID of the event to process expired winners from
@@ -968,20 +968,17 @@ public class EventRepository {
     }
 
     /**
-     * Helper method for processExpiredWinners that allows for a custom current time for testing purposes.
+     * Helper method for processExpiredWinners kept for testing compatibility.
      * @param eventId
-     * The ID of the event to process expired winners from
+     * The ID of the event to process chosen or snoozed winners from
      * @param winningMessage
      * The message to be sent to users selected in the lottery.
      * @param currentTimeMillis
      * The current time in milliseconds.
      * @return
-     * task that completes after expired winners are processed and any replacement draws finish
+     * task that completes after chosen or snoozed winners are processed and any replacement draws finish
      */
     public Task<Void> processExpiredWinners(String eventId, String winningMessage, long currentTimeMillis) {
-        long threeDaysAgo = currentTimeMillis - (3L * 24 * 60 * 60 * 1000);
-        Timestamp threshold = new Timestamp(new Date(threeDaysAgo));
-
         return firestore.collection("events").document(eventId).collection("waitlist")
                 .whereIn("status", List.of(WAITLIST_STATUS_CHOSEN, WAITLIST_STATUS_SNOOZED))
                 .get().continueWithTask(task -> {
@@ -989,10 +986,7 @@ public class EventRepository {
                     List<String> toRemove = new ArrayList<>();
                     
                     for (DocumentSnapshot doc : allPending) {
-                        Timestamp chosenAt = doc.getTimestamp("chosenAt");
-                        if (chosenAt != null && chosenAt.compareTo(threshold) < 0) {
-                            toRemove.add(doc.getId());
-                        }
+                        toRemove.add(doc.getId());
                     }
                     
                     if (toRemove.isEmpty()) return performLotteryDraw(eventId, winningMessage);
