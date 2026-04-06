@@ -26,12 +26,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Tests notification delivery for event lottery outcomes.
+ */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class EventNotificationTest {
     /**
-     * Test if winner receives notification
-     * @throws Exception if user did not receive winning notification
+     * tests that a chosen entrant receives a winning notification after the lottery draw
+     * @throws Exception
+     * if authentication, setup, or notification delivery fails
      */
     @Test
     public void WinningLotteryNotificationTest() throws Exception {
@@ -102,8 +106,9 @@ public class EventNotificationTest {
     }
 
     /**
-     * Test loser if receives notification
-     * @throws Exception if user did not receive losing notification
+     * tests that an entrant receives a general notification when they are not selected
+     * @throws Exception
+     * if authentication, setup, or notification delivery fails
      */
     @Test
     public void losingLotteryNotificationFiredTest() throws Exception {
@@ -157,7 +162,7 @@ public class EventNotificationTest {
 
 
     /**
-     * signs in the shared test account and ensures that remember-me is disabled
+     * signs in the shared test account used by the notification integration tests
      */
     private void signInTestUser() throws Exception {
         TestAuthHelper.ensureSharedTestUser();
