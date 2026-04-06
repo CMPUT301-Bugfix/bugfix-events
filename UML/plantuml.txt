@@ -797,7 +797,7 @@ package "Administration" {
 
 }
 
-package "Domain and Services" {
+package "Event Core" {
   class EventRepository {
     +{static} WAITLIST_STATUS_IN: String
     +{static} WAITLIST_STATUS_CHOSEN: String
